@@ -17,8 +17,7 @@
 package corp.sap.spark
 
 import org.apache.spark.{SparkConf, SparkContext}
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.Suite
+import org.scalatest.{BeforeAndAfterAll, Suite}
 
 /** Shares a local `SparkContext` between all tests in a suite and closes it at the end */
 trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
@@ -35,3 +34,4 @@ trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
     super.afterAll()
   }
 }
+

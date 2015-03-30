@@ -12,7 +12,7 @@ import org.apache.spark.sql.sources.PushDownAggregatesStrategy
 class VelocitySQLContext(@transient override val sparkContext: SparkContext)
   extends ExtendableSQLContext(sparkContext, Seq(SQLExtensions)) {
   self =>
-
+  
   /**
    * Prepares a planned SparkPlan for execution by inserting shuffle operations as needed.
    *
@@ -29,6 +29,7 @@ class VelocitySQLContext(@transient override val sparkContext: SparkContext)
 
 private[sql] object SQLExtensions extends SQLContextExtension {
 
-  override def strategies(planner: ExtendedPlanner) = Seq(PushDownAggregatesStrategy)
+  override def strategies(planner: ExtendedPlanner) : Seq[Strategy] =
+    Seq(PushDownAggregatesStrategy)
 
 }

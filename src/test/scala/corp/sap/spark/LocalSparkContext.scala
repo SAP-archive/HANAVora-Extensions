@@ -34,7 +34,7 @@ trait LocalSparkContext extends BeforeAndAfterEach with BeforeAndAfterAll { self
     resetSparkContext()
     super.afterEach()
   }
-  def resetSparkContext() = {
+  def resetSparkContext() : Unit = {
     LocalSparkContext.stop(sc)
     sc = null
   }
@@ -48,7 +48,7 @@ object LocalSparkContext {
     System.clearProperty("spark.driver.port")
   }
   /** Runs `f` by passing in `sc` and ensures that `sc` is stopped. */
-  def withSpark[T](sc: SparkContext)(f: SparkContext => T) = {
+  def withSpark[T](sc: SparkContext)(f: SparkContext => T) : T = {
     try {
       f(sc)
     } finally {
@@ -56,3 +56,4 @@ object LocalSparkContext {
     }
   }
 }
+

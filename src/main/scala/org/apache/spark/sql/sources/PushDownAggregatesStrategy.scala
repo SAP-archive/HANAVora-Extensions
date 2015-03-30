@@ -17,12 +17,12 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions
+import org.apache.spark.sql.catalyst.{expressions => expr}
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, Expression, NamedExpression, _}
 import org.apache.spark.sql.catalyst.planning.{PartialAggregation, PhysicalOperation}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.{Row, Strategy, execution, sources}
+import org.apache.spark.sql.{Row, Strategy, execution, sources => src}
 
 /**
  * Strategy to push down aggregates to a DataSource when they are supported.
@@ -90,7 +90,7 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
 
     val projectSet = AttributeSet(projectList.flatMap(_.references))
     val filterSet = AttributeSet(filterPredicates.flatMap(_.references))
-    val filterCondition = filterPredicates.reduceLeftOption(expressions.And)
+    val filterCondition = filterPredicates.reduceLeftOption(expr.And)
 
     val pushedFilters = filterPredicates.map {
       _ transform {
@@ -120,60 +120,47 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
     }
   }
 
+  // scalastyle:off cyclomatic.complexity
+  private def expressionToFilter(predicate: Expression): Option[Filter] =
+    predicate match {
+      case expr.EqualTo(a: Attribute, Literal(v, _)) => Some(src.EqualTo(a.name, v))
+      case expr.EqualTo(Literal(v, _), a: Attribute) => Some(src.EqualTo(a.name, v))
+      case expr.GreaterThan(a: Attribute, Literal(v, _)) => Some(src.GreaterThan(a.name, v))
+      case expr.GreaterThan(Literal(v, _), a: Attribute) => Some(src.LessThan(a.name, v))
+      case expr.LessThan(a: Attribute, Literal(v, _)) => Some(src.LessThan(a.name, v))
+      case expr.LessThan(Literal(v, _), a: Attribute) => Some(src.GreaterThan(a.name, v))
+      case expr.GreaterThanOrEqual(a: Attribute, Literal(v, _)) =>
+        Some(src.GreaterThanOrEqual(a.name, v))
+      case expr.GreaterThanOrEqual(Literal(v, _), a: Attribute) =>
+        Some(src.LessThanOrEqual(a.name, v))
+      case expr.LessThanOrEqual(a: Attribute, Literal(v, _)) =>
+        Some(src.LessThanOrEqual(a.name, v))
+      case expr.LessThanOrEqual(Literal(v, _), a: Attribute) =>
+        Some(src.GreaterThanOrEqual(a.name, v))
+      case expr.InSet(a: Attribute, set) => Some(src.In(a.name, set.toArray))
+      case expr.IsNull(a: Attribute) => Some(src.IsNull(a.name))
+      case expr.IsNotNull(a: Attribute) => Some(src.IsNotNull(a.name))
+      case expr.And(left, right) =>
+        (expressionToFilter(left) ++ expressionToFilter(right)).reduceOption(src.And)
+      case expr.Or(left, right) =>
+        for {
+          leftFilter <- expressionToFilter(left)
+          rightFilter <- expressionToFilter(right)
+        } yield src.Or(leftFilter, rightFilter)
+
+      case expr.Not(child) => expressionToFilter(child).map(src.Not)
+      case _ => None
+    }
+  // scalastyle:on cyclomatic.complexity
+
   /**
    * Selects Catalyst predicate [[Expression]]s which are convertible into data source [[Filter]]s,
    * and convert them.
    */
   protected[sql] def selectFilters(filters: Seq[Expression]) = {
-    def translate(predicate: Expression): Option[Filter] = predicate match {
-      case expressions.EqualTo(a: Attribute, Literal(v, _)) =>
-        Some(sources.EqualTo(a.name, v))
-      case expressions.EqualTo(Literal(v, _), a: Attribute) =>
-        Some(sources.EqualTo(a.name, v))
 
-      case expressions.GreaterThan(a: Attribute, Literal(v, _)) =>
-        Some(sources.GreaterThan(a.name, v))
-      case expressions.GreaterThan(Literal(v, _), a: Attribute) =>
-        Some(sources.LessThan(a.name, v))
 
-      case expressions.LessThan(a: Attribute, Literal(v, _)) =>
-        Some(sources.LessThan(a.name, v))
-      case expressions.LessThan(Literal(v, _), a: Attribute) =>
-        Some(sources.GreaterThan(a.name, v))
 
-      case expressions.GreaterThanOrEqual(a: Attribute, Literal(v, _)) =>
-        Some(sources.GreaterThanOrEqual(a.name, v))
-      case expressions.GreaterThanOrEqual(Literal(v, _), a: Attribute) =>
-        Some(sources.LessThanOrEqual(a.name, v))
-
-      case expressions.LessThanOrEqual(a: Attribute, Literal(v, _)) =>
-        Some(sources.LessThanOrEqual(a.name, v))
-      case expressions.LessThanOrEqual(Literal(v, _), a: Attribute) =>
-        Some(sources.GreaterThanOrEqual(a.name, v))
-
-      case expressions.InSet(a: Attribute, set) =>
-        Some(sources.In(a.name, set.toArray))
-
-      case expressions.IsNull(a: Attribute) =>
-        Some(sources.IsNull(a.name))
-      case expressions.IsNotNull(a: Attribute) =>
-        Some(sources.IsNotNull(a.name))
-
-      case expressions.And(left, right) =>
-        (translate(left) ++ translate(right)).reduceOption(sources.And)
-
-      case expressions.Or(left, right) =>
-        for {
-          leftFilter <- translate(left)
-          rightFilter <- translate(right)
-        } yield sources.Or(leftFilter, rightFilter)
-
-      case expressions.Not(child) =>
-        translate(child).map(sources.Not)
-
-      case _ => None
-    }
-
-    filters.flatMap(translate)
+    filters.flatMap(expressionToFilter)
   }
 }

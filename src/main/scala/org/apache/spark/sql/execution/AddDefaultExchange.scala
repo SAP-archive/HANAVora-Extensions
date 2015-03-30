@@ -11,5 +11,5 @@ import org.apache.spark.sql.SQLContext
 private[sql] class AddDefaultExchange(override val sqlContext: SQLContext)
   extends AddExchange(sqlContext) {
 
-  override def numPartitions = sqlContext.sparkContext.defaultParallelism
+  override def numPartitions : Int = sqlContext.sparkContext.defaultParallelism
 }
