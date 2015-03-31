@@ -23,9 +23,9 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
   @transient private var _sc: SparkContext = _
   def sc: SparkContext = _sc
-  var conf = new SparkConf(false)
+  def sparkConf : SparkConf
   override def beforeAll() {
-    _sc = new SparkContext("local[4]", "test", conf)
+    _sc = new SparkContext("local[4]", "test", sparkConf)
     super.beforeAll()
   }
   override def afterAll() {
