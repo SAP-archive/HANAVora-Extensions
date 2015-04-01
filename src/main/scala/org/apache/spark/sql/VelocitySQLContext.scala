@@ -1,8 +1,9 @@
 package org.apache.spark.sql
 
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.catalyst.analysis.VelocityCheckAnalysis
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
-import org.apache.spark.sql.execution.{SparkPlan, AddDefaultExchange}
+import org.apache.spark.sql.execution.{AddDefaultExchange, SparkPlan}
 import org.apache.spark.sql.sources.PushDownAggregatesStrategy
 
 /**
@@ -10,7 +11,7 @@ import org.apache.spark.sql.sources.PushDownAggregatesStrategy
  * sources API with support for aggregates pushdown, etc.
  */
 class VelocitySQLContext(@transient override val sparkContext: SparkContext)
-  extends ExtendableSQLContext(sparkContext, Seq(SQLExtensions)) {
+  extends ExtendableSQLContext(sparkContext, Seq(SQLExtensions, HierarchySQLContextExtension)) {
   self =>
   
   /**
@@ -23,6 +24,12 @@ class VelocitySQLContext(@transient override val sparkContext: SparkContext)
   override protected[sql] val prepareForExecution = new RuleExecutor[SparkPlan] {
     val batches =
       Batch("Add exchange", Once, new AddDefaultExchange(self)) :: Nil
+  }
+
+  override lazy val checkAnalysis = new VelocityCheckAnalysis {
+    override val extendedCheckRules = Seq(
+      sources.PreWriteCheck(catalog)
+    )
   }
 
 }

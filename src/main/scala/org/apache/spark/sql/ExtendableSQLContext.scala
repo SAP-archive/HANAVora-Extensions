@@ -2,10 +2,11 @@ package org.apache.spark.sql
 
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry, SimpleFunctionRegistry}
+import org.apache.spark.sql.catalyst.AbstractSparkSQLParser
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, SimpleFunctionRegistry, FunctionRegistry}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.{SparkPlan, ExtractPythonUdfs}
+import org.apache.spark.sql.execution.{ExtractPythonUdfs, SparkPlan}
 
 /**
  * Extendable SQLContext. This SQLContext takes a sequence of SQLContextExtension
@@ -40,7 +41,9 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext,
       log.warn("Got more than one extended function registry, but only one will have effect: {}",
         extendedFunctionRegistries.head)
     }
-    extendedFunctionRegistries.headOption.getOrElse(new SimpleFunctionRegistry(true))
+    val registry = extendedFunctionRegistries.headOption.getOrElse(new SimpleFunctionRegistry(true))
+    extensions.foreach(_.registerFunctions(registry))
+    registry
   }
 
   @transient
@@ -49,8 +52,8 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext,
       ExtractPythonUdfs ::
         sources.PreInsertCastAndRename ::
         Nil
-    val extendedRules = extensions.flatMap(_.resolutionRules)
     new Analyzer(catalog, functionRegistry, caseSensitive = true) {
+      val extendedRules = extensions.flatMap(_.resolutionRules(this))
       override val extendedResolutionRules = extendedRules ++ parentRules
     }
   }
@@ -65,7 +68,7 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext,
 
 trait ExtendedPlanner {
   self: SQLContext#SparkPlanner =>
-  def plan(p : LogicalPlan) : SparkPlan = self.planLater(p)
+  def planLaterExt(p : LogicalPlan) : SparkPlan = self.planLater(p)
 }
 
 @DeveloperApi
@@ -75,8 +78,10 @@ trait SQLContextExtension {
 
   def functionRegistry : Option[FunctionRegistry] = None
 
-  def resolutionRules : Seq[Rule[LogicalPlan]] = Nil
+  def resolutionRules(analyzer : Analyzer) : Seq[Rule[LogicalPlan]] = Nil
 
   def strategies(planner : ExtendedPlanner) : Seq[Strategy] = Nil
+
+  def registerFunctions(registry : FunctionRegistry) : Unit = { }
 
 }

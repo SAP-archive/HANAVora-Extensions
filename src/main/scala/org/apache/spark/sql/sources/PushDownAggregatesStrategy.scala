@@ -17,12 +17,13 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.{expressions => expr}
-import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, Expression, NamedExpression, _}
-import org.apache.spark.sql.catalyst.planning.{PartialAggregation, PhysicalOperation}
+import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.{Row, execution, Strategy}
+import org.apache.spark.sql.catalyst.planning.{PhysicalOperation, PartialAggregation}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.{Row, Strategy, execution, sources => src}
+import org.apache.spark.sql.{sources => src}
+import org.apache.spark.sql.catalyst.{expressions => expr}
 
 /**
  * Strategy to push down aggregates to a DataSource when they are supported.
