@@ -87,7 +87,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     val ret = sqli.interpret(query, context)
 
     assert(InterpreterResult.Code.ERROR == ret.code())
-    assert("Hosts and Paths parameters must have the same size" == ret.message())
+    assert("Unexpected options: schema, hosts, paths" == ret.message())
   }
 
   test("Bad query") {
