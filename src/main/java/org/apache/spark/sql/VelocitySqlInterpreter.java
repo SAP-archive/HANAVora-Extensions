@@ -220,19 +220,7 @@ public class VelocitySqlInterpreter extends Interpreter {
             ActiveJob job = it.next();
             String g = (String) job.properties().get("spark.jobGroup.id");
             if (jobGroup.equals(g)) {
-                int[] progressInfo;
-                if (sc.version().startsWith("1.0")) {
-                    progressInfo = getProgressFromStage_1_0x(sparkListener, job.finalStage());
-                } else if (sc.version().startsWith("1.1")) {
-                    progressInfo = getProgressFromStage_1_1x(sparkListener, job.finalStage());
-                } else if (sc.version().startsWith("1.2")) {
-                    progressInfo = getProgressFromStage_1_1x(sparkListener, job.finalStage());
-                } else if (sc.version().startsWith("1.3")) {
-                    progressInfo = getProgressFromStage_1_1x(sparkListener, job.finalStage());
-                } else {
-                    logger.warn("Spark {} getting progress information not supported" + sc.version());
-                    continue;
-                }
+                int[] progressInfo = getProgressFromStage_1_1x(sparkListener, job.finalStage());
                 totalTasks += progressInfo[0];
                 completedTasks += progressInfo[1];
             }
@@ -242,42 +230,6 @@ public class VelocitySqlInterpreter extends Interpreter {
             return 0;
         }
         return completedTasks * 100 / totalTasks;
-    }
-
-    private int[] getProgressFromStage_1_0x(JobProgressListener sparkListener, Stage stage) {
-        int numTasks = stage.numTasks();
-        int completedTasks = 0;
-
-        Method method;
-        Object completedTaskInfo = null;
-        try {
-            method = sparkListener.getClass().getMethod("stageIdToTasksComplete");
-            completedTaskInfo =
-                    JavaConversions.asJavaMap((HashMap<Object, Object>) method.invoke(sparkListener)).get(
-                            stage.id());
-        } catch (NoSuchMethodException | SecurityException e) {
-            logger.error("Error while getting progress", e);
-        } catch (IllegalAccessException e) {
-            logger.error("Error while getting progress", e);
-        } catch (IllegalArgumentException e) {
-            logger.error("Error while getting progress", e);
-        } catch (InvocationTargetException e) {
-            logger.error("Error while getting progress", e);
-        }
-
-        if (completedTaskInfo != null) {
-            completedTasks += (int) completedTaskInfo;
-        }
-        List<Stage> parents = JavaConversions.asJavaList(stage.parents());
-        if (parents != null) {
-            for (Stage s : parents) {
-                int[] p = getProgressFromStage_1_0x(sparkListener, s);
-                numTasks += p[0];
-                completedTasks += p[1];
-            }
-        }
-
-        return new int[]{numTasks, completedTasks};
     }
 
     private int[] getProgressFromStage_1_1x(JobProgressListener sparkListener, Stage stage) {

@@ -12,7 +12,7 @@
 
   <artifactId>zeppelin</artifactId>
   <properties>
-    <minimum.code.covered.ratio>0.33</minimum.code.covered.ratio>
+    <minimum.code.covered.ratio>0.42</minimum.code.covered.ratio>
   </properties>
   <dependencies>
     <dependency>
