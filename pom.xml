@@ -11,6 +11,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>zeppelin</artifactId>
+  <properties>
+    <minimum.code.covered.ratio>0.33</minimum.code.covered.ratio>
+  </properties>
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>
