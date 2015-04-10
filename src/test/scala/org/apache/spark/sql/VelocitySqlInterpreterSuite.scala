@@ -22,6 +22,8 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
   override protected def beforeAll() = {
     val p = new Properties
+    p.put("spark.ui.enabled", "false")
+
     si = new SparkInterpreter(p)
     si.open()
 
