@@ -23,7 +23,19 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
   @transient private var _sc: SparkContext = _
   def sc: SparkContext = _sc
-  def sparkConf : SparkConf
+
+  def sparkConf: SparkConf = {
+    val conf = new SparkConf(false)
+    /* XXX: Prevent 200 partitions on shuffle */
+    conf.set("spark.sql.shuffle.partitions", "4")
+    /* XXX: Disable join broadcast */
+    conf.set("spark.sql.autoBroadcastJoinThreshold", "-1")
+    conf.set("spark.broadcast.factory", "org.apache.spark.broadcast.HttpBroadcastFactory")
+    conf.set("spark.shuffle.spill", "false")
+    conf.set("spark.shuffle.compress", "false")
+    conf.set("spark.ui.enabled", "false")
+  }
+
   override def beforeAll() {
     _sc = new SparkContext("local[4]", "test", sparkConf)
     super.beforeAll()

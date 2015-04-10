@@ -1,7 +1,7 @@
 package org.apache.spark.sql.hierarchy
 
 import corp.sap.spark.SharedSparkContext
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{catalyst, Row, VelocitySQLContext}
 import org.scalatest.{PrivateMethodTester, FunSuite}
@@ -13,8 +13,6 @@ import scala.util.Random
 // scalastyle:off magic.number
 
 class HierarchyStrategySuite extends FunSuite with SharedSparkContext {
-
-  override def sparkConf : SparkConf = new SparkConf(false)
 
   test("unit: test hierarchy strategy with default context configuration") {
     val strategy = new HierarchyStrategy(Nil, null, null, Nil)

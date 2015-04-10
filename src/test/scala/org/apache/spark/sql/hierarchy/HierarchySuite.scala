@@ -1,7 +1,7 @@
 package org.apache.spark.sql.hierarchy
 
 import corp.sap.spark.SharedSparkContext
-import org.apache.spark.{SparkConf, Logging}
+import org.apache.spark.Logging
 import org.apache.spark.sql.types.Node
 import org.apache.spark.sql.execution.{SparkPlan, HierarchyPhysicalPlan}
 import org.apache.spark.sql.hierarchy._
@@ -20,8 +20,6 @@ case class PartialResult(path: Seq[Long], pk: Long)
 // scalastyle:off file.size.limit
 
 class HierarchySuite extends FunSuite with SharedSparkContext with Logging {
-
-  override def sparkConf : SparkConf = new SparkConf(false)
 
   implicit class Crossable[X](xs: Traversable[X]) {
     def cross[Y](ys: Traversable[Y]) : Traversable[(X,Y)] =

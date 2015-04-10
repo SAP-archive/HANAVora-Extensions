@@ -1,15 +1,13 @@
 package org.apache.spark.sql.hierarchy
 
 import corp.sap.spark.SharedSparkContext
-import org.apache.spark.{SparkConf, SparkEnv}
+import org.apache.spark.SparkEnv
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.Node
 import org.scalatest.FunSuite
 
 class HierarchyBuilderSuite extends FunSuite with SharedSparkContext {
   /* TODO: These tests should not depend on SparkContext */
-
-  override def sparkConf : SparkConf = new SparkConf(false)
 
   test("HierarchyRowFunctions.rowGet") {
     for (i <- 0 to 5) {
