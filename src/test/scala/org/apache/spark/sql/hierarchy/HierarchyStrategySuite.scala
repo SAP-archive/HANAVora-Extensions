@@ -1,18 +1,27 @@
 package org.apache.spark.sql.hierarchy
 
-import corp.sap.spark.SharedSparkContext
-import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{catalyst, Row, VelocitySQLContext}
-import org.scalatest.{PrivateMethodTester, FunSuite}
-import org.apache.spark.sql.catalyst.expressions.{Expression, SortOrder, Attribute}
+import org.apache.spark.{SparkConf, SparkContext}
+import org.mockito.Mockito._
 import org.scalatest.PrivateMethodTester._
-
-import scala.util.Random
+import org.scalatest.mock.MockitoSugar
+import org.scalatest.{BeforeAndAfter, FunSuite, ParallelTestExecution}
 
 // scalastyle:off magic.number
 
-class HierarchyStrategySuite extends FunSuite with SharedSparkContext {
+class HierarchyStrategySuite extends FunSuite with BeforeAndAfter
+  with ParallelTestExecution with MockitoSugar {
+
+  def sc : SparkContext = _sc
+
+  private var _sparkConf : SparkConf = null
+  private var _sc : SparkContext = null
+
+  before {
+    _sc = mock[SparkContext]
+    _sparkConf = new SparkConf(loadDefaults = false)
+    when(_sc.conf).thenReturn(_sparkConf)
+    when(_sc.getConf).thenReturn(_sparkConf)
+  }
 
   test("unit: test hierarchy strategy with default context configuration") {
     val strategy = new HierarchyStrategy(Nil, null, null, Nil)

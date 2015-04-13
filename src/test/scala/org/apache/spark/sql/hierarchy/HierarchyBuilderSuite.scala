@@ -1,13 +1,12 @@
 package org.apache.spark.sql.hierarchy
 
-import corp.sap.spark.SharedSparkContext
-import org.apache.spark.SparkEnv
+import org.apache.spark.SparkConf
+import org.apache.spark.serializer.JavaSerializer
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.Node
 import org.scalatest.FunSuite
 
-class HierarchyBuilderSuite extends FunSuite with SharedSparkContext {
-  /* TODO: These tests should not depend on SparkContext */
+class HierarchyBuilderSuite extends FunSuite {
 
   test("HierarchyRowFunctions.rowGet") {
     for (i <- 0 to 5) {
@@ -38,13 +37,13 @@ class HierarchyBuilderSuite extends FunSuite with SharedSparkContext {
   }
 
   test("HierarchyBuilder closure is serializable") {
-    val closureSerializer = SparkEnv.get.closureSerializer.newInstance()
+    val closureSerializer = new JavaSerializer(new SparkConf(loadDefaults = false)).newInstance()
     val serialized = closureSerializer.serialize(() =>
       HierarchyJoinBuilder(null, null, null, null, null))
   }
 
   test("HierarchyRowFunctions closure is serializable") {
-    val closureSerializer = SparkEnv.get.closureSerializer.newInstance()
+    val closureSerializer = new JavaSerializer(new SparkConf(loadDefaults = false)).newInstance()
     val serialized = closureSerializer.serialize(() =>
       HierarchyRowJoinBuilder(null, null, null, null))
   }
