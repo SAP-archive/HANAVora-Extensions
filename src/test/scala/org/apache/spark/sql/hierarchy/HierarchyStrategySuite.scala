@@ -1,27 +1,13 @@
 package org.apache.spark.sql.hierarchy
 
-import org.apache.spark.{SparkConf, SparkContext}
-import org.mockito.Mockito._
+import org.apache.spark.{MockitoSparkContext, SparkContext}
 import org.scalatest.PrivateMethodTester._
-import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, ParallelTestExecution}
 
 // scalastyle:off magic.number
 
 class HierarchyStrategySuite extends FunSuite with BeforeAndAfter
-  with ParallelTestExecution with MockitoSugar {
-
-  def sc : SparkContext = _sc
-
-  private var _sparkConf : SparkConf = null
-  private var _sc : SparkContext = null
-
-  before {
-    _sc = mock[SparkContext]
-    _sparkConf = new SparkConf(loadDefaults = false)
-    when(_sc.conf).thenReturn(_sparkConf)
-    when(_sc.getConf).thenReturn(_sparkConf)
-  }
+  with ParallelTestExecution with MockitoSparkContext {
 
   test("unit: test hierarchy strategy with default context configuration") {
     val strategy = new HierarchyStrategy(Nil, null, null, Nil)
