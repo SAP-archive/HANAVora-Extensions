@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.expressions.{NamedExpression, Expression}
 /**
  * Marks a relation as supporing aggregations push downs.
  */
-trait PrunedFilteredAggregatedScan extends BaseRelation {
+trait PrunedFilteredAggregatedScan extends BaseRelation with ExpressionSupport {
 
   def buildScanAggregate(
                           requiredColumns: Array[String],
