@@ -18,37 +18,40 @@ package org.apache.spark.sql.sources
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.{Row, execution, Strategy}
-import org.apache.spark.sql.catalyst.planning.{PhysicalOperation, PartialAggregation}
+import org.apache.spark.sql.catalyst.planning.{PartialAggregation, PhysicalOperation}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.{sources => src}
 import org.apache.spark.sql.catalyst.{expressions => expr}
+import org.apache.spark.sql.execution.{Aggregate, SparkPlan}
+import org.apache.spark.sql.{Row, Strategy, execution, sources => src}
 
 /**
  * Strategy to push down aggregates to a DataSource when they are supported.
  */
 private[sql] object PushDownAggregatesStrategy extends Strategy {
+
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    case partialAgg @ PartialAggregation(
+    case partialAgg@PartialAggregation(
     namedGroupingAttributes,
     rewrittenAggregateExpressions,
     groupingExpressions,
     partialComputation,
     child@PhysicalOperation(projectList, filters,
-    l@LogicalRelation(t: PrunedFilteredAggregatedScan))) =>
-      execution.Aggregate(
-        partial = false,
-        namedGroupingAttributes,
-        rewrittenAggregateExpressions,
-        pruneFilterProjectAgg(l,
-          projectList,
-          filters,
-          groupingExpressions,
-          partialComputation,
-          (a, f, ge, pc) => t.buildScanAggregate(a, f, groupingExpressions, partialComputation)
-        )
-      ) :: Nil
+    logicalRelation@LogicalRelation(t: PrunedFilteredAggregatedScan))) =>
+      /* Splitting the data depending on data source support */
+      val (supportedByDataSource, notSupportedByDataSource) =
+        partialComputation.partition(t.supports)
+
+      if (notSupportedByDataSource.isEmpty) {
+        buildSimplifiedAggregation(namedGroupingAttributes, rewrittenAggregateExpressions,
+          projectList, filters, groupingExpressions, partialComputation, logicalRelation,
+          t.buildScanAggregate)
+      } else {
+        buildFullAggregation(namedGroupingAttributes, rewrittenAggregateExpressions,
+          projectList, filters, groupingExpressions, logicalRelation,
+          t.buildScanAggregate, supportedByDataSource, notSupportedByDataSource)
+
+
+      }
     case _ => Nil
   }
 
@@ -61,9 +64,9 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
                                        aggregateExpressions: Seq[NamedExpression],
                                        scanBuilder: (
                                          Array[String],
-                                         Array[Filter],
-                                         Seq[Expression],
-                                         Seq[NamedExpression]) => RDD[Row]) = {
+                                           Array[Filter],
+                                           Seq[Expression],
+                                           Seq[NamedExpression]) => RDD[Row]) = {
     pruneFilterProjectAggRaw(
       relation,
       projectList,
@@ -91,7 +94,6 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
 
     val projectSet = AttributeSet(projectList.flatMap(_.references))
     val filterSet = AttributeSet(filterPredicates.flatMap(_.references))
-    val filterCondition = filterPredicates.reduceLeftOption(expr.And)
 
     val pushedFilters = filterPredicates.map {
       _ transform {
@@ -110,16 +112,96 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
           .map(relation.attributeMap) ++ // Match original case of attributes.
           aggregateExpressions.filter(_.isInstanceOf[Alias]).map(_.toAttribute)
 
-        execution.PhysicalRDD(
-          aggregateExpressions.map(_.toAttribute),
-          scanBuilder(requestedColumns, pushedFilters, groupingExpressions, aggregateExpressions))
+      execution.PhysicalRDD(
+        aggregateExpressions.map(_.toAttribute),
+        scanBuilder(requestedColumns, pushedFilters, groupingExpressions, aggregateExpressions))
     } else {
       val requestedColumns = (projectSet ++ filterSet).map(relation.attributeMap).toSeq
 
-        execution.PhysicalRDD(aggregateExpressions.map(_.toAttribute),
-          scanBuilder(requestedColumns, pushedFilters, groupingExpressions, aggregateExpressions))
+      execution.PhysicalRDD(aggregateExpressions.map(_.toAttribute),
+        scanBuilder(requestedColumns, pushedFilters, groupingExpressions, aggregateExpressions))
     }
   }
+
+  /**
+   * Builds a simplified aggregation expression when the data source supports all the
+   * aggregations.
+   */
+  private def buildSimplifiedAggregation(namedGroupingAttributes: Seq[Attribute],
+                                         rewrittenAggregateExpressions: Seq[NamedExpression],
+                                         projectList: Seq[NamedExpression],
+                                         filters: Seq[Expression],
+                                         groupingExpressions: Seq[Expression],
+                                         partialComputation: Seq[NamedExpression],
+                                         logicalRelation: LogicalRelation,
+                                         buildScanAggregate: (Array[String], Array[Filter],
+                                           Seq[Expression], Seq[NamedExpression])
+                                           => RDD[Row]): Seq[Aggregate] = {
+    Seq(execution.Aggregate(
+      partial = false,
+      namedGroupingAttributes,
+      rewrittenAggregateExpressions,
+      pruneFilterProjectAgg(logicalRelation,
+        projectList,
+        filters,
+        groupingExpressions,
+        partialComputation,
+        (a, f, ge, pc) => buildScanAggregate(a, f, groupingExpressions, partialComputation)
+      )
+    ))
+  }
+
+  /**
+   * Builds a full aggregation expression. When the data source doesn't support some
+   * aggregations, they will be computed by Spark afterwards.
+   */
+  private def buildFullAggregation(namedGroupingAttributes: Seq[Attribute],
+                                   rewrittenAggregateExpressions: Seq[NamedExpression],
+                                   projectList: Seq[NamedExpression],
+                                   filters: Seq[Expression],
+                                   groupingExpressions: Seq[Expression],
+                                   logicalRelation: LogicalRelation,
+                                   buildScanAggregate: (Array[String], Array[Filter],
+                                     Seq[Expression], Seq[NamedExpression]) => RDD[Row],
+                                   supportedByDataSource: Seq[NamedExpression],
+                                   notSupportedByDataSource: Seq[NamedExpression])
+  : Seq[Aggregate] = {
+
+    /* Adding the extra fields needed from the datasource */
+    val dataSourceExtra: Seq[NamedExpression] =
+      notSupportedByDataSource.flatMap(extractFieldExpressions)
+    val datasourceSupportedPartialAgg = supportedByDataSource ++ dataSourceExtra
+
+    /* Adding the extra attributes needed during the partial aggregation phase */
+    val noDataSourceExtra: Seq[NamedExpression] =
+      supportedByDataSource.map(_.toAttribute)
+    val datasourceNotSupportedPartialAgg = notSupportedByDataSource ++ noDataSourceExtra
+    val dataSourceGroupingExpressions = (groupingExpressions ++ dataSourceExtra).distinct
+
+    Seq(execution.Aggregate(
+      partial = false,
+      namedGroupingAttributes,
+      rewrittenAggregateExpressions,
+      execution.Aggregate(
+        partial = true,
+        namedGroupingAttributes ++ noDataSourceExtra,
+        datasourceNotSupportedPartialAgg,
+        pruneFilterProjectAgg(logicalRelation,
+          projectList,
+          filters,
+          dataSourceGroupingExpressions,
+          datasourceSupportedPartialAgg,
+          (a, f, _, _) => buildScanAggregate(a, f, dataSourceGroupingExpressions,
+            datasourceSupportedPartialAgg)
+        ))
+    ))
+  }
+
+  private def extractFieldExpressions(expression: Expression): Seq[NamedExpression] =
+    expression match {
+      case AttributeReference(_, _, _, _) => Seq(expression.asInstanceOf[AttributeReference])
+      case _ => expression.children.flatMap(extractFieldExpressions)
+    }
 
   // scalastyle:off cyclomatic.complexity
   private def expressionToFilter(predicate: Expression): Option[Filter] =
@@ -158,10 +240,6 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
    * Selects Catalyst predicate [[Expression]]s which are convertible into data source [[Filter]]s,
    * and convert them.
    */
-  protected[sql] def selectFilters(filters: Seq[Expression]) = {
-
-
-
+  protected[sql] def selectFilters(filters: Seq[Expression]) =
     filters.flatMap(expressionToFilter)
-  }
 }
