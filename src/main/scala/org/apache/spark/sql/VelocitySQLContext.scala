@@ -4,7 +4,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.analysis.VelocityCheckAnalysis
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
 import org.apache.spark.sql.execution.{AddDefaultExchange, SparkPlan}
-import org.apache.spark.sql.sources.PushDownAggregatesStrategy
+import org.apache.spark.sql.sources.{PushDownAggregatesStrategy, PushDownFunctionsStrategy}
 
 /**
  * This context provides extended SQLContext functionality such as hierarchies, enhaced data
@@ -13,7 +13,7 @@ import org.apache.spark.sql.sources.PushDownAggregatesStrategy
 class VelocitySQLContext(@transient override val sparkContext: SparkContext)
   extends ExtendableSQLContext(sparkContext, Seq(SQLExtensions, HierarchySQLContextExtension)) {
   self =>
-  
+
   /**
    * Prepares a planned SparkPlan for execution by inserting shuffle operations as needed.
    *
@@ -36,7 +36,7 @@ class VelocitySQLContext(@transient override val sparkContext: SparkContext)
 
 private[sql] object SQLExtensions extends SQLContextExtension {
 
-  override def strategies(planner: ExtendedPlanner) : Seq[Strategy] =
-    Seq(PushDownAggregatesStrategy)
+  override def strategies(planner: ExtendedPlanner): Seq[Strategy] =
+    Seq(PushDownAggregatesStrategy, PushDownFunctionsStrategy)
 
 }

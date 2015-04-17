@@ -23,7 +23,7 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.{expressions => expr}
 import org.apache.spark.sql.execution.{Aggregate, SparkPlan}
 import org.apache.spark.sql.{Row, Strategy, execution, sources => src}
-
+import org.apache.spark.sql.catalyst.expressions.implicits._
 /**
  * Strategy to push down aggregates to a DataSource when they are supported.
  */
@@ -169,7 +169,7 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
 
     /* Adding the extra fields needed from the datasource */
     val dataSourceExtra: Seq[NamedExpression] =
-      notSupportedByDataSource.flatMap(extractFieldExpressions)
+      notSupportedByDataSource.flatMap(_.extractAttributes)
     val datasourceSupportedPartialAgg = supportedByDataSource ++ dataSourceExtra
 
     /* Adding the extra attributes needed during the partial aggregation phase */
@@ -196,12 +196,6 @@ private[sql] object PushDownAggregatesStrategy extends Strategy {
         ))
     ))
   }
-
-  private def extractFieldExpressions(expression: Expression): Seq[NamedExpression] =
-    expression match {
-      case AttributeReference(_, _, _, _) => Seq(expression.asInstanceOf[AttributeReference])
-      case _ => expression.children.flatMap(extractFieldExpressions)
-    }
 
   // scalastyle:off cyclomatic.complexity
   private def expressionToFilter(predicate: Expression): Option[Filter] =
