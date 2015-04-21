@@ -37,6 +37,10 @@
       <groupId>corp.sap.spark.velocity</groupId>
       <artifactId>datasource</artifactId>
     </dependency>
+      <dependency>
+          <groupId>corp.sap.spark.velocity</groupId>
+          <artifactId>hanadatasource</artifactId>
+      </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.binary.version}</artifactId>
