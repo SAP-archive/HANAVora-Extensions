@@ -4,7 +4,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.analysis.VelocityCheckAnalysis
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
 import org.apache.spark.sql.execution.{AddDefaultExchange, SparkPlan}
-import org.apache.spark.sql.sources.{PushDownAggregatesStrategy, PushDownFunctionsStrategy}
+import org.apache.spark.sql.sources.{CatalystSourceStrategy, PushDownAggregatesStrategy,
+PushDownFunctionsStrategy}
 
 /**
  * This context provides extended SQLContext functionality such as hierarchies, enhaced data
@@ -37,6 +38,6 @@ class VelocitySQLContext(@transient override val sparkContext: SparkContext)
 private[sql] object SQLExtensions extends SQLContextExtension {
 
   override def strategies(planner: ExtendedPlanner): Seq[Strategy] =
-    Seq(PushDownAggregatesStrategy, PushDownFunctionsStrategy)
+    Seq(CatalystSourceStrategy, PushDownAggregatesStrategy, PushDownFunctionsStrategy)
 
 }
