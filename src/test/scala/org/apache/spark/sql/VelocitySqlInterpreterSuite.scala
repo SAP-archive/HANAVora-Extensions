@@ -3,20 +3,18 @@ package org.apache.spark.sql
 import java.util
 import java.util.Properties
 
-import com.nflabs.zeppelin.display.GUI
-import com.nflabs.zeppelin.interpreter.{InterpreterContext, InterpreterGroup, InterpreterResult}
-import com.nflabs.zeppelin.spark.SparkInterpreter
+import org.apache.zeppelin.display.{AngularObjectRegistry, GUI}
+import org.apache.zeppelin.interpreter.{InterpreterContextRunner, InterpreterContext, InterpreterGroup, InterpreterResult}
+import org.apache.zeppelin.spark.SparkInterpreter
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 case class Person(name: String, number: Int)
 
 class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
-  var sqli: VelocitySqlInterpreter = null
-  var si: SparkInterpreter = null
-  val context: InterpreterContext =
-    new InterpreterContext("id", "title", "text",
-      new util.HashMap[String, Object](), new GUI())
+  var sqli: VelocitySqlInterpreter = _
+  var si: SparkInterpreter = _
+  var context: InterpreterContext = _
 
   var velocityContext: VelocitySQLContext = null
 
@@ -41,6 +39,15 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
     sqli.setInterpreterGroup(ig)
     sqli.open()
+
+    context = new InterpreterContext(
+      "id",
+      "title",
+      "text",
+      new util.HashMap[String, Object](),
+      new GUI,
+      new AngularObjectRegistry(ig.getId, null),
+      new util.LinkedList[InterpreterContextRunner]())
   }
 
   test("Simple Select") {
