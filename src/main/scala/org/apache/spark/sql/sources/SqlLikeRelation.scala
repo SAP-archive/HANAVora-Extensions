@@ -7,6 +7,8 @@ import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Exp
  */
 trait SqlLikeRelation {
 
+  def tableName: String
+
   /**
    * Preparing aggregation and grouping expressions to work on data source and
    * setting missing aliases when needed

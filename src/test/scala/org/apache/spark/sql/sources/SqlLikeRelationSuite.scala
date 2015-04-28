@@ -111,6 +111,8 @@ class SqlLikeRelationSuite extends FunSuite with SharedSparkContext with Logging
 /* Helper to test the trait */
 object Test extends SqlLikeRelation {
 
+  override def tableName: String = "table"
+
   /* Wrapper to call the protected function */
   override def prepareAggregationsUsingAliases(aggregationExpressions:
                                                Seq[NamedExpression],
