@@ -12,7 +12,9 @@ import org.scalatest.FunSuite
 
 import scala.util.Random
 
-case class MyRow(name : String, pred : Option[Long], succ : Long, ord : Int)
+case class HierarchyRow(name : String, pred : Option[Long], succ : Long, ord : Int)
+
+case class AddressRow(name : String, address : String)
 
 case class PartialResult(path: Seq[Long], pk: Long)
 
@@ -26,14 +28,22 @@ class HierarchySuite extends FunSuite with SharedSparkContext with Logging {
       for { x <- xs; y <- ys } yield (x, y)
   }
 
-  def adjacencyList : Seq[MyRow] = Seq(
-    MyRow("THE BOSS", None, 1L, 1),
-    MyRow("The Middle Manager", Some(1L), 2L, 1),
-    MyRow("The Other Middle Manager", Some(1L), 3L, 2),
-    MyRow("Senior Developer", Some(2L), 4L, 1),
-    MyRow("Minion 1", Some(2L), 5L, 2),
-    MyRow("Minion 2", Some(4L), 6L, 1),
-    MyRow("Minion 3", Some(4L), 7L, 2)
+  def adjacencyList : Seq[HierarchyRow] = Seq(
+    HierarchyRow("THE BOSS", None, 1L, 1),
+    HierarchyRow("The Middle Manager", Some(1L), 2L, 1),
+    HierarchyRow("The Other Middle Manager", Some(1L), 3L, 2),
+    HierarchyRow("Senior Developer", Some(2L), 4L, 1),
+    HierarchyRow("Minion 1", Some(2L), 5L, 2),
+    HierarchyRow("Minion 2", Some(4L), 6L, 1),
+    HierarchyRow("Minion 3", Some(4L), 7L, 2)
+  )
+
+  def addresses : Seq[AddressRow] = Seq(
+    AddressRow("THE BOSS", "Nice Street"),
+    AddressRow("The Middle Manager", "Acceptable Street"),
+    AddressRow("Senior Developer", "Near-Acceptable Street"),
+    AddressRow("Minion 3", "The Street"),
+    AddressRow("Darth Vader", "Death Star")
   )
 
   test("use join predicates") {
@@ -244,31 +254,31 @@ class HierarchySuite extends FunSuite with SharedSparkContext with Logging {
   }
 
   buildFromAdjacencyListTest(HierarchyJoinBuilder(
-    startWhere = (myRow: MyRow) => myRow.pred.isEmpty,
-    pk = (myRow: MyRow) => myRow.succ,
-    pred = (myRow: MyRow) => myRow.pred.getOrElse(-1),
-    init = (myRow: MyRow) => PartialResult(pk = myRow.succ, path = Seq(myRow.succ)),
-    modify = (pr: PartialResult, myRow: MyRow) =>
+    startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
+    pk = (myRow: HierarchyRow) => myRow.succ,
+    pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
+    init = (myRow: HierarchyRow) => PartialResult(pk = myRow.succ, path = Seq(myRow.succ)),
+    modify = (pr: PartialResult, myRow: HierarchyRow) =>
       PartialResult(path = pr.path ++ Seq(myRow.succ), pk = myRow.succ)
   ))
 
   buildFromAdjacencyListTest(HierarchyBroadcastBuilder(
-    pred = (myRow: MyRow) => myRow.pred.getOrElse(-1),
-    succ = (myRow: MyRow) => myRow.succ,
-    startWhere = (myRow: MyRow) => myRow.pred.isEmpty,
-    transformRowFunction = (r : MyRow, node : Node) =>
+    pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
+    succ = (myRow: HierarchyRow) => myRow.succ,
+    startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
+    transformRowFunction = (r : HierarchyRow, node : Node) =>
       PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
   ))
 
-  def buildFromAdjacencyListTest(builder : HierarchyBuilder[MyRow, PartialResult]) {
+  def buildFromAdjacencyListTest(builder : HierarchyBuilder[HierarchyRow, PartialResult]) {
     test("unitary: testing method buildFromAdjacencyList of class " +
       builder.getClass.getSimpleName){
        val rdd = sc.parallelize(adjacencyList)
        val hBuilder = HierarchyBroadcastBuilder(
-         pred = (myRow: MyRow) => myRow.pred.getOrElse(-1),
-         succ = (myRow: MyRow) => myRow.succ,
-         startWhere = (myRow: MyRow) => myRow.pred.isEmpty,
-         transformRowFunction = (r : MyRow, node : Node) =>
+         pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
+         succ = (myRow: HierarchyRow) => myRow.succ,
+         startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
+         transformRowFunction = (r : HierarchyRow, node : Node) =>
            PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
        )
        val hierarchy = builder.buildFromAdjacencyList(rdd)
@@ -286,4 +296,155 @@ class HierarchySuite extends FunSuite with SharedSparkContext with Logging {
     }
   }
 
+  test("integration: I can join hierarchy with table") {
+    val sqlContext = new VelocitySQLContext(sc)
+
+    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(hRdd).cache()
+    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    hSrc.registerTempTable("h_src")
+
+    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
+    val tSrc = sqlContext.createDataFrame(tRdd).cache()
+    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    tSrc.registerTempTable("t_src")
+
+    val queryString = """
+      SELECT B.name, A.address, B.level
+      FROM
+      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
+        USING h_src AS v
+          JOIN PARENT u ON v.pred = u.succ
+          SEARCH BY ord ASC
+        START WHERE pred IS NULL
+        SET node)
+        AS H) B, t_src A
+        WHERE B.name = A.name
+    """
+    val result = sqlContext.sql(queryString).cache()
+
+    val expected = Set(
+     Row("THE BOSS", "Nice Street", 1),
+     Row("The Middle Manager", "Acceptable Street", 2),
+     Row("Senior Developer", "Near-Acceptable Street", 3),
+     Row("Minion 3", "The Street", 4)
+    )
+    assertResult(expected)(result.collect().toSet)
+   }
+
+  test("integration: I can left outer join hierarchy with table") {
+    val sqlContext = new VelocitySQLContext(sc)
+
+    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(hRdd).cache()
+    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    hSrc.registerTempTable("h_src")
+
+    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
+    val tSrc = sqlContext.createDataFrame(tRdd).cache()
+    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    tSrc.registerTempTable("t_src")
+
+    val queryString = """
+      SELECT A.name, B.address, A.level
+      FROM
+      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
+        USING h_src AS v
+          JOIN PARENT u ON v.pred = u.succ
+          SEARCH BY ord ASC
+        START WHERE pred IS NULL
+        SET node)
+        AS H) A LEFT JOIN t_src B
+        ON A.name = B.name
+    """
+    val result = sqlContext.sql(queryString).cache()
+
+    val expected = Set(
+     Row("THE BOSS", "Nice Street", 1),
+     Row("The Other Middle Manager", null, 2),
+     Row("The Middle Manager", "Acceptable Street", 2),
+     Row("Senior Developer", "Near-Acceptable Street", 3),
+     Row("Minion 1", null, 3),
+     Row("Minion 2", null, 4),
+     Row("Minion 3", "The Street", 4)
+    )
+    assertResult(expected)(result.collect().toSet)
+   }
+
+  test("integration: I can right outer join hierarchy with table") {
+    val sqlContext = new VelocitySQLContext(sc)
+
+    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(hRdd).cache()
+    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    hSrc.registerTempTable("h_src")
+
+    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
+    val tSrc = sqlContext.createDataFrame(tRdd).cache()
+    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    tSrc.registerTempTable("t_src")
+
+    val queryString = """
+      SELECT A.name, A.address, B.level
+      FROM
+      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
+        USING h_src AS v
+          JOIN PARENT u ON v.pred = u.succ
+          SEARCH BY ord ASC
+        START WHERE pred IS NULL
+        SET node)
+        AS H) B RIGHT OUTER JOIN t_src A
+        ON A.name = B.name
+    """
+    val result = sqlContext.sql(queryString).cache()
+
+    val expected = Set(
+     Row("THE BOSS", "Nice Street", 1),
+     Row("The Middle Manager", "Acceptable Street", 2),
+     Row("Senior Developer", "Near-Acceptable Street", 3),
+     Row("Minion 3", "The Street", 4),
+     Row("Darth Vader", "Death Star", null)
+    )
+    assertResult(expected)(result.collect().toSet)
+   }
+
+    test("integration: I can full outer join hierarchy with table") {
+    val sqlContext = new VelocitySQLContext(sc)
+
+    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(hRdd).cache()
+    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    hSrc.registerTempTable("h_src")
+
+    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
+    val tSrc = sqlContext.createDataFrame(tRdd).cache()
+    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    tSrc.registerTempTable("t_src")
+
+    val queryString = """
+      SELECT A.name, B.address, A.level
+      FROM
+      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
+        USING h_src AS v
+          JOIN PARENT u ON v.pred = u.succ
+          SEARCH BY ord ASC
+        START WHERE pred IS NULL
+        SET node)
+        AS H) A FULL OUTER JOIN t_src B
+        ON A.name = B.name
+    """
+    val result = sqlContext.sql(queryString).cache()
+
+    val expected = Set(
+     Row("THE BOSS", "Nice Street", 1),
+     Row("The Other Middle Manager", null, 2),
+     Row("The Middle Manager", "Acceptable Street", 2),
+     Row("Senior Developer", "Near-Acceptable Street", 3),
+     Row("Minion 1", null, 3),
+     Row("Minion 2", null, 4),
+     Row("Minion 3", "The Street", 4),
+     Row(null, "Death Star", null)
+    )
+    assertResult(expected)(result.collect().toSet)
+   }
 }
