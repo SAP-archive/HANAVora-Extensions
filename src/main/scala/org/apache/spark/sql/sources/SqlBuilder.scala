@@ -2,6 +2,7 @@ package org.apache.spark.sql.sources
 
 import java.sql.{Date, Timestamp}
 
+import org.apache.spark.sql.catalyst.expressions.Ascending
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.{analysis, expressions => expr, planning}
 import org.apache.spark.sql.types._
@@ -184,6 +185,9 @@ class SqlBuilder {
       case be: expr.BinaryExpression =>
         s"(${expressionToSql(be.left)} ${be.symbol} " +
           s"${expressionToSql(be.right)})"
+      case expr.SortOrder(child,direction) =>
+        val sortDirection = if (direction == Ascending) "ASC" else "DESC"
+        s"${expressionToSql(child)} $sortDirection"
       case expr.Literal(value, _) => literalToSql(value)
       case expr.Cast(child, dataType) => s"CAST($child AS ${typeToSql(dataType)}})"
       case expr.Sum(child) => s"SUM(${expressionToSql(child)})"
