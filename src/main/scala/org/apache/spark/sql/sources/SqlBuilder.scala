@@ -198,11 +198,68 @@ class SqlBuilder {
       case expr.Substring(str, pos, len) =>
         s"SUBSTRING(${expressionToSql(str)}, $pos, $len)"
       case expr.Abs(child) => s"ABS(${expressionToSql(child)})"
+      case expr.Sqrt(child) => s"SQRT(${expressionToSql(child)})"
+      case expr.Ln(child) => s"LN(${expressionToSql(child)})"
+      case expr.Log(child) => s"LOG(${expressionToSql(child)})"
+      case expr.Cos(child) => s"COS(${expressionToSql(child)})"
+      case expr.Sin(child) => s"SIN(${expressionToSql(child)})"
+      case expr.Tan(child) => s"TAN(${expressionToSql(child)})"
+      case expr.Acos(child) => s"ACOS(${expressionToSql(child)})"
+      case expr.Asin(child) => s"ASIN(${expressionToSql(child)})"
+      case expr.Atan(child) => s"ATAN(${expressionToSql(child)})"
+      case expr.Ceil(child) => s"CEIL(${expressionToSql(child)})"
+      case expr.Round(expr,dec) => s"ROUND(${expressionToSql(expr)}," +
+        s"${expressionToSql(dec)})"
+      case expr.Floor(child) => s"FLOOR(${expressionToSql(child)})"
+      case expr.Sign(child) => s"SIGN(${expressionToSql(child)})"
+      case expr.ToDouble(child) => s"TO_DOUBLE(${expressionToSql(child)})"
+      case expr.ToInteger(child) => s"TO_INTEGER(${expressionToSql(child)})"
+      case expr.ToVarChar(child) => s"TO_VARCHAR(${expressionToSql(child)})"
+      case expr.Power(child, exp) => s"POWER(${expressionToSql(child)}," +
+        s"${expressionToSql(exp)})"
+      case expr.Remainder(child, div) => s"MOD(${expressionToSql(child)}," +
+        s"${expressionToSql(div)})"
+      
       case expr.Lower(child) => s"LOWER(${expressionToSql(child)})"
       case expr.Upper(child) => s"UPPER(${expressionToSql(child)})"
       case expr.Not(child) => s"NOT(${expressionToSql(child)})"
       case expr.CountDistinct(children) => s"COUNT(DISTINCT ${expressionsToSql(children, ",")})"
       case expr.Coalesce(children) => s"COALESCE(${expressionsToSql(children, ",")})"
+      case expr.Contains(str, pattern) => s"CONTAINS(${expressionToSql(str)}," +
+        s"${expressionToSql(pattern)})"
+       case expr.Like(str, pattern) => s"LIKE(${expressionToSql(str)}," +
+        s"${expressionToSql(pattern)})"
+       
+      case expr.Length(child) => s"LENGTH(${expressionToSql(child)})"
+      case expr.Trim(child) => s"TRIM(${expressionToSql(child)})"
+      case expr.RTrim(child) => s"RTRIM(${expressionToSql(child)})"
+      case expr.LTrim(child) => s"LTRIM(${expressionToSql(child)})"
+      case expr.Reverse(child) => s"REVERSE(${expressionToSql(child)})"
+      case expr.Concat(str, pattern) => s"CONCAT(${expressionToSql(str)}," +
+        s"${expressionToSql(pattern)})"
+      case expr.Locate(str, pattern) => s"LOCATE(${expressionToSql(str)}," +
+        s"${expressionToSql(pattern)})"
+      case expr.Replace(str,find,pattern) => s"REPLACE(${expressionToSql(str)}," +
+        s"${expressionToSql(find)},${expressionToSql(pattern)})"
+      case expr.RPad(str,len,pattern) => s"RPAD(${expressionToSql(str)}," +
+        s"${expressionToSql(len)},${expressionToSql(pattern)})"
+      case expr.LPad(str,len,pattern) => s"LPAD(${expressionToSql(str)}," +
+        s"${expressionToSql(len)},${expressionToSql(pattern)})"
+      case expr.ToDouble(child) => s"TO_DOUBLE(${expressionToSql(child)})"
+      case expr.ToInteger(child) => s"TO_INTEGER(${expressionToSql(child)})"
+        
+      case expr.Extract(flag,date) => s"EXTRACT(${flagToSql(flag)} FROM " +
+        s"${expressionToSql(date)})"
+      case expr.AddDays(date, n) => s"ADD_DAYS(${expressionToSql(date)}," +
+        s"${expressionToSql(n)})"
+      case expr.AddMonths(date, n) => s"ADD_MONTHS(${expressionToSql(date)}," +
+        s"${expressionToSql(n)})"
+      case expr.AddYears(date, n) => s"ADD_YEARS(${expressionToSql(date)}," +
+        s"${expressionToSql(n)})"
+      case expr.DaysBetween(d1,d2) => s"DAYS_BETWEEN(${expressionToSql(d1)}," +
+        s"${expressionToSql(d2)})"
+      case expr.CurDate() => s"CURRENT_DATE()"
+        
       case a@expr.Alias(child, name) =>
         s"""${expressionToSql(child)} AS "$name""""
       case a@expr.AttributeReference(name, _, _, _) =>
@@ -249,6 +306,9 @@ class SqlBuilder {
         throw new IllegalArgumentException(s"Type $sparkType cannot be converted to SQL type")
     }
 
+  protected def flagToSql(flag: expr.Expression): String = {
+    flag.toString
+  }
 }
 
 trait ToSql[T] {
