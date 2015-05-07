@@ -4,7 +4,7 @@ import java.sql.{Date, Timestamp}
 
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.{analysis, expressions => expr, planning}
-import org.apache.spark.sql.types.TimestampType
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{sources => src}
 
 /**
@@ -42,9 +42,9 @@ class SqlBuilder {
    * @param groupByClauses List if expressions for the GROUP BY clause (can be empty).
    * @return A SQL string.
    */
-  protected def buildQuery(relation : String, fields : Seq[String],
-                             filters : Seq[String],
-                             groupByClauses : Seq[String]) : String = {
+  protected def buildQuery(relation: String, fields: Seq[String],
+                           filters: Seq[String],
+                           groupByClauses: Seq[String]): String = {
     val fieldList = fields match {
       case Nil => "*"
       case s => s mkString ", "
@@ -70,9 +70,9 @@ class SqlBuilder {
    * @param groupByClauses List if expressions for the GROUP BY clause (can be empty).
    * @return A SQL string.
    */
-  def buildSelect[E,F,H,G]
-    (relation: E, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
-    (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]) : String = {
+  def buildSelect[E, F, H, G]
+  (relation: E, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
+  (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]): String = {
     buildQuery(
       ev0.toSql(relation),
       fields map ev1.toSql,
@@ -89,9 +89,9 @@ class SqlBuilder {
    * @param filters List of filters for the WHERE clause (can be empty).
    * @return A SQL string.
    */
-  def buildSelect[E,F,H]
+  def buildSelect[E, F, H]
   (relation: E, fields: Seq[F], filters: Seq[H])
-  (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H]) : String = {
+  (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H]): String = {
     buildQuery(
       ev0.toSql(relation),
       fields map ev1.toSql,
@@ -145,6 +145,7 @@ class SqlBuilder {
       case _ =>
         sys.error("Unsupported logical plan: " + plan)
     }
+
   // scalastyle:on cyclomatic.complexity
 
   protected def joinTypeToSql(joinType: JoinType): String = joinType match {
@@ -172,10 +173,11 @@ class SqlBuilder {
       case src.Not(child) => s"NOT(${filterToSql(child)})"
       case x => sys.error(s"Failed to parse filter: $x")
     }
+
   // scalastyle:on cyclomatic.complexity
 
   // scalastyle:off cyclomatic.complexity
-  protected[sources] def expressionToSql(expression: expr.Expression): String =
+  def expressionToSql(expression: expr.Expression): String =
     expression match {
       case expr.And(left, right) => s"(${expressionToSql(left)} AND ${expressionToSql(right)})"
       case expr.Or(left, right) => s"(${expressionToSql(left)} OR ${expressionToSql(right)})"
@@ -183,13 +185,9 @@ class SqlBuilder {
         s"(${expressionToSql(be.left)} ${be.symbol} " +
           s"${expressionToSql(be.right)})"
       case expr.Literal(value, _) => literalToSql(value)
-      case expr.Cast(child, TimestampType) => s"TO_TIMESTAMP(${expressionToSql(child)})"
-      case expr.Cast(child, _) =>
-        /* TODO: Velocity does not support CAST yet, so we ignore it */
-        expressionToSql(child)
+      case expr.Cast(child, dataType) => s"CAST($child AS ${typeToSql(dataType)}})"
       case expr.Sum(child) => s"SUM(${expressionToSql(child)})"
       case expr.Count(child) => s"COUNT(${expressionToSql(child)})"
-
       case expr.Average(child) => s"AVG(${expressionToSql(child)})"
       case expr.Min(child) => s"MIN(${expressionToSql(child)})"
       case expr.Max(child) => s"MAX(${expressionToSql(child)})"
@@ -200,16 +198,17 @@ class SqlBuilder {
       case expr.Upper(child) => s"UPPER(${expressionToSql(child)})"
       case expr.Not(child) => s"NOT(${expressionToSql(child)})"
       case expr.CountDistinct(children) => s"COUNT(DISTINCT ${expressionsToSql(children, ",")})"
-      case expr.Coalesce(children) => s"COALESCE(${expressionsToSql(children, "," )})"
+      case expr.Coalesce(children) => s"COALESCE(${expressionsToSql(children, ",")})"
       case a@expr.Alias(child, name) =>
         s"""${expressionToSql(child)} AS "$name""""
       case a@expr.AttributeReference(name, _, _, _) =>
         (a.qualifiers :+ name).map(x => s""""$x"""").mkString(".")
       case analysis.UnresolvedAttribute(name) => s""""$name""""
-      case a : analysis.Star => "*"
+      case a: analysis.Star => "*"
       case x =>
         sys.error(s"Could not convert to SQL: $x (${x.getClass}})")
     }
+
   // scalastyle:on cyclomatic.complexity
 
   /**
@@ -231,6 +230,20 @@ class SqlBuilder {
     case null => "NULL"
     case other => other.toString
   }
+
+  def typeToSql(sparkType: DataType): String =
+    sparkType match {
+      case `StringType` => "VARCHAR(*)"
+      case `IntegerType` => "INTEGER"
+      case `LongType` => "BIGINT"
+      case `DoubleType` => "DOUBLE"
+      case DecimalType.Fixed(precision, scale) => s"DECIMAL($precision,$scale)"
+      case `DateType` => "DATE"
+      case `BooleanType` => "BOOLEAN"
+      case `TimestampType` => "TIMESTAMP"
+      case _ =>
+        throw new IllegalArgumentException(s"Type $sparkType cannot be converted to SQL type")
+    }
 
 }
 

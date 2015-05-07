@@ -13,44 +13,10 @@ import org.scalatest.FunSuite
 // scalastyle:off magic.number
 // scalastyle:off multiple.string.literals
 
-class SqlBuilderSuite extends FunSuite {
+class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
 
-  val sqlBuilder = new SqlBuilder
+  override val sqlBuilder = new SqlBuilder
   import sqlBuilder._ // scalastyle:ignore
-
-  def testExpressionToSql(result: String)(expr: Expression): Unit = {
-    test(s"expressionToSql: $result | with $expr") {
-      assertResult(result)(sqlBuilder.expressionToSql(expr))
-    }
-  }
-
-  def testBuildSelect[F: ToSql,H: ToSql]
-  (result: String)(i1: String, i2: Seq[F], i3: Seq[H]): Unit = {
-    test(s"buildSelect: $result | with $i1 $i2 $i3") {
-      assertResult(result)(sqlBuilder.buildSelect(i1, i2, i3))
-    }
-  }
-
-  def testBuildSelect[F: ToSql,H: ToSql,G: ToSql]
-  (result: String)(i1: String, i2: Seq[F], i3: Seq[H], i4: Seq[G]): Unit = {
-    test(s"buildSelect with group by: $result | with $i1 $i2 $i3") {
-      assertResult(result)(sqlBuilder.buildSelect(i1, i2, i3, i4))
-    }
-  }
-
-  def testLogicalPlan(result: String)(plan: LogicalPlan): Unit = {
-    test(s"logical plan: $result | with $plan") {
-      assertResult(result)(sqlBuilder.logicalPlanToSql(plan))
-    }
-  }
-
-  def testUnsupportedLogicalPlan(plan: LogicalPlan): Unit = {
-    test(s"invalid logical plan: $plan") {
-      intercept[RuntimeException] {
-        sqlBuilder.logicalPlanToSql(plan)
-      }
-    }
-  }
 
   testBuildSelect[String, String]("SELECT * FROM \"table\"")("table", Nil, Nil)
   testBuildSelect[String, String]("SELECT \"one\" FROM \"table\"")(
