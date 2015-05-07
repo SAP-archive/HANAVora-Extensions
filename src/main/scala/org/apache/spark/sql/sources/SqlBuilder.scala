@@ -29,7 +29,7 @@ class SqlBuilder {
   }
 
   implicit object LogicalPlanToSql extends ToSql[logical.LogicalPlan] {
-    override def toSql(p: logical.LogicalPlan): String = logicalPlanToSql(p)
+    override def toSql(p: logical.LogicalPlan): String = internalLogicalPlanToSql(p)
   }
 
   /**
@@ -57,7 +57,7 @@ class SqlBuilder {
       case gb =>
         s" GROUP BY ${groupByClauses mkString ", "}"
     }
-    s"""SELECT $fieldList FROM "$relation"$where$groupBy"""
+    s"""SELECT $fieldList FROM $relation$where$groupBy"""
   }
 
   /**
@@ -69,11 +69,11 @@ class SqlBuilder {
    * @param groupByClauses List if expressions for the GROUP BY clause (can be empty).
    * @return A SQL string.
    */
-  def buildSelect[F,H,G]
-    (relation: String, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
-    (implicit ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]) : String = {
+  def buildSelect[E,F,H,G]
+    (relation: E, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
+    (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]) : String = {
     buildQuery(
-      relation,
+      ev0.toSql(relation),
       fields map ev1.toSql,
       filters map ev2.toSql,
       groupByClauses map ev3.toSql
@@ -88,11 +88,11 @@ class SqlBuilder {
    * @param filters List of filters for the WHERE clause (can be empty).
    * @return A SQL string.
    */
-  def buildSelect[F,H]
-  (relation: String, fields: Seq[F], filters: Seq[H])
-  (implicit ev1: ToSql[F], ev2: ToSql[H]) : String = {
+  def buildSelect[E,F,H]
+  (relation: E, fields: Seq[F], filters: Seq[H])
+  (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H]) : String = {
     buildQuery(
-      relation,
+      ev0.toSql(relation),
       fields map ev1.toSql,
       filters map ev2.toSql,
       Nil
@@ -115,7 +115,7 @@ class SqlBuilder {
   // scalastyle:off cyclomatic.complexity
   protected def internalLogicalPlanToSql(plan: logical.LogicalPlan): String =
     plan match {
-      case src.LogicalRelation(base: SqlLikeRelation) => base.tableName
+      case src.LogicalRelation(base: SqlLikeRelation) => s""""${base.tableName}""""
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
@@ -126,14 +126,14 @@ class SqlBuilder {
           case Some(cond) => s" ON ${expressionToSql(cond)}"
         }
         val leftSql = internalLogicalPlanToSql(left)
-        val rightSql = internalLogicalPlanToSql(left)
+        val rightSql = internalLogicalPlanToSql(right)
         s"$leftSql ${joinTypeToSql(joinType)} $rightSql$condition"
       case p@planning.PhysicalOperation(fields, filters, child) if
       p.isInstanceOf[logical.Project] || p.isInstanceOf[logical.Filter] =>
-        buildSelect(internalLogicalPlanToSql(child), fields, filters)
+        buildSelect(child, fields, filters)
       case logical.Aggregate(groupingExpressions, aggregateExpressions, child) =>
         buildSelect(
-          internalLogicalPlanToSql(child),
+          child,
           fields = aggregateExpressions,
           filters = Seq[String](),
           groupByClauses = groupingExpressions
