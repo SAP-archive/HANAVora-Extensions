@@ -29,7 +29,8 @@ class SqlBuilder {
   }
 
   implicit object LogicalPlanToSql extends ToSql[logical.LogicalPlan] {
-    override def toSql(p: logical.LogicalPlan): String = internalLogicalPlanToSql(p)
+    override def toSql(p: logical.LogicalPlan): String =
+      internalLogicalPlanToSql(p, noProject = false)
   }
 
   /**
@@ -107,14 +108,15 @@ class SqlBuilder {
    * @return
    */
   def logicalPlanToSql(plan: logical.LogicalPlan): String =
-    plan match {
-      case src.LogicalRelation(base: SqlLikeRelation) => s"""SELECT * FROM "${base.tableName}""""
-      case _ => internalLogicalPlanToSql(plan)
-    }
+    internalLogicalPlanToSql(plan, noProject = true)
 
   // scalastyle:off cyclomatic.complexity
-  protected def internalLogicalPlanToSql(plan: logical.LogicalPlan): String =
+  protected def internalLogicalPlanToSql(
+                                          plan: logical.LogicalPlan,
+                                          noProject: Boolean = true): String =
     plan match {
+      case src.LogicalRelation(base: SqlLikeRelation) if noProject =>
+        s"""SELECT * FROM "${base.tableName}""""
       case src.LogicalRelation(base: SqlLikeRelation) => s""""${base.tableName}""""
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
@@ -125,8 +127,8 @@ class SqlBuilder {
           case None => ""
           case Some(cond) => s" ON ${expressionToSql(cond)}"
         }
-        val leftSql = internalLogicalPlanToSql(left)
-        val rightSql = internalLogicalPlanToSql(right)
+        val leftSql = internalLogicalPlanToSql(left, noProject = false)
+        val rightSql = internalLogicalPlanToSql(right, noProject = false)
         s"$leftSql ${joinTypeToSql(joinType)} $rightSql$condition"
       case p@planning.PhysicalOperation(fields, filters, child) if
       p.isInstanceOf[logical.Project] || p.isInstanceOf[logical.Filter] =>
@@ -150,6 +152,7 @@ class SqlBuilder {
     case `LeftOuter` => "LEFT OUTER JOIN"
     case `RightOuter` => "RIGHT OUTER JOIN"
     case `FullOuter` => "FULL OUTER JOIN"
+    case `LeftSemi` => "LEFT SEMI JOIN"
     case _ => sys.error(s"Unsupported join type: $joinType")
   }
 
@@ -214,12 +217,11 @@ class SqlBuilder {
    *
    * @param expressions
    * @param delimiter
-   * @param useExprId
    * @return
    */
-  protected def expressionsToSql(expressions: Seq[expr.Expression], delimiter: String = " ",
-                               useExprId: Boolean = false): String = {
-    expressions.map(expressionToSql(_)).reduceLeft((x, y) => x + delimiter + y)
+  protected def expressionsToSql(expressions: Seq[expr.Expression],
+                                 delimiter: String = " "): String = {
+    expressions.map(expressionToSql).reduceLeft((x, y) => x + delimiter + y)
   }
 
   protected def literalToSql(value: Any): String = value match {

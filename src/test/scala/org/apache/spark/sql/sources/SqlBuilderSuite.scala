@@ -3,7 +3,7 @@ package org.apache.spark.sql.sources
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.Inner
+import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{CreateLogicalRelation, SQLContext, sources}
@@ -39,7 +39,7 @@ class SqlBuilderSuite extends FunSuite {
   }
 
   def testLogicalPlan(result: String)(plan: LogicalPlan): Unit = {
-    test(s"logical plan: $result") {
+    test(s"logical plan: $result | with $plan") {
       assertResult(result)(sqlBuilder.logicalPlanToSql(plan))
     }
   }
@@ -89,6 +89,16 @@ class SqlBuilderSuite extends FunSuite {
           sources.IsNotNull("c")
         ))
       )
+
+  testBuildSelect[String, sources.Filter](
+    "SELECT * FROM \"table\" WHERE \"a\" IN (1,2,3,4)")(
+    "table", Nil, Seq(sources.In("a", Array(1, 2, 3, 4)))
+  )
+
+  testBuildSelect[String, sources.Filter](
+    "SELECT * FROM \"table\" WHERE NOT(\"a\" IN (1,2,3,4))")(
+      "table", Nil, Seq(sources.Not(sources.In("a", Array(1, 2, 3, 4))))
+    )
 
   testBuildSelect[Expression, Expression](
     "SELECT SUBSTRING(\"a\", 0, 1) AS \"aa\", \"b\" FROM \"table\" WHERE (\"a\" = 'a')"
@@ -142,7 +152,14 @@ class SqlBuilderSuite extends FunSuite {
     override def tableName: String = "t2"
   })
 
+  testLogicalPlan("SELECT * FROM \"t1\"")(t1)
   testLogicalPlan("SELECT * FROM \"t1\"")(t1.select())
+
+  testLogicalPlan("""SELECT "t1"."c1" FROM "t1" GROUP BY "t1"."c1"""")(
+    t1.groupBy('c1.string.withQualifiers("t1" :: Nil))('c1.string.withQualifiers("t1" :: Nil))
+  )
+
+  testLogicalPlan("""SELECT * FROM "t1" LIMIT 100""")(t1.limit(100))
 
   testLogicalPlan(
     s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" INNER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
@@ -152,9 +169,58 @@ class SqlBuilderSuite extends FunSuite {
     ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
   )
 
+  testLogicalPlan(
+    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" INNER JOIN "t2""""
+  )(
+      t1.join(t2, Inner)
+        .select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+    )
+
+  testLogicalPlan(
+    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" FULL OUTER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+  )(
+      t1.join(t2, FullOuter,
+        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
+      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+    )
+
+  testLogicalPlan(
+    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" RIGHT OUTER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+  )(
+      t1.join(t2, RightOuter,
+        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
+      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+    )
+
+  testLogicalPlan(
+    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" LEFT OUTER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+  )(
+      t1.join(t2, LeftOuter,
+        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
+      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+    )
+
+  testLogicalPlan(
+    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" LEFT SEMI JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+  )(
+      t1.join(t2, LeftSemi,
+        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
+      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+    )
+
+  testLogicalPlan(
+    s"""SELECT * FROM "t1" WHERE ("t1"."c1" = 1)"""
+  )(t1.where('c1.string.withQualifiers("t1" :: Nil) === 1))
+
   case object UnsupportedLogicalPlan extends LeafNode {
     override def output: Seq[Attribute] = Seq()
   }
   testUnsupportedLogicalPlan(UnsupportedLogicalPlan)
+
+  /* LogicalRelations must be SqlLikeRelations */
+  testUnsupportedLogicalPlan(LogicalRelation(new BaseRelation {
+    override def sqlContext: SQLContext = _sqlContext
+    override def schema: StructType = StructType(Nil)
+  }))
 
 }
