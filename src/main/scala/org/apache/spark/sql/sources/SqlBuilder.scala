@@ -172,7 +172,7 @@ class SqlBuilder {
   // scalastyle:on cyclomatic.complexity
 
   // scalastyle:off cyclomatic.complexity
-  protected def expressionToSql(expression: expr.Expression): String =
+  protected[sources] def expressionToSql(expression: expr.Expression): String =
     expression match {
       case expr.And(left, right) => s"(${expressionToSql(left)} AND ${expressionToSql(right)})"
       case expr.Or(left, right) => s"(${expressionToSql(left)} OR ${expressionToSql(right)})"
