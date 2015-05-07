@@ -76,7 +76,8 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
                    |tableName "createTestTable",
                    |schema "name varchar(*), number integer",
                    |hosts "host",
-                   |paths "path")""".stripMargin
+                   |paths "path",
+                   |localCatalog "true")""".stripMargin
 
     val ret = sqli.interpret(query, context)
 
@@ -91,7 +92,8 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
                    |tableName "createTestTableWithError",
                    |schema "name varchar(*), number integer",
                    |hosts "host1,host2",
-                   |paths "path")""".stripMargin
+                   |paths "path",
+                   |localCatalog "true")""".stripMargin
 
     val ret = sqli.interpret(query, context)
 
