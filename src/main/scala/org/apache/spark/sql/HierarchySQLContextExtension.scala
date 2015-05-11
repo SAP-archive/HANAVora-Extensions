@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 object HierarchySQLContextExtension extends SQLContextExtension {
 
   override def registerFunctions(registry : FunctionRegistry) : Unit =
-    RegisterHierarchyUDFs(registry)
+    RegisterHierarchyFunctions(registry)
 
   override def functionRegistry : Option[FunctionRegistry] =
     Some(new SimpleFunctionRegistry(caseSensitive = false))
