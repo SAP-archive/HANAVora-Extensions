@@ -1,28 +1,23 @@
 package org.apache.spark.sql.catalyst.analysis
 
+import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.types.NodeType
 
 /**
  * Resolves [[Hierarchy]]s.
  */
 case class ResolveHierarchy(analyzer : Analyzer) extends Rule[LogicalPlan] {
 
-  // scalastyle:off cyclomatic.complexity
-
   def apply(plan: LogicalPlan): LogicalPlan = plan transformUp {
-    case h : Hierarchy if h.relation.resolved &&
-      h.parenthoodExpression.resolved && !h.nodeAttribute.resolved =>
-      resolveNodeAttribute(h)
+    case h : Hierarchy if !h.nodeAttribute.resolved =>
+      val a = h.nodeAttribute
+      h.copy(nodeAttribute = AttributeReference(a.name, NodeType, nullable = false)())
     case h : Hierarchy if !h.resolved && h.relation.resolved && !h.parenthoodExpression.resolved =>
       resolveParenthoodExpression(h)
-    case p: LogicalPlan if !p.childrenResolved => p
+    case p: LogicalPlan => p
   }
-
-  // scalastyle:on cyclomatic.complexity
-
-  private def resolveNodeAttribute(h : Hierarchy) : Hierarchy =
-    h.copy(nodeAttribute = h.resolveNodeAttribute().getOrElse(h.nodeAttribute))
 
   private def resolveParenthoodExpression(h : Hierarchy) : Hierarchy =
     h.copy(parenthoodExpression = h.parenthoodExpression.mapChildren({

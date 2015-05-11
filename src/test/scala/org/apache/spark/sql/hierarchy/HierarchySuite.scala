@@ -337,18 +337,16 @@ class HierarchySuite extends FunSuite with SharedSparkContext with Logging {
 
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
 
     val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
     val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
     tSrc.registerTempTable("t_src")
 
     val queryString = """
-      SELECT A.name, B.address, A.level
-      FROM
-      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
+      SELECT A.name, B.address, LEVEL(A.node)
+      FROM (
+      SELECT * FROM HIERARCHY (
         USING h_src AS v
           JOIN PARENT u ON v.pred = u.succ
           SEARCH BY ord ASC

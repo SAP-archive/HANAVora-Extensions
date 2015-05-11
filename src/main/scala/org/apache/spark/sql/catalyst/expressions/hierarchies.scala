@@ -37,7 +37,7 @@ case class Level(child: Expression) extends UnaryNodeExpression {
   override def dataType : DataType = IntegerType
   override protected def name = "LEVEL"
 
-  override def eval(input: Row): Int = {
+  override def eval(input: Row): EvaluatedType = {
     val node = child.eval(input).asInstanceOf[Node]
     node.path.length
   }
@@ -46,37 +46,39 @@ case class Level(child: Expression) extends UnaryNodeExpression {
 }
 
 case class PreRank(child: Expression) extends UnaryNodeExpression {
-  type EvaluatedType = Int
+  type EvaluatedType = java.lang.Integer
   override def dataType : DataType = IntegerType
+  override def nullable: Boolean = true
   override protected def name = "PRERANK"
 
-  override def eval(input: Row): Int = {
+  override def eval(input: Row): EvaluatedType = {
     val node = child.eval(input).asInstanceOf[Node]
-    node.preRank.get
+    node.preRank
   }
 
   check()
 }
 
 case class PostRank(child: Expression) extends UnaryNodeExpression {
-  type EvaluatedType = Int
+  type EvaluatedType = java.lang.Integer
   override def dataType : DataType = IntegerType
+  override def nullable: Boolean = true
   override protected def name = "POSTRANK"
 
-  override def eval(input: Row): Int = {
+  override def eval(input: Row): EvaluatedType = {
     val node = child.eval(input).asInstanceOf[Node]
-    node.postRank.get
+    node.postRank
   }
 
   check()
 }
 
 case class IsRoot(child: Expression) extends UnaryNodeExpression {
-  type EvaluatedType = Boolean
+  type EvaluatedType = java.lang.Boolean
   override def dataType : DataType = BooleanType
   override protected def name = "IS_ROOT"
 
-  override def eval(input: Row): Boolean = {
+  override def eval(input: Row): EvaluatedType = {
     val node = child.eval(input).asInstanceOf[Node]
     node.path.length == 1
   }
@@ -87,11 +89,12 @@ case class IsRoot(child: Expression) extends UnaryNodeExpression {
 case class IsLeaf(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = Any
   override def dataType : DataType = BooleanType
+  override def nullable: Boolean = true
   override protected def name = "IS_LEAF"
 
-  override def eval(input: Row): Any = {
+  override def eval(input: Row): EvaluatedType = {
     val node = child.eval(input).asInstanceOf[Node]
-    node.isLeaf.orNull
+    node.isLeaf
   }
 
   check()
@@ -149,11 +152,16 @@ case class IsSibling(left: Expression, right: Expression) extends NodePredicate 
 
 case class IsFollowing(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_FOLLOWING"
+  override def nullable: Boolean = true
 
-  override def eval(input: Row): EvaluatedType = {
+  override def eval(input: Row): Any = {
     val leftNode = left.eval(input).asInstanceOf[Node]
     val rightNode = right.eval(input).asInstanceOf[Node]
-    leftNode.preRank.get > rightNode.preRank.get
+    if (leftNode.preRank == null || rightNode.preRank == null) {
+      null
+    } else {
+      leftNode.preRank > rightNode.preRank
+    }
   }
 
   check()

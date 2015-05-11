@@ -76,9 +76,9 @@ object HierarchyGen {
 
   private[spark] def treeLocToNode[A](treeLoc : TreeLoc[A]) : Node = Node(
     path = treeLoc.path.reverse.toList,
-    preRank = treeLoc.root.tree.flatten.indexOf(treeLoc.getLabel).some,
-    postRank = treeLoc.root.tree.levels.flatten.indexOf(treeLoc.getLabel).some,
-    isLeaf = treeLoc.isLeaf.some
+    preRank = treeLoc.root.tree.flatten.indexOf(treeLoc.getLabel),
+    postRank = treeLoc.root.tree.levels.flatten.indexOf(treeLoc.getLabel),
+    isLeaf = treeLoc.isLeaf
   )
 
   private[spark] def treeToNodeSeq[A](tree : Tree[A]) : Seq[Node] =

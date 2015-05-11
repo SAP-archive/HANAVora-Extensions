@@ -17,7 +17,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
         val level = Level(ref).eval(row)
         val isLeaf = IsLeaf(ref).eval(row)
         assert(level == node.path.size)
-        assert(isLeaf == node.isLeaf.get)
+        assert(isLeaf == node.isLeaf)
       }
     }
   }
