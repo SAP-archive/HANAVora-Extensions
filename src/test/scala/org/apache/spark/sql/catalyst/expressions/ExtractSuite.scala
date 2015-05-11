@@ -1,4 +1,4 @@
-package org.apache.spark.sql.function
+package org.apache.spark.sql.catalyst.expressions
 
 import java.sql
 import java.sql.Timestamp
@@ -6,7 +6,7 @@ import java.util.Calendar
 
 import corp.sap.spark.SharedSparkContext
 import org.apache.spark.Logging
-import org.apache.spark.sql.{Row, VelocitySQLContext}
+import org.apache.spark.sql.VelocitySQLContext
 import org.scalatest.FunSuite
 
 class ExtractSuite extends FunSuite with SharedSparkContext with Logging {
