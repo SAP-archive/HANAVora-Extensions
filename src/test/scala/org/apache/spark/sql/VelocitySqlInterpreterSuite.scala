@@ -77,6 +77,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
                    |schema "name varchar(*), number integer",
                    |hosts "host",
                    |paths "path",
+                   |eagerLoad "false",
                    |local "true")""".stripMargin
 
     val ret = sqli.interpret(query, context)
@@ -93,6 +94,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
                    |schema "name varchar(*), number integer",
                    |hosts "host1,host2",
                    |paths "path",
+                   |eagerLoad "false",
                    |local "true")""".stripMargin
 
     val ret = sqli.interpret(query, context)
