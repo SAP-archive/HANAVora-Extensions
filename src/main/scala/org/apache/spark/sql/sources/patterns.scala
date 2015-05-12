@@ -15,6 +15,21 @@ object SelectOperation extends PredicateHelper {
 
 }
 
+
+object SetOperation extends PredicateHelper
+{
+  type ReturnType = (String,logical.LogicalPlan,logical.LogicalPlan)
+  def unapply(plan:logical.LogicalPlan):Option[ReturnType]=
+  plan match {
+    case logical.Distinct(child:logical.Union) => Some("UNION",child.left,child.right)
+    case logical.Union(left,right) => Some("UNION ALL",left,right)
+    case logical.Intersect(left,right) => Some("INTERSECT",left,right)
+    case logical.Except(left,right) => Some("EXCEPT",left,right)
+    case _ => None
+  }
+}
+
+
 object GroupByOperation extends PredicateHelper {
   type ReturnType = (Seq[NamedExpression], Seq[Expression], Seq[Expression], logical.LogicalPlan)
 
@@ -30,5 +45,7 @@ object GroupByOperation extends PredicateHelper {
         Some((substitutedAggregateExpressions, filters, substitutedGroupingExpressions, newChild))
       case _ => None
     }
-
 }
+
+
+

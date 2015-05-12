@@ -40,7 +40,8 @@ class SqlBuilder {
    */
   protected def buildQuery(relation: String, fields: Seq[String],
                            filters: Seq[String],
-                           groupByClauses: Seq[String]): String = {
+                           groupByClauses: Seq[String],
+                           havingClause: String): String = {
     val fieldList = fields match {
       case Nil => "*"
       case s => s mkString ", "
@@ -54,7 +55,7 @@ class SqlBuilder {
       case gb =>
         s" GROUP BY ${groupByClauses mkString ", "}"
     }
-    s"""SELECT $fieldList FROM $relation$where$groupBy"""
+    s"""SELECT $fieldList FROM $relation$where$groupBy$havingClause"""
   }
 
   /**
@@ -73,7 +74,8 @@ class SqlBuilder {
       s""""$relation"""",
       fields map ev1.toSql,
       filters map ev2.toSql,
-      groupByClauses map ev3.toSql
+      groupByClauses map ev3.toSql,
+      ""
     )
   }
 
@@ -92,7 +94,8 @@ class SqlBuilder {
       s""""$relation"""",
       fields map ev1.toSql,
       filters map ev2.toSql,
-      Nil
+      Nil,
+      ""
     )
   }
 
@@ -112,7 +115,7 @@ class SqlBuilder {
                                           noProject: Boolean = true): String =
     plan match {
       case src.LogicalRelation(base: SqlLikeRelation) if noProject =>
-        buildQuery(s""""${base.tableName}"""", plan.output.map(expressionToSql), Nil, Nil)
+        buildQuery(s""""${base.tableName}"""", plan.output.map(expressionToSql), Nil, Nil,"")
       case src.LogicalRelation(base: SqlLikeRelation) => s""""${base.tableName}""""
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
@@ -120,12 +123,12 @@ class SqlBuilder {
       case logical.Subquery(alias, child) =>
         s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
       case logical.Join(left, right, joinType, conditionOpt) =>
+        val leftSql = internalLogicalPlanToSql(left, noProject = false)
+        val rightSql = internalLogicalPlanToSql(right, noProject = false)
         val condition = conditionOpt match {
           case None => ""
           case Some(cond) => s" ON ${expressionToSql(cond)}"
         }
-        val leftSql = internalLogicalPlanToSql(left, noProject = false)
-        val rightSql = internalLogicalPlanToSql(right, noProject = false)
         s"$leftSql ${joinTypeToSql(joinType)} $rightSql$condition"
       case logical.Union(left, right) =>
         s"""${logicalPlanToSql(left)} UNION ALL ${logicalPlanToSql(right)}"""
@@ -138,14 +141,16 @@ class SqlBuilder {
           relation = internalLogicalPlanToSql(child, noProject = false),
           fields = aggregateExpressions.map(expressionToSql),
           filters = filters.map(expressionToSql),
-          groupByClauses = groupingExpressions.map(expressionToSql)
+          groupByClauses = groupingExpressions.map(expressionToSql),
+          ""
         )
       case SelectOperation(fields, filters, child) =>
         buildQuery(
           internalLogicalPlanToSql(child, noProject = false),
           fields.map(expressionToSql),
           filters.map(expressionToSql),
-          Nil
+          Nil,
+          ""
         )
       case logical.Limit(limitExpr, child) =>
         s"${internalLogicalPlanToSql(child)} LIMIT ${expressionToSql(limitExpr)}"
@@ -196,7 +201,8 @@ class SqlBuilder {
         val sortDirection = if (direction == Ascending) "ASC" else "DESC"
         s"${expressionToSql(child)} $sortDirection"
       case expr.Literal(value, _) => literalToSql(value)
-      case expr.Cast(child, dataType) => s"CAST($child AS ${typeToSql(dataType)}})"
+      case expr.Cast(child, dataType) =>
+        s"CAST(${expressionToSql(child)} AS ${typeToSql(dataType)})"
       case expr.Sum(child) => s"SUM(${expressionToSql(child)})"
       case expr.Count(child) => s"COUNT(${expressionToSql(child)})"
       case expr.Average(child) => s"AVG(${expressionToSql(child)})"
@@ -313,9 +319,11 @@ class SqlBuilder {
         throw new IllegalArgumentException(s"Type $sparkType cannot be converted to SQL type")
     }
 
+
   protected def flagToSql(flag: expr.Expression): String = {
     flag.toString
   }
+
 }
 
 trait ToSql[T] {
