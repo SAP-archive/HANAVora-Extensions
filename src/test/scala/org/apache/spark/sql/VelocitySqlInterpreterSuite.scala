@@ -71,7 +71,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
   test("Simple create table") {
 
     val query = s"""CREATE TEMPORARY TABLE createTestTable
-                   |USING corp.sap.spark.velocity
+                   |USING corp.sap.spark.velocity.test
                    |OPTIONS (
                    |tableName "createTestTable",
                    |schema "name varchar(*), number integer",
@@ -87,7 +87,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
   test("Simple create table with error") {
 
     val query = s"""CREATE TEMPORARY TABLE createTestTableWithError
-                   |USING corp.sap.spark.velocity
+                   |USING corp.sap.spark.velocity.test
                    |OPTIONS (
                    |tableName "createTestTableWithError",
                    |schema "name varchar(*), number integer",

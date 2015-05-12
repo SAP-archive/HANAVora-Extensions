@@ -36,10 +36,16 @@
       <groupId>corp.sap.spark.velocity</groupId>
       <artifactId>datasource</artifactId>
     </dependency>
-      <dependency>
-          <groupId>corp.sap.spark.velocity</groupId>
-          <artifactId>hanadatasource</artifactId>
-      </dependency>
+    <dependency>
+      <groupId>corp.sap.spark.velocity</groupId>
+      <artifactId>datasource</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>corp.sap.spark.velocity</groupId>
+      <artifactId>hanadatasource</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.binary.version}</artifactId>
@@ -206,8 +212,10 @@
             </filter>
           </filters>
           <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+            <transformer
+                implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+            <transformer
+                implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
               <resource>reference.conf</resource>
             </transformer>
           </transformers>
