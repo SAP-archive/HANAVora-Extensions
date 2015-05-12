@@ -4,7 +4,7 @@ import java.sql.{Date, Timestamp}
 
 import org.apache.spark.sql.catalyst.expressions.Ascending
 import org.apache.spark.sql.catalyst.plans._
-import org.apache.spark.sql.catalyst.{analysis, expressions => expr, planning}
+import org.apache.spark.sql.catalyst.{analysis, expressions => expr}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{sources => src}
 
@@ -27,11 +27,6 @@ class SqlBuilder {
 
   implicit object StringToSql extends ToSql[String] {
     override def toSql(s: String): String = s""""$s""""
-  }
-
-  implicit object LogicalPlanToSql extends ToSql[logical.LogicalPlan] {
-    override def toSql(p: logical.LogicalPlan): String =
-      internalLogicalPlanToSql(p, noProject = false)
   }
 
   /**
@@ -71,11 +66,11 @@ class SqlBuilder {
    * @param groupByClauses List if expressions for the GROUP BY clause (can be empty).
    * @return A SQL string.
    */
-  def buildSelect[E, F, H, G]
-  (relation: E, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
-  (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]): String = {
+  def buildSelect[F, H, G]
+  (relation: String, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
+  (implicit ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]): String = {
     buildQuery(
-      ev0.toSql(relation),
+      s""""$relation"""",
       fields map ev1.toSql,
       filters map ev2.toSql,
       groupByClauses map ev3.toSql
@@ -90,11 +85,11 @@ class SqlBuilder {
    * @param filters List of filters for the WHERE clause (can be empty).
    * @return A SQL string.
    */
-  def buildSelect[E, F, H]
-  (relation: E, fields: Seq[F], filters: Seq[H])
-  (implicit ev0: ToSql[E], ev1: ToSql[F], ev2: ToSql[H]): String = {
+  def buildSelect[F, H]
+  (relation: String, fields: Seq[F], filters: Seq[H])
+  (implicit ev1: ToSql[F], ev2: ToSql[H]): String = {
     buildQuery(
-      ev0.toSql(relation),
+      s""""$relation"""",
       fields map ev1.toSql,
       filters map ev2.toSql,
       Nil
@@ -108,8 +103,12 @@ class SqlBuilder {
    * @param plan
    * @return
    */
-  def logicalPlanToSql(plan: logical.LogicalPlan): String =
-    internalLogicalPlanToSql(plan, noProject = true)
+  def logicalPlanToSql(plan: logical.LogicalPlan): String = plan match {
+    case src.LogicalRelation(base: SqlLikeRelation) =>
+      s"""SELECT * FROM "${base.tableName}""""
+    case _ =>
+      internalLogicalPlanToSql(plan, noProject = true)
+  }
 
   // scalastyle:off cyclomatic.complexity
   protected def internalLogicalPlanToSql(
@@ -117,12 +116,14 @@ class SqlBuilder {
                                           noProject: Boolean = true): String =
     plan match {
       case src.LogicalRelation(base: SqlLikeRelation) if noProject =>
+
         s"""SELECT * FROM "${base.tableName}""""
       case src.LogicalRelation(base: SqlLikeRelation) => s""""${base.tableName}""""
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
-      case logical.Subquery(alias, child) => s"(${internalLogicalPlanToSql(child)}}) AS $alias"
+      case logical.Subquery(alias, child) =>
+        s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
       case logical.Join(left, right, joinType, conditionOpt) =>
         val condition = conditionOpt match {
           case None => ""
@@ -131,15 +132,19 @@ class SqlBuilder {
         val leftSql = internalLogicalPlanToSql(left, noProject = false)
         val rightSql = internalLogicalPlanToSql(right, noProject = false)
         s"$leftSql ${joinTypeToSql(joinType)} $rightSql$condition"
-      case p@planning.PhysicalOperation(fields, filters, child) if
-      p.isInstanceOf[logical.Project] || p.isInstanceOf[logical.Filter] =>
-        buildSelect(child, fields, filters)
-      case logical.Aggregate(groupingExpressions, aggregateExpressions, child) =>
-        buildSelect(
-          child,
-          fields = aggregateExpressions,
-          filters = Seq[String](),
-          groupByClauses = groupingExpressions
+      case GroupByOperation(aggregateExpressions, filters, groupingExpressions, child) =>
+        buildQuery(
+          relation = internalLogicalPlanToSql(child, noProject = false),
+          fields = aggregateExpressions.map(expressionToSql),
+          filters = filters.map(expressionToSql),
+          groupByClauses = groupingExpressions.map(expressionToSql)
+        )
+      case SelectOperation(fields, filters, child) =>
+        buildQuery(
+          internalLogicalPlanToSql(child, noProject = false),
+          fields.map(expressionToSql),
+          filters.map(expressionToSql),
+          Nil
         )
       case logical.Limit(limitExpr, child) =>
         s"${internalLogicalPlanToSql(child)} LIMIT ${expressionToSql(limitExpr)}"

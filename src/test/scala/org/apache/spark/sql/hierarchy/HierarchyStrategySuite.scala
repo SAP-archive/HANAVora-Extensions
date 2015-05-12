@@ -6,8 +6,8 @@ import org.scalatest.{BeforeAndAfter, FunSuite, ParallelTestExecution}
 
 // scalastyle:off magic.number
 
-class HierarchyStrategySuite extends FunSuite with BeforeAndAfter
-  with ParallelTestExecution with MockitoSparkContext {
+class HierarchyStrategySuite extends FunSuite
+  with MockitoSparkContext {
 
   test("unit: test hierarchy strategy with default context configuration") {
     val strategy = new HierarchyStrategy(Nil, null, null, Nil)

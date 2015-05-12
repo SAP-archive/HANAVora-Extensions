@@ -1,5 +1,6 @@
 package org.apache.spark.sql.sources
 
+import org.apache.spark.sql.catalyst.analysis.UnresolvedStar
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
@@ -120,10 +121,39 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
 
   testLogicalPlan("SELECT * FROM \"t1\"")(t1)
   testLogicalPlan("SELECT * FROM \"t1\"")(t1.select())
+  testLogicalPlan("SELECT * FROM \"t1\"")(t1.select().select())
+  testLogicalPlan("SELECT * FROM \"t1\"")(t1.select(UnresolvedStar(None)))
+  testLogicalPlan("SELECT \"t1\".\"c1\" FROM \"t1\" GROUP BY \"t1\".\"c1\"")({
+    val c1 = 'c1.string.withQualifiers("t1" :: Nil)
+    val c2 = 'c2.string.withQualifiers("t1" :: Nil)
+    t1.select(c1, c2).groupBy(c1)(c1)
+  })
 
   testLogicalPlan("""SELECT "t1"."c1" FROM "t1" GROUP BY "t1"."c1"""")(
     t1.groupBy('c1.string.withQualifiers("t1" :: Nil))('c1.string.withQualifiers("t1" :: Nil))
   )
+
+  testLogicalPlan(
+    """
+      |SELECT "q"."c1"
+      |FROM (SELECT "t1"."c1" FROM "t1") AS "q"
+      |GROUP BY "q"."c1"
+      |""".stripMargin.replaceAll("(\n|\\s)+", " ").trim)({
+    val c1 = 'c1.string.withQualifiers("t1" :: Nil)
+    val qc1 = 'c1.string.withQualifiers("q" :: Nil)
+    t1.select(c1).subquery('q).select(qc1).groupBy(qc1)(qc1)
+  })
+
+  testLogicalPlan(
+    """
+      |SELECT "q"."c1"
+      |FROM (SELECT "t1"."c1" FROM "t1" WHERE ("t1"."c1" = 'string')) AS "q"
+      |GROUP BY "q"."c1"
+      |""".stripMargin.replaceAll("(\n|\\s)+", " ").trim)({
+    val c1 = 'c1.string.withQualifiers("t1" :: Nil)
+    val qc1 = 'c1.string.withQualifiers("q" :: Nil)
+    t1.select(c1).where(c1 === "string").subquery('q).select(qc1).groupBy(qc1)(qc1)
+  })
 
   testLogicalPlan("""SELECT * FROM "t1" LIMIT 100""")(t1.limit(100))
 

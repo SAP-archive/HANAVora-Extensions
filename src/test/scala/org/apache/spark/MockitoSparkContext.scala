@@ -1,19 +1,20 @@
 package org.apache.spark
 
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfter, Suite}
+import org.scalatest.{BeforeAndAfterEach, BeforeAndAfter, Suite}
 
 /**
  * Provides a simple mocked SparkContext.
  */
-trait MockitoSparkContext extends BeforeAndAfter { self: Suite =>
+trait MockitoSparkContext extends BeforeAndAfterEach { self: Suite =>
 
   def sc : SparkContext = _sc
 
   private var _sparkConf : SparkConf = null
   private var _sc : SparkContext = null
 
-  before {
+  override def beforeEach() {
+    super.beforeEach()
     _sc = mock[SparkContext](classOf[SparkContext])
     _sparkConf = new SparkConf(loadDefaults = false)
     when(_sc.conf).thenReturn(_sparkConf)
