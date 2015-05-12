@@ -2,102 +2,58 @@ package org.apache.spark.sql.catalyst.expressions
 
 import java.sql
 import java.sql.Timestamp
-import java.util.Calendar
+import java.util.{Calendar, Locale, TimeZone}
 
-import corp.sap.spark.SharedSparkContext
 import org.apache.spark.Logging
-import org.apache.spark.sql.VelocitySQLContext
+import org.apache.spark.sql.catalyst.dsl.expressions._
+import org.apache.spark.sql.types.DateUtils
 import org.scalatest.FunSuite
 
-class ExtractSuite extends FunSuite with SharedSparkContext with Logging {
+class ExtractSuite extends FunSuite with Logging {
 
   // scalastyle:off magic.number
 
-  val rowA = DateRow("AAA", getDate(21, 4, 1987))
-  val rowB = DateRow("BBB", getDate(1, 9, 1987))
-  val rowC = DateRow("CCC", getDate(5, 4, 2000))
+  test("EXTRACT date") {
+    val extract = Extract('a.string.at(0), 'a.date.at(1))
+    val d =  getDate(21, 4, 1987)
 
-  /* 24/6/1987 8:03:01 */
-  val dtRowA = DateTimeRow("DDD", new Timestamp(551512981000L))
-  /* 30/1/2000 2:01:00 */
-  val dtRowB = DateTimeRow("EEE", new Timestamp(949194060000L))
-  /* 31/12/2015 0:03:00 */
-  val dtRowC = DateTimeRow("FFF", new Timestamp(1451516580000L))
-
-  val dataWithDates = Seq(rowA, rowB, rowC)
-  val dataWithDateTimes = Seq(dtRowA, dtRowB, dtRowC)
-
-
-  test("DateTime extract in project") {
-    val sqlContext = new VelocitySQLContext(sc)
-    val rdd = sc.parallelize(dataWithDateTimes)
-    val dSrc = sqlContext.createDataFrame(rdd).cache()
-    dSrc.registerTempTable("src")
-
-    val result1 = sqlContext.sql("SELECT name, d, EXTRACT(DAY FROM d) FROM src").collect
-
-    assertResult(Row(dtRowA.name, dtRowA.d, 24) ::
-      Row(dtRowB.name, dtRowB.d, 30) ::
-      Row(dtRowC.name, dtRowC.d, 31) :: Nil)(result1)
-
-    val result2 = sqlContext.sql("SELECT name, d, EXTRACT(MONTH FROM d) FROM src").collect
-
-    assertResult(Row(dtRowA.name, dtRowA.d, 6) ::
-      Row(dtRowB.name, dtRowB.d, 1) ::
-      Row(dtRowC.name, dtRowC.d, 12) :: Nil)(result2)
-
-    val result3 = sqlContext.sql("SELECT name, d, EXTRACT(YEAR FROM d) FROM src").collect
-
-    assertResult(Row(dtRowA.name, dtRowA.d, 1987) ::
-      Row(dtRowB.name, dtRowB.d, 2000) ::
-      Row(dtRowC.name, dtRowC.d, 2015) :: Nil)(result3)
-
-    val result4 = sqlContext.sql("SELECT name, d, EXTRACT(HOUR FROM d) FROM src").collect
-
-    assertResult(Row(dtRowA.name, dtRowA.d, 8) ::
-      Row(dtRowB.name, dtRowB.d, 2) ::
-      Row(dtRowC.name, dtRowC.d, 0) :: Nil)(result4)
-
-    val result5 = sqlContext.sql("SELECT name, d, EXTRACT(MINUTE FROM d) FROM src").collect
-
-    assertResult(Row(dtRowA.name, dtRowA.d, 3) ::
-      Row(dtRowB.name, dtRowB.d, 1) ::
-      Row(dtRowC.name, dtRowC.d, 3) :: Nil)(result5)
-
-    val result6 = sqlContext.sql("SELECT name, d, EXTRACT(SECOND FROM d) FROM src").collect
-
-    assertResult(Row(dtRowA.name, dtRowA.d, 1) ::
-      Row(dtRowB.name, dtRowB.d, 0) ::
-      Row(dtRowC.name, dtRowC.d, 0) :: Nil)(result6)
+    assertResult(21)(extract.eval(Row("DAY", d)))
+    assertResult(4)(extract.eval(Row("MONTH",  d)))
+    assertResult(1987)(extract.eval(Row("YEAR",  d)))
+    assertResult(1987)(extract.eval(Row("YEAR",  DateUtils.fromJavaDate(d))))
+    assertResult(null)(extract.eval(Row("YEAR",  null)))
+    assertResult(null)(extract.eval(Row(null,  d)))
+    assertResult(null)(extract.eval(Row(null,  null)))
+    assertResult(0)(extract.eval(Row("HOUR", d)))
+    assertResult(0)(extract.eval(Row("MINUTE", d)))
+    assertResult(0)(extract.eval(Row("SECOND", d)))
   }
 
-  test("Date extract in project") {
-    val sqlContext = new VelocitySQLContext(sc)
-    val rdd = sc.parallelize(dataWithDates)
-    val dSrc = sqlContext.createDataFrame(rdd).cache()
-    dSrc.registerTempTable("src")
+  test("EXTRACT timestamp") {
+    val extract = Extract('a.string.at(0), 'a.timestamp.at(1))
 
-    val result1 = sqlContext.sql("SELECT name, d, EXTRACT(DAY FROM d) FROM src").collect
+    /* 24/6/1987 6:03:01 GMT */
+    val t = new Timestamp(551512981000L)
 
-    assertResult(Row(rowA.name, rowA.d, 21) ::
-      Row(rowB.name, rowB.d, 1) ::
-      Row(rowC.name, rowC.d, 5) :: Nil)(result1)
+    assertResult(24)(extract.eval(Row("DAY", t)))
+    assertResult(6)(extract.eval(Row("MONTH",  t)))
+    assertResult(1987)(extract.eval(Row("YEAR",  t)))
+    assertResult(null)(extract.eval(Row("YEAR",  null)))
+    assertResult(null)(extract.eval(Row(null,  t)))
+    assertResult(null)(extract.eval(Row(null,  null)))
+    assertResult(6)(extract.eval(Row("HOUR", t)))
+    assertResult(3)(extract.eval(Row("MINUTE", t)))
+    assertResult(1)(extract.eval(Row("SECOND", t)))
+  }
 
-    val result2 = sqlContext.sql("SELECT name, d, EXTRACT(MONTH FROM d) FROM src").collect
-
-    assertResult(Row(rowA.name, rowA.d, 4) ::
-      Row(rowB.name, rowB.d, 9) ::
-      Row(rowC.name, rowC.d, 4) :: Nil)(result2)
-
-    val result3 = sqlContext.sql("SELECT name, d, EXTRACT(YEAR FROM d) FROM src").collect
-
-    assertResult(Row(rowA.name, rowA.d, 1987) ::
-      Row(rowB.name, rowB.d, 1987) ::
-      Row(rowC.name, rowC.d, 2000) :: Nil)(result3)
+  test("Prevent bad data types in EXTRACT") {
+    intercept[RuntimeException](Extract('a.int.at(0), 'a.timestamp.at(1)))
+    intercept[RuntimeException](Extract('a.string.at(0), 'a.float.at(1)))
+    intercept[RuntimeException](Extract('a.int.at(0), 'a.float.at(1)))
   }
 
   private def getDate(day: Int, month: Int, year: Int): sql.Date = {
-    val calendar = Calendar.getInstance()
+    val calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"), Locale.ENGLISH)
     calendar.clear()
     calendar.set(Calendar.DAY_OF_MONTH, day)
     calendar.set(Calendar.MONTH, month - 1)
@@ -105,7 +61,3 @@ class ExtractSuite extends FunSuite with SharedSparkContext with Logging {
     new sql.Date(calendar.getTimeInMillis)
   }
 }
-
-case class DateRow(name: String, d: sql.Date)
-
-case class DateTimeRow(name: String, d: Timestamp)
