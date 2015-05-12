@@ -36,39 +36,39 @@ class ExtractSuite extends FunSuite with SharedSparkContext with Logging {
 
     val result1 = sqlContext.sql("SELECT name, d, EXTRACT(DAY FROM d) FROM src").collect
 
-    assertResult(Row.apply(dtRowA.name, dtRowA.d, 24) ::
-      Row.apply(dtRowB.name, dtRowB.d, 30) ::
-      Row.apply(dtRowC.name, dtRowC.d, 31) :: Nil)(result1)
+    assertResult(Row(dtRowA.name, dtRowA.d, 24) ::
+      Row(dtRowB.name, dtRowB.d, 30) ::
+      Row(dtRowC.name, dtRowC.d, 31) :: Nil)(result1)
 
     val result2 = sqlContext.sql("SELECT name, d, EXTRACT(MONTH FROM d) FROM src").collect
 
-    assertResult(Row.apply(dtRowA.name, dtRowA.d, 6) ::
-      Row.apply(dtRowB.name, dtRowB.d, 1) ::
-      Row.apply(dtRowC.name, dtRowC.d, 12) :: Nil)(result2)
+    assertResult(Row(dtRowA.name, dtRowA.d, 6) ::
+      Row(dtRowB.name, dtRowB.d, 1) ::
+      Row(dtRowC.name, dtRowC.d, 12) :: Nil)(result2)
 
     val result3 = sqlContext.sql("SELECT name, d, EXTRACT(YEAR FROM d) FROM src").collect
 
-    assertResult(Row.apply(dtRowA.name, dtRowA.d, 1987) ::
-      Row.apply(dtRowB.name, dtRowB.d, 2000) ::
-      Row.apply(dtRowC.name, dtRowC.d, 2015) :: Nil)(result3)
+    assertResult(Row(dtRowA.name, dtRowA.d, 1987) ::
+      Row(dtRowB.name, dtRowB.d, 2000) ::
+      Row(dtRowC.name, dtRowC.d, 2015) :: Nil)(result3)
 
     val result4 = sqlContext.sql("SELECT name, d, EXTRACT(HOUR FROM d) FROM src").collect
 
-    assertResult(Row.apply(dtRowA.name, dtRowA.d, 8) ::
-      Row.apply(dtRowB.name, dtRowB.d, 2) ::
-      Row.apply(dtRowC.name, dtRowC.d, 0) :: Nil)(result4)
+    assertResult(Row(dtRowA.name, dtRowA.d, 8) ::
+      Row(dtRowB.name, dtRowB.d, 2) ::
+      Row(dtRowC.name, dtRowC.d, 0) :: Nil)(result4)
 
     val result5 = sqlContext.sql("SELECT name, d, EXTRACT(MINUTE FROM d) FROM src").collect
 
-    assertResult(Row.apply(dtRowA.name, dtRowA.d, 3) ::
-      Row.apply(dtRowB.name, dtRowB.d, 1) ::
-      Row.apply(dtRowC.name, dtRowC.d, 3) :: Nil)(result5)
+    assertResult(Row(dtRowA.name, dtRowA.d, 3) ::
+      Row(dtRowB.name, dtRowB.d, 1) ::
+      Row(dtRowC.name, dtRowC.d, 3) :: Nil)(result5)
 
     val result6 = sqlContext.sql("SELECT name, d, EXTRACT(SECOND FROM d) FROM src").collect
 
-    assertResult(Row.apply(dtRowA.name, dtRowA.d, 1) ::
-      Row.apply(dtRowB.name, dtRowB.d, 0) ::
-      Row.apply(dtRowC.name, dtRowC.d, 0) :: Nil)(result6)
+    assertResult(Row(dtRowA.name, dtRowA.d, 1) ::
+      Row(dtRowB.name, dtRowB.d, 0) ::
+      Row(dtRowC.name, dtRowC.d, 0) :: Nil)(result6)
   }
 
   test("Date extract in project") {
@@ -79,21 +79,21 @@ class ExtractSuite extends FunSuite with SharedSparkContext with Logging {
 
     val result1 = sqlContext.sql("SELECT name, d, EXTRACT(DAY FROM d) FROM src").collect
 
-    assertResult(Row.apply(rowA.name, rowA.d, 21) ::
-      Row.apply(rowB.name, rowB.d, 1) ::
-      Row.apply(rowC.name, rowC.d, 5) :: Nil)(result1)
+    assertResult(Row(rowA.name, rowA.d, 21) ::
+      Row(rowB.name, rowB.d, 1) ::
+      Row(rowC.name, rowC.d, 5) :: Nil)(result1)
 
     val result2 = sqlContext.sql("SELECT name, d, EXTRACT(MONTH FROM d) FROM src").collect
 
-    assertResult(Row.apply(rowA.name, rowA.d, 4) ::
-      Row.apply(rowB.name, rowB.d, 9) ::
-      Row.apply(rowC.name, rowC.d, 4) :: Nil)(result2)
+    assertResult(Row(rowA.name, rowA.d, 4) ::
+      Row(rowB.name, rowB.d, 9) ::
+      Row(rowC.name, rowC.d, 4) :: Nil)(result2)
 
     val result3 = sqlContext.sql("SELECT name, d, EXTRACT(YEAR FROM d) FROM src").collect
 
-    assertResult(Row.apply(rowA.name, rowA.d, 1987) ::
-      Row.apply(rowB.name, rowB.d, 1987) ::
-      Row.apply(rowC.name, rowC.d, 2000) :: Nil)(result3)
+    assertResult(Row(rowA.name, rowA.d, 1987) ::
+      Row(rowB.name, rowB.d, 1987) ::
+      Row(rowC.name, rowC.d, 2000) :: Nil)(result3)
   }
 
   private def getDate(day: Int, month: Int, year: Int): sql.Date = {
