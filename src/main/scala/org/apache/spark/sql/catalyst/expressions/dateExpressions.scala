@@ -2,13 +2,10 @@ package org.apache.spark.sql.catalyst.expressions
 
 import java.sql
 import java.sql.Timestamp
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import org.apache.spark.sql.catalyst.expressions.DateFlag._
-import org.apache.spark.sql.types.{DataType, DoubleType, LongType, IntegerType}
+import org.apache.spark.sql.types.{DataType, LongType, IntegerType}
 import org.apache.spark.sql.types.DateType
-import org.apache.spark.sql.types.TimestampType
 import java.util.TimeZone
 import java.util.Locale
 
@@ -37,7 +34,7 @@ case class DatePart(ed: Expression, part: Integer) extends Expression {
       0
     } else {
       val calendar = Calendar.getInstance
-      calendar.clear
+      calendar.clear()
       
       date match {
         case dateTime: Timestamp =>
@@ -53,10 +50,12 @@ case class DatePart(ed: Expression, part: Integer) extends Expression {
           sys.error(s"Type ${other.getClass} does not support date operations")
       }
       val p = calendar.get(part)
-      if (part == Calendar.MONTH)
-        p+1
-      else
+      if (part == Calendar.MONTH){
+        p + 1
+      }
+      else {
         p
+      }
     }
   }
 
@@ -70,6 +69,7 @@ case class AddDays(ed: Expression, en: Expression) extends Expression {
 
   override type EvaluatedType = sql.Date
 
+  // scalastyle:off cyclomatic.complexity
   override def eval(input: Row): EvaluatedType = {
     val d = ed.eval(input)
     if (d == null) {
@@ -91,9 +91,10 @@ case class AddDays(ed: Expression, en: Expression) extends Expression {
         case dt: Date => dt.getTime
         case other =>
           sys.error(s"Type ${other.getClass} does not support date operations")
-      }) + n);
+      }) + n)
     }
   }
+  // scalastyle:on cyclomatic.complexity
 
   override def nullable: Boolean = ed.nullable
   override def dataType: DataType = DateType
@@ -104,14 +105,15 @@ case class AddDays(ed: Expression, en: Expression) extends Expression {
 case class AddMonths(ed: Expression, en: Expression) extends Expression {
 
   override type EvaluatedType = sql.Date
-  
+
+  // scalastyle:off cyclomatic.complexity
   override def eval(input: Row): EvaluatedType = {
     val date = ed.eval(input)
     if (date == null) {
       null
     } else {
       val calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"), Locale.ENGLISH)
-      calendar.clear
+      calendar.clear()
       
       date match {
         case dt: Timestamp =>
@@ -141,6 +143,7 @@ case class AddMonths(ed: Expression, en: Expression) extends Expression {
       new sql.Date(calendar.getTimeInMillis)
     }
   }
+  // scalastyle:on cyclomatic.complexity
 
   override def nullable: Boolean = ed.nullable
   override def dataType: DataType = DateType
@@ -152,13 +155,14 @@ case class AddYears(ed: Expression, en: Expression) extends Expression {
 
   override type EvaluatedType = sql.Date
 
+  // scalastyle:off cyclomatic.complexity
   override def eval(input: Row): EvaluatedType = {
     val date = ed.eval(input)
     if (date == null) {
       null
     } else {
       val calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"), Locale.ENGLISH)
-      calendar.clear
+      calendar.clear()
       
       date match {
         case dt: Timestamp =>
@@ -188,6 +192,7 @@ case class AddYears(ed: Expression, en: Expression) extends Expression {
       new sql.Date(calendar.getTimeInMillis)
     }
   }
+  // scalastyle:on cyclomatic.complexity
 
   override def nullable: Boolean = ed.nullable
   override def dataType: DataType = DateType
@@ -199,14 +204,15 @@ case class DaysBetween(ed1: Expression, ed2: Expression) extends Expression {
 
   override type EvaluatedType = Long
 
+  // scalastyle:off cyclomatic.complexity
   override def eval(input: Row): EvaluatedType = {
     val date1 = ed1.eval(input)
     val date2 = ed2.eval(input)
     (date1,date2) match {
       case (null,_) | (_,null) | (null,null) => 0
-      case (_,_) => {
+      case (_,_) =>
         val calendar1 = Calendar.getInstance
-        calendar1.clear
+        calendar1.clear()
         
         date1 match {
           case dt1: Timestamp =>
@@ -223,7 +229,7 @@ case class DaysBetween(ed1: Expression, ed2: Expression) extends Expression {
         }
         
         val calendar2 = Calendar.getInstance
-        calendar2.clear
+        calendar2.clear()
         
         date2 match {
           case dt2: Timestamp =>
@@ -239,9 +245,9 @@ case class DaysBetween(ed1: Expression, ed2: Expression) extends Expression {
             sys.error(s"Type ${other.getClass} does not support date operations")
         }
         (calendar2.getTimeInMillis - calendar1.getTimeInMillis)/(24*3600*1000)
-      }
     }    
   }
+  // scalastyle:on cyclomatic.complexity
 
   override def nullable: Boolean = ed1.nullable || ed2.nullable 
   override def dataType: DataType = LongType

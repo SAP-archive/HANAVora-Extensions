@@ -18,7 +18,7 @@ package org.apache.spark.sql.sources
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.implicits._
+import org.apache.spark.sql.catalyst.expressions.Implicits._
 import org.apache.spark.sql.catalyst.planning.{PartialAggregation, PhysicalOperation}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.{expressions => expr}

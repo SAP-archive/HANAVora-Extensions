@@ -68,7 +68,8 @@ class HierarchiesSQLParser extends SqlParser {
   override protected lazy val relation: Parser[LogicalPlan] =
     hierarchy | joinedRelation | relationFactor
 
-  override protected lazy val function: Parser[Expression] = extract | sparkFunctions | velocityFunctions
+  override protected lazy val function: Parser[Expression] =
+    extract | sparkFunctions | velocityFunctions
 
   // scalastyle:off
   /* TODO SparkSQL parser functions code copied */

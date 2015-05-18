@@ -178,6 +178,7 @@ class SqlBuilder {
   // scalastyle:on cyclomatic.complexity
 
   // scalastyle:off cyclomatic.complexity
+  // scalastyle:off method.length
   def expressionToSql(expression: expr.Expression): String =
     expression match {
       case expr.And(left, right) => s"(${expressionToSql(left)} AND ${expressionToSql(right)})"
@@ -269,7 +270,7 @@ class SqlBuilder {
       case x =>
         sys.error(s"Could not convert to SQL: $x (${x.getClass}})")
     }
-
+  // scalastyle:on method.length
   // scalastyle:on cyclomatic.complexity
 
   /**

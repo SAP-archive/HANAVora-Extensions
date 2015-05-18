@@ -1,9 +1,6 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import java.sql.Timestamp
-import java.util.Calendar
-import org.apache.spark.sql.catalyst.expressions.DateFlag._
-import org.apache.spark.sql.types.{DataType, DoubleType, LongType, IntegerType}
+import org.apache.spark.sql.types.{DataType, DoubleType, IntegerType}
 import org.apache.commons.math3.util.FastMath
 import org.apache.spark.sql.types.NumericType
 
@@ -14,7 +11,7 @@ case class Ln(child: Expression) extends UnaryExpression {
   override def dataType: DataType = DoubleType
   override def foldable: Boolean = child.foldable
   override def nullable: Boolean = true
-  override def toString: String = s"LN($child)"
+  override def toString(): String = s"LN($child)"
 
   lazy val numeric = child.dataType match {
     case n: NumericType => n.numeric.asInstanceOf[Numeric[Any]]
@@ -41,7 +38,7 @@ case class Log(child: Expression) extends UnaryExpression {
   override def dataType: DataType = DoubleType
   override def foldable: Boolean = child.foldable
   override def nullable: Boolean = true
-  override def toString: String = s"LN($child)"
+  override def toString(): String = s"LN($child)"
 
   lazy val numeric = child.dataType match {
     case n: NumericType => n.numeric.asInstanceOf[Numeric[Any]]
@@ -66,6 +63,7 @@ case class Power(d: Expression, p: Expression) extends Expression {
 
   override type EvaluatedType = Double
 
+  // scalastyle:off cyclomatic.complexity
   override def eval(input: Row): EvaluatedType = {
     val ce = d.eval(input) match {
        case null => 0.0 
@@ -87,6 +85,7 @@ case class Power(d: Expression, p: Expression) extends Expression {
     }
     FastMath.pow(ce, cp)
   }
+  // scalastyle:on cyclomatic.complexity
 
   override def nullable: Boolean = d.nullable
   override def dataType: DataType = DoubleType
@@ -249,8 +248,11 @@ case class Ceil(d: Expression) extends Expression {
 /** Return the d rounded with dec precision */
 case class Round(d: Expression, dec: Expression) extends Expression {
 
+  private val RAISED_NUMBER = 10
+
   override type EvaluatedType = Double
 
+  // scalastyle:off cyclomatic.complexity
   override def eval(input: Row): EvaluatedType = {
     val de = d.eval(input)
     if (de == null) {
@@ -264,7 +266,7 @@ case class Round(d: Expression, dec: Expression) extends Expression {
         case other =>
           sys.error(s"Type ${other.getClass} does not support numeric operations")
       }
-      val m = FastMath.pow(10,n)  
+      val m = FastMath.pow(RAISED_NUMBER,n)
       de match {
         case d : Double => FastMath.round(d*m) / m   
         case l : Long   => l   
@@ -275,6 +277,7 @@ case class Round(d: Expression, dec: Expression) extends Expression {
       }
     }
   }
+  // scalastyle:on cyclomatic.complexity
 
   override def nullable: Boolean = d.nullable
   override def dataType: DataType = DoubleType
@@ -362,7 +365,6 @@ case class ToInteger(s: Expression) extends Expression {
       case l : Long   => l.toInt   
       case i : Integer=> i
       case f : Float  => f.toInt
-      case s : String => s.toInt
       case other =>
         sys.error(s"Type ${other.getClass} does not support numeric operations")
     }

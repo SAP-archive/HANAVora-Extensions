@@ -1,6 +1,6 @@
 package org.apache.spark.sql.catalyst.expressions
 
-object implicits {
+object Implicits {
 
   implicit class ExpressionsOps(expression: Expression) {
     def extractAttributes: Seq[AttributeReference] = ExpressionsOps.extract(expression)
