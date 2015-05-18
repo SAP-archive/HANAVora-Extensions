@@ -3,7 +3,7 @@ package org.apache.spark.sql
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql.catalyst.AbstractSparkSQLParser
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, SimpleFunctionRegistry, FunctionRegistry}
+import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.{ExtractPythonUdfs, SparkPlan}
@@ -54,7 +54,26 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext,
         Nil
     new Analyzer(catalog, functionRegistry, caseSensitive = true) {
       val extendedRules = extensions.flatMap(_.resolutionRules(this))
+
       override val extendedResolutionRules = extendedRules ++ parentRules
+
+      /* XXX: Override this to replace EliminateSubQueries with RewriteWithoutSubQueries */
+      override lazy val batches: Seq[Batch] = Seq(
+        Batch("Resolution", fixedPoint,
+          ResolveRelations ::
+            ResolveReferences ::
+            ResolveGroupingAnalytics ::
+            ResolveSortReferences ::
+            ImplicitGenerate ::
+            ResolveFunctions ::
+            GlobalAggregates ::
+            UnresolvedHavingClauseAttributes ::
+            TrimGroupingAliases ::
+            typeCoercionRules ++
+              extendedResolutionRules : _*),
+        Batch("Remove SubQueries", fixedPoint,
+          RewriteWithoutSubQueries)
+      )
     }
   }
 
