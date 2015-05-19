@@ -2,47 +2,40 @@ package org.apache.spark.sql
 
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.sql.catalyst.AbstractSparkSQLParser
 import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.{ExtractPythonUdfs, SparkPlan}
 
 /**
- * Extendable SQLContext. This SQLContext takes a sequence of SQLContextExtension
+ * Extendable SQLContext. This SQLContext is composable with traits
  * that can provide extended parsers, resolution rules, function registries or
  * strategies.
  *
  * @param sparkContext The SparkContext.
- * @param extensions A list of extensions.
  */
 @DeveloperApi
-class ExtendableSQLContext(@transient override val sparkContext: SparkContext,
-                           extensions : Seq[SQLContextExtension] = Nil)
-  extends SQLContext(sparkContext) {
+class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
+  extends SQLContext(sparkContext)
+  with SQLContextParserExtension
+  with SQLContextRegisterFunctions
+  with SQLContextAnalyzerExtension
+  with SQLContextOptimizerExtension
+  with SQLContextPlannerExtension {
+  self =>
 
   @transient
-  override protected[sql] val sqlParser : SparkSQLParser = {
-    val extendedParsers = extensions.flatMap(_.sqlParser)
-    if (extendedParsers.size > 1) {
-      log.warn("Got more than one extended parser, but only one will have effect: {}",
-        extendedParsers.head)
-    }
-    extendedParsers.headOption.getOrElse {
+  override protected[sql] val sqlParser : SparkSQLParser =
+    extendedSqlParser.getOrElse {
       val fallback = new catalyst.SqlParser
       new SparkSQLParser(fallback(_))
     }
-  }
 
   @transient
   override protected[sql] lazy val functionRegistry: FunctionRegistry = {
-    val extendedFunctionRegistries = extensions.flatMap(_.functionRegistry)
-    if (extendedFunctionRegistries.size > 1) {
-      log.warn("Got more than one extended function registry, but only one will have effect: {}",
-        extendedFunctionRegistries.head)
-    }
-    val registry = extendedFunctionRegistries.headOption.getOrElse(new SimpleFunctionRegistry(true))
-    extensions.foreach(_.registerFunctions(registry))
+    val registry = new SimpleFunctionRegistry(caseSensitive = false)
+    registerFunctions(registry)
     registry
   }
 
@@ -53,9 +46,7 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext,
         sources.PreInsertCastAndRename ::
         Nil
     new Analyzer(catalog, functionRegistry, caseSensitive = true) {
-      val extendedRules = extensions.flatMap(_.resolutionRules(this))
-
-      override val extendedResolutionRules = extendedRules ++ parentRules
+      override val extendedResolutionRules = resolutionRules(this) ++ parentRules
 
       /* XXX: Override this to replace EliminateSubQueries with RewriteWithoutSubQueries */
       override lazy val batches: Seq[Batch] = Seq(
@@ -78,29 +69,68 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext,
   }
 
   @transient
-  override protected[sql] val planner = new SparkPlanner with ExtendedPlanner {
-    override def strategies: Seq[Strategy] =
-      extensions.flatMap(_.strategies(this)) ++ super.strategies
+  override protected[sql] lazy val optimizer: Optimizer = new Optimizer {
+
+    private val extendedOptimizerRules = self.optimizerRules
+    private val MAX_ITERATIONS = 100
+
+    /* TODO: This should be gone in Spark 1.4+
+     * See: https://issues.apache.org/jira/browse/SPARK-7727
+     */
+    // scalastyle:off structural.type
+    private def transformBatchType(b: DefaultOptimizer.Batch): Batch = {
+      val strategy = b.strategy.maxIterations match {
+        case 1 => Once
+        case n => FixedPoint(n)
+      }
+      Batch(b.name, strategy, b.rules : _*)
+    }
+    // scalastyle:on structural.type
+
+    private val baseBatches = DefaultOptimizer.batches.map(transformBatchType)
+
+    override protected val batches: Seq[Batch] = if (extendedOptimizerRules.isEmpty) {
+      baseBatches
+    } else {
+      baseBatches :+
+        Batch("Extended Optimization Rules", FixedPoint(MAX_ITERATIONS), extendedOptimizerRules :_*)
+    }
+  }
+
+  @transient
+  override protected[sql] val planner: SparkPlanner = new SparkPlanner with ExtendedPlanner {
+    override def strategies: Seq[Strategy] = self.strategies(this) ++ super.strategies
   }
 
 }
 
+@DeveloperApi
 trait ExtendedPlanner {
   self: SQLContext#SparkPlanner =>
   def planLaterExt(p : LogicalPlan) : SparkPlan = self.planLater(p)
 }
 
 @DeveloperApi
-trait SQLContextExtension {
+trait SQLContextParserExtension {
+  protected def extendedSqlParser: Option[SparkSQLParser] = None
+}
 
-  def sqlParser : Option[SparkSQLParser] = None
+@DeveloperApi
+trait SQLContextRegisterFunctions {
+  protected def registerFunctions(registry: FunctionRegistry): Unit = { }
+}
 
-  def functionRegistry : Option[FunctionRegistry] = None
+@DeveloperApi
+trait SQLContextAnalyzerExtension {
+  protected def resolutionRules(analyzer : Analyzer) : List[Rule[LogicalPlan]] = Nil
+}
 
-  def resolutionRules(analyzer : Analyzer) : Seq[Rule[LogicalPlan]] = Nil
+@DeveloperApi
+trait SQLContextOptimizerExtension {
+  protected def optimizerRules: List[Rule[LogicalPlan]] = Nil
+}
 
-  def strategies(planner : ExtendedPlanner) : Seq[Strategy] = Nil
-
-  def registerFunctions(registry : FunctionRegistry) : Unit = { }
-
+@DeveloperApi
+trait SQLContextPlannerExtension {
+  protected def strategies(planner : ExtendedPlanner) : List[Strategy] = Nil
 }

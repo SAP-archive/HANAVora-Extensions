@@ -4,16 +4,29 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.analysis.VelocityCheckAnalysis
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
 import org.apache.spark.sql.execution.{AddDefaultExchange, SparkPlan}
-import org.apache.spark.sql.sources.{CatalystSourceStrategy, PushDownAggregatesStrategy,
-PushDownFunctionsStrategy}
+import org.apache.spark.sql.sources.{CatalystSourceStrategy, PushDownAggregatesStrategy}
 
 /**
- * This context provides extended SQLContext functionality such as hierarchies, enhaced data
+ * This context provides extended [[SQLContext]] functionality such as hierarchies, enhanced data
  * sources API with support for aggregates pushdown, etc.
  */
 class VelocitySQLContext(@transient override val sparkContext: SparkContext)
-  extends ExtendableSQLContext(sparkContext, Seq(SQLExtensions, HierarchySQLContextExtension)) {
-  self =>
+  extends ExtendableSQLContext(sparkContext)
+  with WithVeloctyFixes
+  with SQLContextPushDownFunctionsExtension
+  with SQLContextPushDownAggregatesExtension
+  with SQLContextHierarchiesExtension
+  with SQLContextCatalystSourceExtension
+
+/**
+ * Convenience trait to include miscelaneous general fixes for [[SQLContext]].
+ */
+private[sql] trait WithVeloctyFixes extends WithDefaultExchangeFix with WithVelocityCheckAnalysis {
+  self: ExtendableSQLContext =>
+}
+
+private[sql] trait WithDefaultExchangeFix {
+  self: ExtendableSQLContext =>
 
   /**
    * Prepares a planned SparkPlan for execution by inserting shuffle operations as needed.
@@ -26,6 +39,10 @@ class VelocitySQLContext(@transient override val sparkContext: SparkContext)
     val batches =
       Batch("Add exchange", Once, new AddDefaultExchange(self)) :: Nil
   }
+}
+
+private[sql] trait WithVelocityCheckAnalysis {
+  self: ExtendableSQLContext =>
 
   override lazy val checkAnalysis = new VelocityCheckAnalysis {
     override val extendedCheckRules = Seq(
@@ -35,9 +52,23 @@ class VelocitySQLContext(@transient override val sparkContext: SparkContext)
 
 }
 
-private[sql] object SQLExtensions extends SQLContextExtension {
+private[sql] trait SQLContextCatalystSourceExtension extends SQLContextPlannerExtension {
 
-  override def strategies(planner: ExtendedPlanner): Seq[Strategy] =
-    Seq(CatalystSourceStrategy, PushDownAggregatesStrategy, PushDownFunctionsStrategy)
+  override def strategies(planner: ExtendedPlanner): List[Strategy] =
+    CatalystSourceStrategy :: super.strategies(planner)
+
+}
+
+private[sql] trait SQLContextPushDownAggregatesExtension extends SQLContextPlannerExtension {
+
+  override def strategies(planner: ExtendedPlanner): List[Strategy] =
+    PushDownAggregatesStrategy :: super.strategies(planner)
+
+}
+
+private[sql] trait SQLContextPushDownFunctionsExtension extends SQLContextPlannerExtension {
+
+  override def strategies(planner: ExtendedPlanner): List[Strategy] =
+    PushDownAggregatesStrategy :: super.strategies(planner)
 
 }
