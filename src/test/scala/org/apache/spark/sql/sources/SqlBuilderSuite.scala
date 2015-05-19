@@ -214,6 +214,18 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
     s"""SELECT "c1", "c2" FROM "t1" WHERE ("t1"."c1" = 1)"""
   )(t1.where('c1.string.withQualifiers("t1" :: Nil) === 1))
 
+  testLogicalPlan(
+    s"""SELECT "c1", "c2" FROM "t1" UNION ALL SELECT "c1", "c2" FROM "t2""""
+  )(t1.unionAll(t2))
+
+  testLogicalPlan(
+    s"""SELECT "c1", "c2" FROM "t1" EXCEPT SELECT "c1", "c2" FROM "t2""""
+  )(Except(t1, t2))
+
+  testLogicalPlan(
+    s"""SELECT "c1", "c2" FROM "t1" INTERSECT SELECT "c1", "c2" FROM "t2""""
+  )(Intersect(t1, t2))
+
   case object UnsupportedLogicalPlan extends LeafNode {
     override def output: Seq[Attribute] = Seq()
   }

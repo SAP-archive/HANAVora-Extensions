@@ -127,6 +127,12 @@ class SqlBuilder {
         val leftSql = internalLogicalPlanToSql(left, noProject = false)
         val rightSql = internalLogicalPlanToSql(right, noProject = false)
         s"$leftSql ${joinTypeToSql(joinType)} $rightSql$condition"
+      case logical.Union(left, right) =>
+        s"""${logicalPlanToSql(left)} UNION ALL ${logicalPlanToSql(right)}"""
+      case logical.Intersect(left, right) =>
+        s"""${logicalPlanToSql(left)} INTERSECT ${logicalPlanToSql(right)}"""
+      case logical.Except(left, right) =>
+        s"""${logicalPlanToSql(left)} EXCEPT ${logicalPlanToSql(right)}"""
       case GroupByOperation(aggregateExpressions, filters, groupingExpressions, child) =>
         buildQuery(
           relation = internalLogicalPlanToSql(child, noProject = false),
