@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{CreateLogicalRelation, SQLContext, sources}
 import org.mockito.Mockito
 import org.scalatest.FunSuite
@@ -110,19 +110,25 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   val _sqlContext = Mockito.mock(classOf[SQLContext])
   val t1 = CreateLogicalRelation(new BaseRelation with SqlLikeRelation {
     override def sqlContext: SQLContext = _sqlContext
-    override def schema: StructType = StructType(Seq())
+    override def schema: StructType = StructType(Seq(
+      StructField("c1", StringType),
+      StructField("c2", StringType)
+    ))
     override def tableName: String = "t1"
   })
   val t2 = CreateLogicalRelation(new BaseRelation with SqlLikeRelation {
     override def sqlContext: SQLContext = _sqlContext
-    override def schema: StructType = StructType(Seq())
+    override def schema: StructType = StructType(Seq(
+      StructField("c1", StringType),
+      StructField("c2", StringType)
+    ))
     override def tableName: String = "t2"
   })
 
-  testLogicalPlan("SELECT * FROM \"t1\"")(t1)
-  testLogicalPlan("SELECT * FROM \"t1\"")(t1.select())
-  testLogicalPlan("SELECT * FROM \"t1\"")(t1.select().select())
-  testLogicalPlan("SELECT * FROM \"t1\"")(t1.select(UnresolvedStar(None)))
+  testLogicalPlan("""SELECT "c1", "c2" FROM "t1"""")(t1)
+  testLogicalPlan("""SELECT * FROM "t1"""")(t1.select())
+  testLogicalPlan("""SELECT * FROM "t1"""")(t1.select().select())
+  testLogicalPlan("""SELECT * FROM "t1"""")(t1.select(UnresolvedStar(None)))
   testLogicalPlan("SELECT \"t1\".\"c1\" FROM \"t1\" GROUP BY \"t1\".\"c1\"")({
     val c1 = 'c1.string.withQualifiers("t1" :: Nil)
     val c2 = 'c2.string.withQualifiers("t1" :: Nil)
@@ -155,7 +161,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
     t1.select(c1).where(c1 === "string").subquery('q).select(qc1).groupBy(qc1)(qc1)
   })
 
-  testLogicalPlan("""SELECT * FROM "t1" LIMIT 100""")(t1.limit(100))
+  testLogicalPlan("""SELECT "c1", "c2" FROM "t1" LIMIT 100""")(t1.limit(100))
 
   testLogicalPlan(
     s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" INNER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
@@ -205,7 +211,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
     )
 
   testLogicalPlan(
-    s"""SELECT * FROM "t1" WHERE ("t1"."c1" = 1)"""
+    s"""SELECT "c1", "c2" FROM "t1" WHERE ("t1"."c1" = 1)"""
   )(t1.where('c1.string.withQualifiers("t1" :: Nil) === 1))
 
   case object UnsupportedLogicalPlan extends LeafNode {

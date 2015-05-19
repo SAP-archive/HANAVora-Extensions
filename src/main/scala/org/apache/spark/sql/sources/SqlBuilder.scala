@@ -103,12 +103,8 @@ class SqlBuilder {
    * @param plan
    * @return
    */
-  def logicalPlanToSql(plan: logical.LogicalPlan): String = plan match {
-    case src.LogicalRelation(base: SqlLikeRelation) =>
-      s"""SELECT * FROM "${base.tableName}""""
-    case _ =>
-      internalLogicalPlanToSql(plan, noProject = true)
-  }
+  def logicalPlanToSql(plan: logical.LogicalPlan): String =
+    internalLogicalPlanToSql(plan, noProject = true)
 
   // scalastyle:off cyclomatic.complexity
   protected def internalLogicalPlanToSql(
@@ -116,8 +112,7 @@ class SqlBuilder {
                                           noProject: Boolean = true): String =
     plan match {
       case src.LogicalRelation(base: SqlLikeRelation) if noProject =>
-
-        s"""SELECT * FROM "${base.tableName}""""
+        buildQuery(s""""${base.tableName}"""", plan.output.map(expressionToSql), Nil, Nil)
       case src.LogicalRelation(base: SqlLikeRelation) => s""""${base.tableName}""""
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
