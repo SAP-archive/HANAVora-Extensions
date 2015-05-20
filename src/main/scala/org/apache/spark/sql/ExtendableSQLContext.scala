@@ -19,16 +19,19 @@ import org.apache.spark.sql.sources.DDLParser
 @DeveloperApi
 class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
   extends SQLContext(sparkContext)
-  with SQLContextParserExtension
-  with SQLContextRegisterFunctions
-  with SQLContextAnalyzerExtension
-  with SQLContextOptimizerExtension
-  with SQLContextPlannerExtension
+  with SQLParserSQLContextExtension
+  with RegisterFunctionsSQLContextExtension
+  with AnalyzerSQLContextExtension
+  with OptimizerSQLContextExtension
+  with PlannerSQLContextExtension
   with DDLParserSQLContextExtension {
   self =>
 
   @transient
   override protected[sql] val sqlParser : SparkSQLParser = extendedSqlParser
+
+  @transient
+  override protected[sql] val ddlParser : DDLParser = extendedDdlParser(sqlParser.apply)
 
   @transient
   override protected[sql] lazy val functionRegistry: FunctionRegistry = {
@@ -106,10 +109,12 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
 trait ExtendedPlanner {
   self: SQLContext#SparkPlanner =>
   def planLaterExt(p : LogicalPlan) : SparkPlan = self.planLater(p)
+
+  def optimizedPlan(p: LogicalPlan): LogicalPlan = self.sqlContext.executePlan(p).optimizedPlan
 }
 
 @DeveloperApi
-trait SQLContextParserExtension {
+trait SQLParserSQLContextExtension {
   protected def extendedSqlParser: SparkSQLParser = {
     val fallback = new catalyst.SqlParser
     new SparkSQLParser(fallback(_))
@@ -118,26 +123,26 @@ trait SQLContextParserExtension {
 
 @DeveloperApi
 trait DDLParserSQLContextExtension {
-  protected def extededDdlParser(parser: String => LogicalPlan): DDLParser =
+  protected def extendedDdlParser(parser: String => LogicalPlan): DDLParser =
     new DDLParser(parser)
 }
 
 @DeveloperApi
-trait SQLContextRegisterFunctions {
+trait RegisterFunctionsSQLContextExtension {
   protected def registerFunctions(registry: FunctionRegistry): Unit = { }
 }
 
 @DeveloperApi
-trait SQLContextAnalyzerExtension {
+trait AnalyzerSQLContextExtension {
   protected def resolutionRules(analyzer : Analyzer) : List[Rule[LogicalPlan]] = Nil
 }
 
 @DeveloperApi
-trait SQLContextOptimizerExtension {
+trait OptimizerSQLContextExtension {
   protected def optimizerRules: List[Rule[LogicalPlan]] = Nil
 }
 
 @DeveloperApi
-trait SQLContextPlannerExtension {
+trait PlannerSQLContextExtension {
   protected def strategies(planner : ExtendedPlanner) : List[Strategy] = Nil
 }

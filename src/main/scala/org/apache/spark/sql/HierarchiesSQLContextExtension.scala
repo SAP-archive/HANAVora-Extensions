@@ -4,11 +4,11 @@ import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry, Resol
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 
-private[sql] trait SQLContextHierarchiesExtension
-  extends SQLContextRegisterFunctions
-  with SQLContextParserExtension
-  with SQLContextAnalyzerExtension
-  with SQLContextPlannerExtension {
+private[sql] trait HierarchiesSQLContextExtension
+  extends RegisterFunctionsSQLContextExtension
+  with SQLParserSQLContextExtension
+  with AnalyzerSQLContextExtension
+  with PlannerSQLContextExtension {
 
   override def registerFunctions(registry : FunctionRegistry) : Unit = {
     super.registerFunctions(registry)
@@ -22,7 +22,6 @@ private[sql] trait SQLContextHierarchiesExtension
 
   override def resolutionRules(analyzer : Analyzer) : List[Rule[LogicalPlan]] =
     ResolveHierarchy(analyzer) :: super.resolutionRules(analyzer)
-
 
   override def strategies(planner : ExtendedPlanner) : List[Strategy] =
     HierarchyStrategy(planner) :: super.strategies(planner)
