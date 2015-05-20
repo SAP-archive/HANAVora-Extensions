@@ -7,6 +7,7 @@ import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.{ExtractPythonUdfs, SparkPlan}
+import org.apache.spark.sql.sources.DDLParser
 
 /**
  * Extendable SQLContext. This SQLContext is composable with traits
@@ -22,15 +23,12 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
   with SQLContextRegisterFunctions
   with SQLContextAnalyzerExtension
   with SQLContextOptimizerExtension
-  with SQLContextPlannerExtension {
+  with SQLContextPlannerExtension
+  with DDLParserSQLContextExtension {
   self =>
 
   @transient
-  override protected[sql] val sqlParser : SparkSQLParser =
-    extendedSqlParser.getOrElse {
-      val fallback = new catalyst.SqlParser
-      new SparkSQLParser(fallback(_))
-    }
+  override protected[sql] val sqlParser : SparkSQLParser = extendedSqlParser
 
   @transient
   override protected[sql] lazy val functionRegistry: FunctionRegistry = {
@@ -112,7 +110,16 @@ trait ExtendedPlanner {
 
 @DeveloperApi
 trait SQLContextParserExtension {
-  protected def extendedSqlParser: Option[SparkSQLParser] = None
+  protected def extendedSqlParser: SparkSQLParser = {
+    val fallback = new catalyst.SqlParser
+    new SparkSQLParser(fallback(_))
+  }
+}
+
+@DeveloperApi
+trait DDLParserSQLContextExtension {
+  protected def extededDdlParser(parser: String => LogicalPlan): DDLParser =
+    new DDLParser(parser)
 }
 
 @DeveloperApi

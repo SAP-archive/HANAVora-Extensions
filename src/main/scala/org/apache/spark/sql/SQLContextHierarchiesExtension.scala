@@ -15,11 +15,10 @@ private[sql] trait SQLContextHierarchiesExtension
     RegisterHierarchyFunctions(registry)
   }
 
-  override def extendedSqlParser : Option[SparkSQLParser] =
-    Some({
+  override def extendedSqlParser : SparkSQLParser = {
       val fallback = new HierarchiesSQLParser()
       new SparkSQLParser(fallback(_))
-    })
+  }
 
   override def resolutionRules(analyzer : Analyzer) : List[Rule[LogicalPlan]] =
     ResolveHierarchy(analyzer) :: super.resolutionRules(analyzer)
