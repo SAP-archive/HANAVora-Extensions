@@ -3,12 +3,15 @@ package org.apache.spark.sql.catalyst.expressions
 import java.sql
 import java.util.{Calendar, Locale, TimeZone}
 
-import corp.sap.spark.SharedSparkContext
+import corp.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
 import org.apache.spark.sql.VelocitySQLContext
 import org.scalatest.FunSuite
 
-class DateSuite extends FunSuite with SharedSparkContext with Logging {
+class DateSuite
+  extends FunSuite
+  with GlobalSparkContext
+  with Logging {
 
   // scalastyle:off magic.number
 

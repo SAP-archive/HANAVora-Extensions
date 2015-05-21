@@ -20,9 +20,8 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
 /** Shares a local `SparkContext` between all tests in a suite and closes it at the end */
-trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
-  @transient private var _sc: SparkContext = _
-  def sc: SparkContext = _sc
+trait GlobalSparkContext extends BeforeAndAfterAll { self: Suite =>
+  def sc: SparkContext = GlobalSparkContext._sc
 
   def sparkConf: SparkConf = {
     val conf = new SparkConf(false)
@@ -36,14 +35,23 @@ trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
     conf.set("spark.ui.enabled", "false")
   }
 
-  override def beforeAll() {
-    _sc = new SparkContext("local[4]", "test", sparkConf)
+  override def beforeAll(): Unit = {
+    GlobalSparkContext.init(sparkConf)
     super.beforeAll()
-  }
-  override def afterAll() {
-    LocalSparkContext.stop(_sc)
-    _sc = null
-    super.afterAll()
   }
 }
 
+object GlobalSparkContext {
+  @transient private var _sc: SparkContext = _
+
+  private def init(sparkConf: SparkConf): Unit = {
+    if (_sc == null) {
+      this.synchronized {
+        if (_sc == null) {
+          _sc = new SparkContext("local[4]", "test", sparkConf)
+        }
+      }
+    }
+  }
+
+}

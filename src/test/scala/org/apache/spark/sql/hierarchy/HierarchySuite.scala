@@ -1,6 +1,6 @@
 package org.apache.spark.sql.hierarchy
 
-import corp.sap.spark.SharedSparkContext
+import corp.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
 import org.apache.spark.sql.types.Node
 import org.apache.spark.sql.execution.{SparkPlan, HierarchyPhysicalPlan}
@@ -21,7 +21,7 @@ case class PartialResult(path: Seq[Long], pk: Long)
 // scalastyle:off magic.number
 // scalastyle:off file.size.limit
 
-class HierarchySuite extends FunSuite with SharedSparkContext with Logging {
+class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
 
   implicit class Crossable[X](xs: Traversable[X]) {
     def cross[Y](ys: Traversable[Y]) : Traversable[(X,Y)] =

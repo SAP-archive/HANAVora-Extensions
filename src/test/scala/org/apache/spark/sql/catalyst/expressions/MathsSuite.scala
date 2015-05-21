@@ -1,12 +1,15 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import corp.sap.spark.SharedSparkContext
+import corp.sap.spark.GlobalSparkContext
 import org.apache.commons.math3.util.FastMath
 import org.apache.spark.Logging
 import org.apache.spark.sql.VelocitySQLContext
 import org.scalatest.FunSuite
 
-class MathsSuite extends FunSuite with SharedSparkContext with Logging {
+class MathsSuite
+  extends FunSuite
+  with GlobalSparkContext
+  with Logging {
 
   // scalastyle:off magic.number
 

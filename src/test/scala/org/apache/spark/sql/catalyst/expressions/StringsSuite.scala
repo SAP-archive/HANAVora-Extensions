@@ -1,19 +1,14 @@
-import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.expressions.BoundReference
-import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.catalyst.expressions.Substring
-import org.apache.spark.sql.catalyst.expressions.IsRoot
-import org.apache.spark.sql.types.StringType
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.Literal
-import org.apache.spark.sql.types.NodeType
-import org.scalatest.FunSuite
-import corp.sap.spark.SharedSparkContext
-import org.apache.spark.sql.VelocitySQLContext
-import org.uncommons.maths.Maths
-import org.apache.commons.math3.util.FastMath
+package org.apache.spark.sql.catalyst.expressions
 
-class StringsSuite extends FunSuite with SharedSparkContext with Logging {
+import corp.sap.spark.GlobalSparkContext
+import org.apache.spark.Logging
+import org.apache.spark.sql.{Row, VelocitySQLContext}
+import org.scalatest.FunSuite
+
+class StringsSuite
+  extends FunSuite
+  with GlobalSparkContext
+  with Logging {
 
   // scalastyle:off magic.number
 
