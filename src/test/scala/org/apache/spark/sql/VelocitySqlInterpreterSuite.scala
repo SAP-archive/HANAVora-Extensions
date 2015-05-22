@@ -101,7 +101,6 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     val query = s"""CREATE TEMPORARY TABLE createTestTableWithError
                    |USING corp.sap.spark.velocity.test
                    |OPTIONS (
-                   |tableName "createTestTableWithError",
                    |schema "name varchar(*), number integer",
                    |hosts "host1,host2",
                    |paths "path",
@@ -110,8 +109,8 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
     val ret = sqli.interpret(query, context)
 
-    assert(InterpreterResult.Code.ERROR == ret.code())
-    assert("hosts and paths must have the same size" == ret.message())
+    assertResult(InterpreterResult.Code.ERROR)(ret.code())
+    assertResult("tablename is mandatory")(ret.message())
   }
 
   test("Bad query") {
