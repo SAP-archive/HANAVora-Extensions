@@ -1,7 +1,7 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.{AppendRunnableCommand, ExecutedCommand, SparkPlan}
+import org.apache.spark.sql.execution._
 import org.apache.spark.sql.sources._
 
 private[sql] trait VelocityCommandsSQLContextExtension
@@ -21,6 +21,10 @@ private[sql] trait VelocityCommandsSQLContextExtension
         val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
         val appendRelation = logicalRelation.relation.asInstanceOf[AppendRelation]
         ExecutedCommand(AppendRunnableCommand(appendRelation, options)) :: Nil
+      case DropCommand(table) =>
+        val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
+        val dropRelation = logicalRelation.relation.asInstanceOf[DropRelation]
+        ExecutedCommand(DropRunnableCommand(dropRelation)) :: Nil
       case _ => Nil
     }).headOption.toSeq
   }

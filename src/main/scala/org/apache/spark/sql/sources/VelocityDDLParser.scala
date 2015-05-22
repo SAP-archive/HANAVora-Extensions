@@ -6,9 +6,10 @@ import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
 class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQuery) {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
-    createTable | appendTable | describeTable | refreshTable
+    createTable | appendTable | dropTable | describeTable | refreshTable
 
   protected val APPEND = Keyword("APPEND")
+  protected val DROP = Keyword("DROP")
 
   /**
    * Resolves the APPEND TABLE statements:
@@ -32,12 +33,35 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
         AppendCommand(UnresolvedRelation(tblIdentifier, None), opts)
     }
 
+  /**
+   * Resolves the DROP TABLE statements:
+   *
+   * `DROP TABLE tableName`
+   */
+  protected lazy val dropTable: Parser[LogicalPlan] =
+    DROP ~> TABLE ~> (ident <~ ".").? ~ ident ^^ {
+      case db ~ tbl =>
+        val tblIdentifier = db match {
+          case Some(dbName) =>
+            Seq(dbName, tbl)
+          case None =>
+            Seq(tbl)
+        }
+        DropCommand(UnresolvedRelation(tblIdentifier, None))
+    }
+
 }
 
 /**
- * Returned for the "APPEND  [dbName.]tableName" command.
+ * Returned for the "APPEND TABLE [dbName.]tableName" command.
  * @param table The table where the file is going to be appended
  * @param options The options map with the append configuration
  */
 private[sql] case class AppendCommand(table: LogicalPlan,
                                       options: Map[String, String]) extends Command
+
+/**
+ * Returned for the "DROP TABLE [dbName.]tableName" command.
+ * @param table The table to be dropped
+ */
+private[sql] case class DropCommand(table: LogicalPlan) extends Command
