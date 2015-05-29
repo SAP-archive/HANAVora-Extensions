@@ -8,6 +8,12 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.{ExtractPythonUdfs, SparkPlan}
 import org.apache.spark.sql.sources.DDLParser
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.hive._
+import org.apache.spark.sql.sources.DataSourceStrategy
 
 /**
  * Extendable SQLContext. This SQLContext is composable with traits
@@ -18,7 +24,7 @@ import org.apache.spark.sql.sources.DDLParser
  */
 @DeveloperApi
 class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
-  extends SQLContext(sparkContext)
+  extends HiveContext(sparkContext)
   with SQLParserSQLContextExtension
   with RegisterFunctionsSQLContextExtension
   with AnalyzerSQLContextExtension
@@ -26,27 +32,38 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
   with PlannerSQLContextExtension
   with DDLParserSQLContextExtension {
   self =>
+  @transient
+  override protected[sql] val sqlParser: SparkSQLParser = extendedSqlParser
 
   @transient
-  override protected[sql] val sqlParser : SparkSQLParser = extendedSqlParser
+  override protected[sql] val ddlParser: DDLParser = extendedDdlParser(sqlParser.apply)
+
+  override def sql(sqlText: String): DataFrame = {
+    /* TODO: Switch between SQL dialects (Spark SQL's, HiveQL or our extended parser. */
+    DataFrame(this,
+      ddlParser(sqlText, exceptionOnError = false)
+        .getOrElse(extendedSqlParser(sqlText))
+    )
+  }
 
   @transient
-  override protected[sql] val ddlParser : DDLParser = extendedDdlParser(sqlParser.apply)
-
-  @transient
-  override protected[sql] lazy val functionRegistry: FunctionRegistry = {
-    val registry = new SimpleFunctionRegistry(caseSensitive = false)
+  override protected[sql] lazy val functionRegistry = {
+    val registry = new HiveFunctionRegistryProxy
     registerFunctions(registry)
     registry
   }
 
   @transient
-  override protected[sql] lazy val analyzer: Analyzer = {
-    val parentRules =
-      ExtractPythonUdfs ::
-        sources.PreInsertCastAndRename ::
-        Nil
+  override protected[sql] lazy val catalog = new HiveMetastoreCatalogProxy(this)
+
+  @transient
+  override protected[sql] lazy val analyzer = {
+
     new Analyzer(catalog, functionRegistry, caseSensitive = true) {
+      val parentRules =
+        ExtractPythonUdfs ::
+          sources.PreInsertCastAndRename ::
+          Nil
       override val extendedResolutionRules = resolutionRules(this) ++ parentRules
 
       /* XXX: Override this to replace EliminateSubQueries with RewriteWithoutSubQueries */
@@ -84,7 +101,7 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
         case 1 => Once
         case n => FixedPoint(n)
       }
-      Batch(b.name, strategy, b.rules : _*)
+      Batch(b.name, strategy, b.rules: _*)
     }
     // scalastyle:on structural.type
 
@@ -94,21 +111,37 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
       baseBatches
     } else {
       baseBatches :+
-        Batch("Extended Optimization Rules", FixedPoint(MAX_ITERATIONS), extendedOptimizerRules :_*)
+        Batch("Extended Optimization Rules", FixedPoint(MAX_ITERATIONS), extendedOptimizerRules: _*)
     }
   }
 
   @transient
-  override protected[sql] val planner: SparkPlanner = new SparkPlanner with ExtendedPlanner {
-    override def strategies: Seq[Strategy] = self.strategies(this) ++ super.strategies
-  }
+  override protected[sql] val planner =
+    // HiveStrategies defines its own strategies, we should be back to SparkPlanner strategies
+    new SparkPlanner with HiveStrategiesProxy with ExtendedPlanner {
+    override def strategies: Seq[Strategy] = self.strategies(this) ++
+      experimental.extraStrategies ++ (
+      DataSourceStrategy ::
+        DDLStrategy ::
+        TakeOrdered ::
+        HashAggregation ::
+        LeftSemiJoin ::
+        HashJoin ::
+        InMemoryScans ::
+        ParquetOperations ::
+        BasicOperators ::
+        CartesianProduct ::
+        BroadcastNestedLoopJoin :: Nil)
 
+
+      override val hiveContext = self
+  }
 }
 
 @DeveloperApi
 trait ExtendedPlanner {
   self: SQLContext#SparkPlanner =>
-  def planLaterExt(p : LogicalPlan) : SparkPlan = self.planLater(p)
+  def planLaterExt(p: LogicalPlan): SparkPlan = self.planLater(p)
 
   def optimizedPlan(p: LogicalPlan): LogicalPlan = self.sqlContext.executePlan(p).optimizedPlan
 }
@@ -129,12 +162,12 @@ trait DDLParserSQLContextExtension {
 
 @DeveloperApi
 trait RegisterFunctionsSQLContextExtension {
-  protected def registerFunctions(registry: FunctionRegistry): Unit = { }
+  protected def registerFunctions(registry: FunctionRegistry): Unit = {}
 }
 
 @DeveloperApi
 trait AnalyzerSQLContextExtension {
-  protected def resolutionRules(analyzer : Analyzer) : List[Rule[LogicalPlan]] = Nil
+  protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] = Nil
 }
 
 @DeveloperApi
@@ -144,5 +177,5 @@ trait OptimizerSQLContextExtension {
 
 @DeveloperApi
 trait PlannerSQLContextExtension {
-  protected def strategies(planner : ExtendedPlanner) : List[Strategy] = Nil
+  protected def strategies(planner: ExtendedPlanner): List[Strategy] = Nil
 }

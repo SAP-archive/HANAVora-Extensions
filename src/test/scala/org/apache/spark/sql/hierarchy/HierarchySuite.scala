@@ -71,7 +71,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
         | IS_DESCENDANT_OR_SELF(l.node, r.node), IS_PARENT(r.node, l.node)
         |FROM h l, h r
       """.stripMargin
-    val result = sqlContext.sql(joinQuery).cache()
+    val result = sqlContext.sql(joinQuery).collect()
 
     val expectedPositives = Set(
       Row("The Other Middle Manager", "THE BOSS", true, true, true),
@@ -96,7 +96,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
       case (left, right) => Row(left, right, false, false, false)
     }
     val expected = expectedPositives ++ expectedNonPositives
-    val resultCollect = result.collect().toSet
+    val resultCollect = result.toSet
     if (expected != resultCollect) {
       log.error(s"Missing: ${expected -- resultCollect}")
       log.error(s"Unexpected: ${resultCollect -- expected}")
@@ -120,7 +120,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
       ) AS H
     """
 
-    val result = sqlContext.sql(queryString).cache()
+    val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
       Row("THE BOSS", 1, true),
@@ -132,7 +132,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
       Row("Minion 3", 4, false)
     )
 
-    assertResult(expected)(result.collect().toSet)
+    assertResult(expected)(result.toSet)
   }
 
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
@@ -151,7 +151,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
       ) AS H
     """
 
-    val result = sqlContext.sql(queryString).cache()
+    val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L))),
@@ -163,7 +163,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
       Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L)))
     )
 
-    assertResult(expected)(result.collect().toSet)
+    assertResult(expected)(result.toSet)
   }
 
   test("integration: build broadcast hierarchy top to bottom using SQL and RDD[Row]") {
@@ -185,7 +185,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
       ) AS H
     """
 
-   val result = sqlContext.sql(queryString).cache()
+   val result = sqlContext.sql(queryString).collect()
 
    val expected = Set(
      Row("THE BOSS", null, 1L, 1, Node(List(1L))),
@@ -196,7 +196,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L)))
    )
 
-   assertResult(expected)(result.collect().toSet)
+   assertResult(expected)(result.toSet)
   }
 
   integrationStartWithExpression(HierarchyRowJoinBuilder(
@@ -321,7 +321,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
         AS H) B, t_src A
         WHERE B.name = A.name
     """
-    val result = sqlContext.sql(queryString).cache()
+    val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
      Row("THE BOSS", "Nice Street", 1),
@@ -329,7 +329,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
      Row("Senior Developer", "Near-Acceptable Street", 3),
      Row("Minion 3", "The Street", 4)
     )
-    assertResult(expected)(result.collect().toSet)
+    assertResult(expected)(result.toSet)
    }
 
   test("integration: I can left outer join hierarchy with table") {
@@ -355,7 +355,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
         AS H) A LEFT JOIN t_src B
         ON A.name = B.name
     """
-    val result = sqlContext.sql(queryString).cache()
+    val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
      Row("THE BOSS", "Nice Street", 1),
@@ -366,7 +366,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
      Row("Minion 2", null, 4),
      Row("Minion 3", "The Street", 4)
     )
-    assertResult(expected)(result.collect().toSet)
+    assertResult(expected)(result.toSet)
    }
 
   test("integration: I can right outer join hierarchy with table") {
@@ -394,7 +394,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
         AS H) B RIGHT OUTER JOIN t_src A
         ON A.name = B.name
     """
-    val result = sqlContext.sql(queryString).cache()
+    val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
      Row("THE BOSS", "Nice Street", 1),
@@ -403,7 +403,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
      Row("Minion 3", "The Street", 4),
      Row("Darth Vader", "Death Star", null)
     )
-    assertResult(expected)(result.collect().toSet)
+    assertResult(expected)(result.toSet)
    }
 
     test("integration: I can full outer join hierarchy with table") {
@@ -431,7 +431,7 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
         AS H) A FULL OUTER JOIN t_src B
         ON A.name = B.name
     """
-    val result = sqlContext.sql(queryString).cache()
+    val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
      Row("THE BOSS", "Nice Street", 1),
@@ -443,6 +443,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
      Row("Minion 3", "The Street", 4),
      Row(null, "Death Star", null)
     )
-    assertResult(expected)(result.collect().toSet)
+    assertResult(expected)(result.toSet)
    }
 }
