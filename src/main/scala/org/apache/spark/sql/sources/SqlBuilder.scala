@@ -262,6 +262,7 @@ class SqlBuilder {
 
   protected def literalToSql(value: Any): String = value match {
     case s: String => s"'$s'"
+    case i: Int    => s"$i"
     case t: Timestamp => s"TO_TIMESTAMP('$t')"
     case d: Date => s"TO_DATE('$d')"
     case null => "NULL"

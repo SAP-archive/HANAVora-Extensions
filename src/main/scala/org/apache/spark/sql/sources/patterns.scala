@@ -15,6 +15,20 @@ object SelectOperation extends PredicateHelper {
 
 }
 
+object DistinctSelectOperation extends PredicateHelper {
+  type ReturnType = (Seq[NamedExpression], Seq[Expression], logical.LogicalPlan)
+  def unapply(plan: logical.LogicalPlan): Option[ReturnType] =
+    plan match {
+      case logical.Distinct(child) =>
+           child match
+           {
+             case SelectOperation(fields, filters, child) => Some(fields,filters,child)
+             case _ => None
+           }
+      case _ => None
+    }
+}
+
 
 object SetOperation extends PredicateHelper
 {
