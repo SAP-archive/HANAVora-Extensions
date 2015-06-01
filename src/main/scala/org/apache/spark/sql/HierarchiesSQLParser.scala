@@ -35,7 +35,6 @@ class HierarchiesSQLParser extends SqlParser {
   protected val DAYS_BETWEEN = Keyword("DAYS_BETWEEN")
   protected val CURRENT_DATE = Keyword("CURRENT_DATE")
   protected val CURDATE = Keyword("CURDATE")
-
   protected val TRIM = Keyword("TRIM")
   protected val LTRIM = Keyword("LTRIM")
   protected val RTRIM = Keyword("RTRIM")
@@ -64,12 +63,17 @@ class HierarchiesSQLParser extends SqlParser {
   protected val TO_DOUBLE = Keyword("TO_DOUBLE")
   protected val TO_INTEGER = Keyword("TO_INTEGER")
   protected val TO_VARCHAR = Keyword("TO_VARCHAR")
+
+  lexical.delimiters +=(
+    "$","@", "*", "+", "-", "<", "=", "<>", "!=", "<=", ">=", ">", "/", "(", ")",
+    ",", ";", "%", "{", "}", ":", "[", "]", ".", "&", "|", "^", "~", "<=>"
+    )
   
   override protected lazy val relation: Parser[LogicalPlan] =
     hierarchy | joinedRelation | relationFactor
 
   override protected lazy val function: Parser[Expression] =
-    extract | sparkFunctions | velocityFunctions
+    extract | sparkFunctions | velocityFunctions | dataSourceFunctions
 
   // scalastyle:off
   /* TODO SparkSQL parser functions code copied */
@@ -147,6 +151,11 @@ class HierarchiesSQLParser extends SqlParser {
       | SECOND ^^^ Literal(SECOND.str, StringType)
       )
 
+  protected lazy val dataSourceFunctions: Parser[Expression] =
+     (
+      "$" ~> ident ~ ("(" ~> repsep(expression,",") <~ ")") ^^
+        { case udf~expr => DataSourceExpression(udf,expr) }
+      )
   // scalastyle:off
   protected lazy val velocityFunctions: Parser[Expression] =
       (LENGTH ~ "(" ~> expression <~ ")" ^^ { case exp => Length(exp) }
