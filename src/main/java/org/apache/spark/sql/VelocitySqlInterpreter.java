@@ -1,5 +1,6 @@
 package org.apache.spark.sql;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.scheduler.Scheduler;
@@ -21,11 +22,15 @@ import scala.collection.JavaConverters;
 import scala.collection.mutable.HashMap;
 import scala.collection.mutable.HashSet;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
 
 /**
  * Velocity SQL interpreter for Zeppelin.
@@ -34,6 +39,8 @@ public class VelocitySqlInterpreter extends Interpreter {
     Logger logger = LoggerFactory.getLogger(VelocitySqlInterpreter.class);
 
     private VelocitySQLContext vsqlc;
+
+    private static final String TREEVIEWKEYWORD = "treeview";
 
     /**
      * Constructor just for testing
@@ -109,6 +116,28 @@ public class VelocitySqlInterpreter extends Interpreter {
 
         sc.setJobGroup(getJobGroup(context), "Zeppelin-Velocity", false);
 
+        int viewType = 0;
+        String outputParser = "%table ";
+        String[] arr = st.split(" ", 5);
+        String keyword = arr[0];
+        String idColumn = null;
+        String predColumn = null;
+        String nameColumn = null;
+        if ( TREEVIEWKEYWORD.equalsIgnoreCase(keyword) ) {
+            if (arr.length < 5) {
+                return new InterpreterResult(Code.ERROR, "id column, pred column, name column can not be empty");
+            }
+            outputParser = "%angular ";
+            idColumn = arr[1];
+            predColumn = arr[2];
+            if (idColumn.equalsIgnoreCase(predColumn)) {
+                return new InterpreterResult(Code.ERROR, "id column, pred column can should be different");
+            }
+            nameColumn = arr[3];
+            st = arr[4]; // actual sql command
+            viewType = 1;
+        }
+
         if (vsqlc == null) {
             logger.info("Creating VelocitySqlContext...");
             vsqlc = new VelocitySQLContext(sc);
@@ -141,51 +170,60 @@ public class VelocitySqlInterpreter extends Interpreter {
             throw new InterpreterException(e);
         }
 
-        List<Attribute> columns =
-                scala.collection.JavaConverters.asJavaListConverter(
-                        qe.analyzed().output()).asJava();
+        if (rows != null && rows.length > 0) {
+            try {
+                List<Attribute> columns =
+                        scala.collection.JavaConverters.asJavaListConverter(
+                                qe.analyzed().output()).asJava();
+                // ArrayType, BinaryType, BooleanType, ByteType, DecimalType, DoubleType, DynamicType,
+                // FloatType, FractionalType, IntegerType, IntegralType, LongType, MapType, NativeType,
+                // NullType, NumericType, ShortType, StringType, StructType
 
-        for (Attribute col : columns) {
-            if (msg == null) {
-                msg = col.name();
-            } else {
-                msg += "\t" + col.name();
-            }
-        }
-
-        msg += "\n";
-
-        // ArrayType, BinaryType, BooleanType, ByteType, DecimalType, DoubleType, DynamicType,
-        // FloatType, FractionalType, IntegerType, IntegralType, LongType, MapType, NativeType,
-        // NullType, NumericType, ShortType, StringType, StructType
-
-        try {
-            for (int r = 0; r < maxResult && r < rows.length; r++) {
-                Object row = rows[r];
-                Method isNullAt = row.getClass().getMethod("isNullAt", int.class);
-                Method apply = row.getClass().getMethod("apply", int.class);
-
-                for (int i = 0; i < columns.size(); i++) {
-                    if (!(Boolean) isNullAt.invoke(row, i)) {
-                        msg += apply.invoke(row, i).toString();
-                    } else {
-                        msg += "null";
+                if (viewType == 0) {
+                    for (Attribute col : columns) {
+                        if (msg == null) {
+                            msg = col.name();
+                        } else {
+                            msg += "\t" + col.name();
+                        }
                     }
-                    if (i != columns.size() - 1) {
-                        msg += "\t";
+
+                    msg += "\n";
+                    for (int r = 0; r < maxResult && r < rows.length; r++) {
+                        Object row = rows[r];
+                        Method isNullAt = row.getClass().getMethod("isNullAt", int.class);
+                        Method apply = row.getClass().getMethod("apply", int.class);
+
+                        for (int i = 0; i < columns.size(); i++) {
+                            if (!(Boolean) isNullAt.invoke(row, i)) {
+                                msg += apply.invoke(row, i).toString();
+                            } else {
+                                msg += "null";
+                            }
+                            if (i != columns.size() - 1) {
+                                msg += "\t";
+                            }
+                        }
+                        msg += "\n";
                     }
+                } else {
+                    msg = convertDataToTree(rows, columns, idColumn, predColumn, nameColumn);
+                    logger.info("msg length: {}", (msg != null ? msg.length() : null));
+                    msg = fillTreeviewScriptWithData(msg);
                 }
-                msg += "\n";
+            } catch (NoSuchMethodException | SecurityException | IllegalAccessException
+                    | IllegalArgumentException | InvocationTargetException e) {
+                throw new InterpreterException(e);
             }
-        } catch (NoSuchMethodException | SecurityException | IllegalAccessException
-                | IllegalArgumentException | InvocationTargetException e) {
-            throw new InterpreterException(e);
+        } else {
+            outputParser = "%angular ";//parses html better
+            msg = "\n<font color=blue>Command processed successfully with no resuslts</font>";
         }
 
         if (rows.length > maxResult) {
             msg += "\n<font color=red>Results are limited by " + maxResult + ".</font>";
         }
-        InterpreterResult rett = new InterpreterResult(Code.SUCCESS, "%table " + msg);
+        InterpreterResult rett = new InterpreterResult(Code.SUCCESS, outputParser + msg);
         sc.clearJobGroup();
         return rett;
     }
@@ -294,5 +332,84 @@ public class VelocitySqlInterpreter extends Interpreter {
     @Override
     public List<String> completion(String buf, int cursor) {
         return null;
+    }
+
+    private String convertDataToTree(Object[] rows, List<Attribute> columns,
+                                     String idColumn, String predColumn, String nameColumn)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Map<String, List<SqlInterpreterNode>> map = new java.util.HashMap<>();
+        SqlInterpreterNode rootNode = null;
+        for (int r = 0; r < maxResult && r < rows.length; r++) {
+            Object row = rows[r];
+            Method isNullAt = row.getClass().getMethod("isNullAt", int.class);
+            Method apply = row.getClass().getMethod("apply", int.class);
+
+            String id = null, pred = null, name = null;
+            for (int i = 0; i < columns.size(); i++) {
+                String value = null;
+                if (!(Boolean) isNullAt.invoke(row, i)) {
+                    value = apply.invoke(row, i).toString();
+                } else {
+                    value = "null";
+                }
+
+                if (columns.get(i).name().equals(idColumn)) {
+                    id = value;
+                } else if (columns.get(i).name().equals(predColumn)) {
+                    pred = value;
+                }
+
+                if (columns.get(i).name().equals(nameColumn)) {
+                    name = value;
+                }
+            }
+            // pred null value case depends on type of the variable
+            if (pred == null || pred.equalsIgnoreCase("")
+                    || pred.equalsIgnoreCase("null") || pred.equalsIgnoreCase("0")) {
+                logger.info("root node found: {}, {}", id, name);
+                rootNode = new SqlInterpreterNode(id, name);
+            }
+
+            if (map.get(pred) == null) {
+                List<SqlInterpreterNode> list = new LinkedList<>();
+                list.add(new SqlInterpreterNode(id, name));
+                map.put(pred, list);
+            } else {
+                map.get(pred).add(new SqlInterpreterNode(id, name));
+            }
+        }
+
+        addChildrenToNode(rootNode, map);
+
+        return rootNode.toString();
+    }
+
+    private void addChildrenToNode(SqlInterpreterNode node, Map<String, List<SqlInterpreterNode>> map) {
+        List<SqlInterpreterNode> list = map.get(node.getId());
+        if (list != null) {
+            node.setChildren(list);
+            for (int i = 0; i < node.getChildren().size(); i++) {
+                addChildrenToNode(node.getChildren().get(i), map);
+            }
+        }
+    }
+
+    private String fillTreeviewScriptWithData(String data) {
+        ClassLoader classLoader = getClass().getClassLoader();
+        String script = null;
+
+        InputStream in = classLoader.getResourceAsStream("treeview.html");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            IOUtils.copy(in, out);
+            script = new String(out.toByteArray());
+            logger.info("script length: "+(script!=null? script.length() : null) );
+            script = script.replaceAll("TREEID", UUID.randomUUID().toString());
+            script = script.replaceFirst("TREEDATA", data);
+        } catch (IOException e) {
+            logger.error("Error on reading resource file", e);
+        }
+
+        return script;
     }
 }

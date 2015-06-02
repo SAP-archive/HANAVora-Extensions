@@ -8,9 +8,11 @@ import org.apache.zeppelin.interpreter.{InterpreterContextRunner, InterpreterCon
 import org.apache.zeppelin.spark.SparkInterpreter
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-case class Person(name: String, number: Int)
+case class Person(name: String, number: Int, pred: Int)
 
 class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
+
+  // scalastyle:off magic.number
 
   var sqli: VelocitySqlInterpreter = _
   var si: SparkInterpreter = _
@@ -28,7 +30,16 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     velocityContext = new VelocitySQLContext(si.getSparkContext)
 
     val df = velocityContext.createDataFrame(
-      velocityContext.sparkContext.parallelize(Seq(Person("moon", 1), Person("sun", 2))))
+      velocityContext.sparkContext.parallelize(
+        Seq(
+          Person("sun", 1, 0),
+          Person("mercury", 2, 1),
+          Person("venus", 3, 1),
+          Person("earth", 4, 1),
+          Person("jupiter", 5, 1),
+          Person("saturn", 6, 1),
+          Person("moon", 10, 4)
+        )))
     velocityContext.registerDataFrameAsTable(df, "testTable")
 
     sqli = new VelocitySqlInterpreter(velocityContext)
@@ -112,5 +123,57 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     assert(
       "[1.1] failure: ``insert'' expected but identifier BAD found\n\nBAD QUERY\n^" == ret.message()
     )
+  }
+
+  test("Tree view keyword") {
+    val query = "treeview number pred name select * from testTable"
+
+    val ret = sqli.interpret(query, context)
+
+    ret.message()
+
+    assert(ret.message() contains "\"name\":\"moon\"")
+    assert(ret.message() contains "\"name\":\"earth\"")
+    assert(ret.message() contains "\"name\":\"sun\"")
+
+    assert(InterpreterResult.Code.SUCCESS == ret.code())
+  }
+
+  test("Tree view node title changed") {
+    val query = "treeview number pred number select * from testTable"
+
+    val ret = sqli.interpret(query, context)
+
+    ret.message()
+
+    assert(ret.message() contains "\"name\":\"10\"") // moon
+    assert(ret.message() contains "\"name\":\"4\"") // earth
+    assert(ret.message() contains "\"name\":\"1\"") // sun
+
+    assert(InterpreterResult.Code.SUCCESS == ret.code())
+  }
+
+  test("Tree view missing parameter exception") {
+    val query = "treeview"
+
+    val ret = sqli.interpret(query, context)
+
+    ret.message()
+
+    assert(ret.message() contains "id column, pred column, name column can not be empty")
+
+    assert(InterpreterResult.Code.ERROR == ret.code())
+  }
+
+  test("Tree view using same paramter for id and pred columns") {
+    val query = "treeview number number name select * from testTable"
+
+    val ret = sqli.interpret(query, context)
+
+    ret.message()
+
+    assert(ret.message() contains "id column, pred column can should be different")
+
+    assert(InterpreterResult.Code.ERROR == ret.code())
   }
 }
