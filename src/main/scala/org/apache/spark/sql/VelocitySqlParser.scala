@@ -151,7 +151,7 @@ class VelocitySqlParser extends SqlParser {
   protected lazy val dataSourceFunctions: Parser[Expression] =
      (
       "$" ~> ident ~ ("(" ~> repsep(expression,",") <~ ")") ^^
-        { case udf~expr => DataSourceExpression(udf,expr) }
+        { case udf~expr => DataSourceExpression(udf.toLowerCase,expr) }
       )
   // scalastyle:off
   protected lazy val velocityFunctions: Parser[Expression] =
