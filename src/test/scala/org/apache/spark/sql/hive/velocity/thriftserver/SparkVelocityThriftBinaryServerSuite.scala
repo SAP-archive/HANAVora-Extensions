@@ -3,8 +3,6 @@ package org.apache.spark.sql.hive.velocity.thriftserver
 
 import java.io.File
 import java.sql.{DriverManager, ResultSet, Statement}
-
-import corp.sap.spark.velocity.util.CsvGetter._
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars
 import org.apache.hive.jdbc.HiveDriver
 import org.apache.hive.service.auth.PlainSaslHelper
@@ -12,6 +10,7 @@ import org.apache.hive.service.cli.GetInfoType
 import org.apache.hive.service.cli.thrift.TCLIService.Client
 import org.apache.hive.service.cli.thrift.ThriftCLIServiceClient
 import org.apache.spark.Logging
+import org.apache.spark.sql.util.CsvGetter
 import org.apache.spark.util.Utils
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TSocket
@@ -205,10 +204,10 @@ abstract class SparkVelocityThriftServer2Test extends FunSuite with BeforeAndAft
   val tableName = "mockedTable"
   val schema = "name varchar(200), age integer"
 
-  val stds1 = getFileFromClassPath("/thriftserverTest/distributedSimple.part1")
-  val stds2 = getFileFromClassPath("/thriftserverTest/distributedSimple.part2")
-  val stds3 = getFileFromClassPath("/thriftserverTest/distributedSimple.part3")
-  val stds4 = getFileFromClassPath("/thriftserverTest/distributedSimple.part4")
+  val stds1 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part1")
+  val stds2 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part2")
+  val stds3 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part3")
+  val stds4 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part4")
 
   var includedJars = Seq("/")
 
