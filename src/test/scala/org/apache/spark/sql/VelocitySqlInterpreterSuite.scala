@@ -55,10 +55,10 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
       "id",
       "title",
       "text",
-      new util.HashMap[String, Object](),
+      new java.util.HashMap[String, Object](),
       new GUI,
       new AngularObjectRegistry(ig.getId, null),
-      new util.LinkedList[InterpreterContextRunner]())
+      new java.util.LinkedList[InterpreterContextRunner]())
   }
 
   test("Simple Select") {
