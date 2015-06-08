@@ -119,8 +119,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     val ret = sqli.interpret(query, context)
 
     assert(InterpreterResult.Code.ERROR == ret.code())
-    assert(
-      "[1.1] failure: ``insert'' expected but identifier BAD found\n\nBAD QUERY\n^" == ret.message()
+    assert(ret.message().contains("expected but identifier BAD found")
     )
   }
 
