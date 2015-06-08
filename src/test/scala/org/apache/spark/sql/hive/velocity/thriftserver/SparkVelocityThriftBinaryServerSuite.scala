@@ -1,42 +1,30 @@
 
 package org.apache.spark.sql.hive.velocity.thriftserver
 
-
 import java.io.File
-import java.sql.{ResultSet, Date, DriverManager, Statement}
+import java.sql.{DriverManager, ResultSet, Statement}
 
 import corp.sap.spark.velocity.util.CsvGetter._
-import org.apache.hadoop.hive.conf.HiveConf
-import org.apache.spark.scheduler.StatsReportListener
-import org.apache.spark.sql.hive.thriftserver.SparkSQLEnv
-import org.apache.spark.sql.{VelocitySQLContext, Row}
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Promise}
-import scala.sys.process.{Process, ProcessLogger}
-import scala.util.{Random, Try}
-
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars
 import org.apache.hive.jdbc.HiveDriver
 import org.apache.hive.service.auth.PlainSaslHelper
 import org.apache.hive.service.cli.GetInfoType
 import org.apache.hive.service.cli.thrift.TCLIService.Client
 import org.apache.hive.service.cli.thrift.ThriftCLIServiceClient
+import org.apache.spark.Logging
+import org.apache.spark.util.Utils
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TSocket
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-import org.apache.spark.{SparkContext, SparkConf, Logging}
-import org.apache.spark.sql.catalyst.util
-import org.apache.spark.sql.hive.{HiveContext, HiveShim}
-import org.apache.spark.util.Utils
-
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Promise}
+import scala.sys.process.{Process, ProcessLogger}
+import scala.util.{Random, Try}
 
 class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 with Logging {
-  override def mode = ServerMode2.binary
+  override def mode: ServerMode.Value = ServerMode.binary
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -52,8 +40,6 @@ class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 
             |local "true",
             |paths "$stds1,$stds2,$stds3,$stds4")""".stripMargin)
 
-
-      //logInfo(s"""${sys.props("java.class.path")}""");
       queries.foreach(statement.execute)
       logInfo("Test table is created.")
     }
@@ -102,7 +88,7 @@ class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 
 
 
 
-  //scalastyle:off magic.number
+  // scalastyle:off magic.number
   test("JDBC query execution") {
     withJdbcStatement { statement =>
       assertResult(14, "Row count mismatch") {
@@ -112,14 +98,13 @@ class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 
       }
     }
   }
-  //scalastyle:on magic.number
-  //scalastyle:off magic.number
+  // scalastyle:on magic.number
+  // scalastyle:off magic.number
   test("Simple select query no params") {
     withJdbcStatement { statement =>
       val resultSet = statement.executeQuery( s"""SELECT * FROM $tableName""")
 
       // Checking result size: 6 + 6 + 2 + 0
-      //assertResult(14)(resultSetTolist(resultSet))
       val results = resultSetTolist(resultSet)
 
       assert(results contains("hans", 10))
@@ -144,55 +129,52 @@ class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 
 
     }
   }
-  //scalastyle:on magic.number
+  // scalastyle:on magic.number
 
 }
 
-object ServerMode2 extends Enumeration {
+object ServerMode extends Enumeration {
   val binary, http = Value
 }
 
 abstract class SparkVelocityThriftJdbcTest2 extends SparkVelocityThriftServer2Test {
   Class.forName(classOf[HiveDriver].getCanonicalName)
 
-  private def jdbcUri = if (mode == ServerMode2.http) {
+  private def jdbcUri = if (mode == ServerMode.http) {
     s"""jdbc:hive2://localhost:$serverPort/
-                                            |default?
-                                            |hive.server2.transport.mode=http;
-                                            |hive.server2.thrift.http.path=cliservice
+          |default?
+          |hive.server2.transport.mode=http;
+          |hive.server2.thrift.http.path=cliservice
      """.stripMargin.split("\n").mkString.trim
   } else {
     s"jdbc:hive2://localhost:$serverPort/"
   }
 
-  protected def withJdbcStatement(f: Statement => Unit): Unit = {
-    val connection = DriverManager.getConnection(jdbcUri, user, "")
-    val statement = connection.createStatement()
+  def withMultipleConnectionJdbcStatement(fs: (Statement => Unit)*) {
+    val user = System.getProperty("user.name")
+    val connections = fs.map { _ => DriverManager.getConnection(jdbcUri, user, "") }
+    val statements = connections.map(_.createStatement())
 
-    try f(statement) finally {
-      statement.close()
-      connection.close()
+    try {
+      statements.zip(fs).foreach { case (s, f) => f(s) }
+    } finally {
+      statements.foreach(_.close())
+      connections.foreach(_.close())
     }
+  }
+
+  protected def withJdbcStatement(f: Statement => Unit): Unit = {
+    withMultipleConnectionJdbcStatement(f)
   }
 }
 
+// scalastyle:off magic.number
 abstract class SparkVelocityThriftServer2Test extends FunSuite with BeforeAndAfterAll with Logging {
-  def mode: ServerMode2.Value
-
-  private val CLASS_NAME = SparkVelocityThriftServer.getClass.getCanonicalName.stripSuffix("$")
-  private val LOG_FILE_MARK = s"starting $CLASS_NAME, logging to "
-
-  private val sbinDir =  s"${sys.props("sbinDir")}";
-  private val startScript =
-    s"$sbinDir/start-sparkvelocitythriftserver.sh".split("/").mkString(File.separator)
-  private val stopScript =
-    s"$sbinDir/stop-sparkvelocitythriftserver.sh".split("/").mkString(File.separator)
+  def mode: ServerMode.Value
 
   private var listeningPort: Int = _
 
   protected def serverPort: Int = listeningPort
-
-  protected def user = System.getProperty("user.name")
 
   private var warehousePath: File = _
   private var metastorePath: File = _
@@ -200,11 +182,25 @@ abstract class SparkVelocityThriftServer2Test extends FunSuite with BeforeAndAft
   private def metastoreJdbcUri = s"""jdbc:derby:;databaseName=$metastorePath;create=true"""
 
   private val pidDir: File = Utils.createTempDir(namePrefix = "thriftserver-pid")
-  private var logPath: File = _
-  private var logTailingProcess: Process = _
-  private var diagnosisBuffer: ArrayBuffer[String] = ArrayBuffer.empty[String]
-  val defaultSparkHome = "~/hanalite-spark"
+  private var process: Process = _
 
+  protected def serverStartCommand(port: Int) = {
+    val portConf = if (mode == ServerMode.binary) {
+      ConfVars.HIVE_SERVER2_THRIFT_PORT
+    } else {
+      ConfVars.HIVE_SERVER2_THRIFT_HTTP_PORT
+    }
+
+    s"""java -cp ${sys.props("java.class.path")}
+        |  -Xms512m -Xmx512m -XX:MaxPermSize=128m org.apache.spark.deploy.SparkSubmit --class
+        |  org.apache.spark.sql.hive.thriftserver.SparkVelocityThriftServer spark-internal
+        |  --hiveconf ${ConfVars.METASTORECONNECTURLKEY}=$metastoreJdbcUri
+        |  --hiveconf ${ConfVars.METASTOREWAREHOUSE}=$warehousePath
+        |  --hiveconf ${ConfVars.HIVE_SERVER2_THRIFT_BIND_HOST}=localhost
+        |  --hiveconf ${ConfVars.HIVE_SERVER2_TRANSPORT_MODE}=$mode
+        |  --hiveconf $portConf=$port
+     """.stripMargin.split("\\s+").toSeq
+  }
 
   val tableName = "mockedTable"
   val schema = "name varchar(200), age integer"
@@ -216,101 +212,69 @@ abstract class SparkVelocityThriftServer2Test extends FunSuite with BeforeAndAft
 
   var includedJars = Seq("/")
 
+  private def startThriftServer(port: Int, attempt: Int): Unit = {
+    warehousePath = Utils.createTempDir()
+    warehousePath.delete()
+    metastorePath = Utils.createTempDir()
+    metastorePath.delete()
 
+    val command = serverStartCommand(port)
 
+    logInfo(s"Trying to start SparkVelocityThriftServer: port=$port, mode=$mode, attempt=$attempt")
 
-  private def startThriftServer(port: Int, attempt: Int) = {
+    val env = Seq(
+      // Disables SPARK_TESTING to exclude log4j.properties in test directories.
+      "SPARK_TESTING" -> "0",
+      // Points SPARK_PID_DIR to SPARK_HOME, otherwise only 1 Thrift server instance can be started
+      // at a time, which is not Jenkins friendly.
+      "SPARK_PID_DIR" -> pidDir.getCanonicalPath)
 
-    warehousePath = util.getTempFilePath("warehouse")
-    metastorePath = util.getTempFilePath("metastorehivethriftserver")
+    val serverStarted = Promise[Unit]()
 
-    val portConf = if (mode == ServerMode2.binary) {
-      ConfVars.HIVE_SERVER2_THRIFT_PORT
-    } else {
-      ConfVars.HIVE_SERVER2_THRIFT_HTTP_PORT
-    }
+    process = Process(command, None, env: _*).run(ProcessLogger(
+      (line: String) => {
+        if (line.contains("ThriftBinaryCLIService listening on") ||
+          line.contains("Started ThriftHttpCLIService in http")) {
+          serverStarted.trySuccess(())
+        } else if (line.contains("HiveServer2 is stopped")) {
+          // This log line appears when the server fails to start and terminates gracefully (e.g.
+          // because of port contention).
+          serverStarted.tryFailure(new RuntimeException("Failed to start HiveThriftServer2"))
+        }
+      }))
 
-    val thriftServer = new SparkVelocityThriftServer
-
-    val sparkConf = new SparkConf(loadDefaults = true)
-    val maybeSerializer = sparkConf.getOption("spark.serializer")
-    val maybeKryoReferenceTracking = sparkConf.getOption("spark.kryo.referenceTracking")
-
-    sparkConf
-      .setAppName(
-        s"""SparkVelocityThriftServer::SparkSQL::
-           |${java.net.InetAddress.getLocalHost.getHostName}""".stripMargin)
-      .set("spark.sql.hive.version", HiveShim.version)
-      .set(
-        "spark.serializer",
-        maybeSerializer.getOrElse("org.apache.spark.serializer.KryoSerializer"))
-      .set(
-        "spark.kryo.referenceTracking",
-        maybeKryoReferenceTracking.getOrElse("false"))
-      .set("spark.ui.enabled","false")
-      .set("spark.driver.userClassPathFirst","true")
-      .set("spark.executor.userClassPathFirst","true")
-      .setMaster("local")
-
-    sys.props.put(s"""${ConfVars.METASTORECONNECTURLKEY}""",s"""${metastoreJdbcUri}""")
-    SparkSQLEnv.sparkContext = new SparkContext(sparkConf)
-    SparkSQLEnv.sparkContext.addSparkListener(new StatsReportListener())
-    SparkSQLEnv.hiveContext = new VelocitySQLContext(SparkSQLEnv.sparkContext){
-      @transient override protected[hive] lazy val hiveconf: HiveConf = {
-        setConf(sessionState.getConf.getAllProperties)
-        sessionState.getConf
-      }
-      hiveconf.set("hive.root.logger","INFO,console")
-      hiveconf.set(s"""${ConfVars.METASTORECONNECTURLKEY}""",s"""${metastoreJdbcUri}""")
-      hiveconf.set(s"""${ConfVars.METASTOREWAREHOUSE}""",s"""${warehousePath}""")
-      hiveconf.set(s"""${ConfVars.HIVE_SERVER2_THRIFT_BIND_HOST}""","localhost")
-      hiveconf.set(s"""${ConfVars.HIVE_SERVER2_TRANSPORT_MODE}""",s"""${mode}""")
-      hiveconf.set(s"""${portConf}""",s"""${port}""")
-
-
-    }.asInstanceOf[HiveContext]
-
-
-    thriftServer.startWithContext(SparkSQLEnv.hiveContext)
-
-
-
+    Await.result(serverStarted.future, 2.minute)
   }
 
   private def stopThriftServer(): Unit = {
+    process.destroy()
+    Thread.sleep(3.seconds.toMillis)
+
     warehousePath.delete()
-    metastorePath.delete
+    warehousePath = null
+
+    metastorePath.delete()
+    metastorePath = null
   }
 
-  private def dumpLogs(): Unit = {
-    logError(
-      s"""
-         |=====================================
-         |SparkVelocityThriftServer2Suite failure output
-         |=====================================
-         |${diagnosisBuffer.mkString("\n")}
-          |=========================================
-          |End SparkVelocityThriftServer2Suite failure output
-          |=========================================
-       """.stripMargin)
-  }
-
-  //scalastyle:off magic.number
   override protected def beforeAll(): Unit = {
     // Chooses a random port between 10000 and 19999
     listeningPort = 10000 + Random.nextInt(10000)
-    diagnosisBuffer.clear()
-    startThriftServer(listeningPort,0)
 
-    logInfo(s"SparkVelocityThriftServer2 started successfully")
-    //wait for a few seconds as the listeningport gets ready
-    Thread sleep 10000
+    // Retries up to 3 times with different port numbers if the server fails to start
+    (1 to 3).foldLeft(Try(startThriftServer(listeningPort, 0))) { case (started, attempt) =>
+      started.orElse {
+        listeningPort += 1
+        stopThriftServer()
+        Try(startThriftServer(listeningPort, attempt))
+      }
+    }.get
 
+    logInfo(s"SparkVelocityThriftServer started successfully")
   }
-  //scalastyle:on magic.number
 
   override protected def afterAll(): Unit = {
     stopThriftServer()
-    logInfo("SparkVelocityThriftServer2 stopped")
+    logInfo("SparkVelocityThriftServer stopped")
   }
 }

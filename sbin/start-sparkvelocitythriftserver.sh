@@ -29,7 +29,6 @@ FWDIR=$SPARK_HOME
 
 # NOTE: This exact class name is matched downstream by SparkSubmit.
 # Any changes need to be reflected there.
-#CLASS="org.apache.spark.sql.hive.thriftserver.HiveThriftServer2"
 CLASS="org.apache.spark.sql.hive.velocity.thriftserver.SparkVelocityThriftServer"
 
 function usage {
@@ -54,4 +53,4 @@ fi
 
 export SUBMIT_USAGE_FUNCTION=usage
 
-exec "$FWDIR"/sbin/spark-daemon.sh spark-submit $CLASS 1 "$@"
+exec "$FWDIR"/sbin/spark-daemon.sh submit $CLASS 1 "$@"
