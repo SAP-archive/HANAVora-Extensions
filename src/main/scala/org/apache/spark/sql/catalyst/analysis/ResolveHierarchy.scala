@@ -21,8 +21,8 @@ case class ResolveHierarchy(analyzer : Analyzer) extends Rule[LogicalPlan] {
 
   private def resolveParenthoodExpression(h : Hierarchy) : Hierarchy =
     h.copy(parenthoodExpression = h.parenthoodExpression.mapChildren({
-      case u @ UnresolvedAttribute(name) =>
-        h.resolveParenthoodExpression(name, analyzer.resolver).getOrElse(u)
+      case u @ UnresolvedAttribute(nameParts) =>
+        h.resolveParenthoodExpression(nameParts, analyzer.resolver).getOrElse(u)
       case other => other
     }))
 

@@ -2,13 +2,13 @@ package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, Filter, LogicalPlan}
-import org.apache.spark.sql.sources
 import org.apache.spark.sql.types.BooleanType
 
-class VelocityCheckAnalysis extends CheckAnalysis {
+trait VelocityCheckAnalysis extends CheckAnalysis {
+  self: Analyzer =>
 
   // scalastyle:off
-  override def apply(plan: LogicalPlan): Unit = {
+  override def checkAnalysis(plan: LogicalPlan): Unit = {
     /*
      * We transform up and order the rules so as to catch the first possible failure instead
      * of the result of cascading resolution failures.

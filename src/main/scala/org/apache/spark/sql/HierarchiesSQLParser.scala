@@ -143,12 +143,12 @@ class HierarchiesSQLParser extends SqlParser {
     }
 
   protected lazy val dateIdLiteral: Parser[Literal] =
-    (DAY ^^^ Literal(DAY.str, StringType)
-      | MONTH ^^^ Literal(MONTH.str, StringType)
-      | YEAR ^^^ Literal(YEAR.str, StringType)
-      | HOUR ^^^ Literal(HOUR.str, StringType)
-      | MINUTE ^^^ Literal(MINUTE.str, StringType)
-      | SECOND ^^^ Literal(SECOND.str, StringType)
+    (DAY ^^^ Literal.create(DAY.str, StringType)
+      | MONTH ^^^ Literal.create(MONTH.str, StringType)
+      | YEAR ^^^ Literal.create(YEAR.str, StringType)
+      | HOUR ^^^ Literal.create(HOUR.str, StringType)
+      | MINUTE ^^^ Literal.create(MINUTE.str, StringType)
+      | SECOND ^^^ Literal.create(SECOND.str, StringType)
       )
 
   protected lazy val dataSourceFunctions: Parser[Expression] =

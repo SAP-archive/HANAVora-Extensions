@@ -1,6 +1,7 @@
 package org.apache.spark.sql
 
 import org.apache.spark.Logging
+import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
@@ -17,15 +18,15 @@ class HierarchiesSQLParserSuite extends FunSuite with Logging {
   )
 
   def catalog : Catalog = {
-    val catalog = new SimpleCatalog(true)
+    val catalog = new SimpleCatalog(SimpleCatalystConf(true))
     catalog.registerTable(Seq("T1"), t1)
     catalog
   }
 
-  def analyzer : Analyzer = new Analyzer(catalog, EmptyFunctionRegistry, true)
+  def analyzer : Analyzer = new Analyzer(catalog, EmptyFunctionRegistry, SimpleCatalystConf(true))
   test("basic case") {
     val parser = new HierarchiesSQLParser
-    val result = parser(
+    val result = parser.parse(
       """
         |SELECT * FROM HIERARCHY (
         | USING T1 AS v
@@ -47,13 +48,13 @@ class HierarchiesSQLParserSuite extends FunSuite with Logging {
     ))
     assertResult(expected)(result)
 
-    val analyzed = analyzer(result)
+    val analyzed = analyzer.execute(result)
     log.info(s"$analyzed")
   }
 
   test("search by with multiple search by expressions") {
     val parser = new HierarchiesSQLParser
-    val result = parser(
+    val result = parser.parse(
       """
         |SELECT * FROM HIERARCHY (
         | USING T1 AS v
@@ -76,13 +77,13 @@ class HierarchiesSQLParserSuite extends FunSuite with Logging {
     ))
     assertResult(expected)(result)
 
-    val analyzed = analyzer(result)
+    val analyzed = analyzer.execute(result)
     log.info(s"$analyzed")
   }
 
     test("search by with no search by") {
       val parser = new HierarchiesSQLParser
-      val result = parser(
+      val result = parser.parse(
         """
           |SELECT * FROM HIERARCHY (
           | USING T1 AS v
@@ -103,7 +104,7 @@ class HierarchiesSQLParserSuite extends FunSuite with Logging {
       ))
       assertResult(expected)(result)
 
-      val analyzed = analyzer(result)
+      val analyzed = analyzer.execute(result)
       log.info(s"$analyzed")
   }
 

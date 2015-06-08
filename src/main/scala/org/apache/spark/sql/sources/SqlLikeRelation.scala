@@ -27,13 +27,13 @@ trait SqlLikeRelation {
       aggregationExpressions.map({
         case ne: AttributeReference => AttributeReference(ne.name, ne.dataType)(exprId = null)
         /* if it is an alias it will stay that way */
-        case al: Alias => al.copy(al.child, al.name + "EID" + al.exprId.id)(al.exprId,
-          al.qualifiers)
+        case al: Alias => al.copy(al.child, s"${al.name}EID${al.exprId.id}")(al.exprId,
+          al.qualifiers, al.explicitMetadata)
         /* if it is not an alias we rewrite it
          *
          * It will get a new expression id by Spark SQL (is unique!) AND we add the expression id of
          * the named expression (which is unique, too) */
-        case ne => new Alias(ne, ne.name + "EID" + ne.exprId.id)()
+        case ne => new Alias(ne, s"${ne.name}EID${ne.exprId.id}")()
       })
       ,
 

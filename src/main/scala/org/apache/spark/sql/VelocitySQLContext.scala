@@ -1,9 +1,8 @@
 package org.apache.spark.sql
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.catalyst.analysis.VelocityCheckAnalysis
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
-import org.apache.spark.sql.execution.{AddDefaultExchange, SparkPlan}
+import org.apache.spark.sql.execution.{EnsureRequirements, SparkPlan}
 import org.apache.spark.sql.sources.{PushDownFunctionsStrategy, CatalystSourceStrategy, PushDownAggregatesStrategy}
 
 /**
@@ -12,7 +11,7 @@ import org.apache.spark.sql.sources.{PushDownFunctionsStrategy, CatalystSourceSt
  */
 class VelocitySQLContext(@transient override val sparkContext: SparkContext)
   extends ExtendableSQLContext(sparkContext)
-  with WithVeloctyFixes
+  with WithVelocityFixes
   with PushDownFunctionsSQLContextExtension
   with PushDownAggregatesSQLContextExtension
   with HierarchiesSQLContextExtension
@@ -22,7 +21,7 @@ class VelocitySQLContext(@transient override val sparkContext: SparkContext)
 /**
  * Convenience trait to include miscelaneous general fixes for [[SQLContext]].
  */
-private[sql] trait WithVeloctyFixes extends WithDefaultExchangeFix with WithVelocityCheckAnalysis {
+private[sql] trait WithVelocityFixes extends WithDefaultExchangeFix {
   self: ExtendableSQLContext =>
 }
 
@@ -38,19 +37,10 @@ private[sql] trait WithDefaultExchangeFix {
   @transient
   override protected[sql] val prepareForExecution = new RuleExecutor[SparkPlan] {
     val batches =
-      Batch("Add exchange", Once, new AddDefaultExchange(self)) :: Nil
+      Batch("Add exchange", Once, new EnsureRequirements(self) {
+        override def numPartitions: Int = sqlContext.sparkContext.defaultParallelism
+      }) :: Nil
   }
-}
-
-private[sql] trait WithVelocityCheckAnalysis {
-  self: ExtendableSQLContext =>
-
-  override lazy val checkAnalysis = new VelocityCheckAnalysis {
-    override val extendedCheckRules = Seq(
-      sources.PreWriteCheck(catalog)
-    )
-  }
-
 }
 
 private[sql] trait CatalystSourceSQLContextExtension extends PlannerSQLContextExtension {

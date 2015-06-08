@@ -6,7 +6,7 @@ import java.util.{Calendar, Locale, TimeZone}
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.dsl.expressions._
-import org.apache.spark.sql.types.DateUtils
+import org.apache.spark.sql.catalyst.util.DateUtils
 import org.scalatest.FunSuite
 
 class ExtractSuite extends FunSuite with Logging {

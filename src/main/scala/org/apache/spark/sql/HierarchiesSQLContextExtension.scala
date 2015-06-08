@@ -17,7 +17,7 @@ private[sql] trait HierarchiesSQLContextExtension
 
   override def extendedSqlParser : SparkSQLParser = {
       val fallback = new HierarchiesSQLParser()
-      new SparkSQLParser(fallback(_))
+      new SparkSQLParser(fallback.parse)
   }
 
   override def resolutionRules(analyzer : Analyzer) : List[Rule[LogicalPlan]] =

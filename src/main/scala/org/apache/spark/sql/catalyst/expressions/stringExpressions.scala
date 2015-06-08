@@ -1,16 +1,16 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import org.apache.spark.sql.types.{DataType, IntegerType, StringType}
+import org.apache.spark.sql.types.{UTF8String, DataType, IntegerType, StringType}
 
 /** Return the e w/o initial and trailing white chars (spaces, CR, LF, tab) */
 case class Trim(e: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     e.eval(input) match {
       case null => null
-      case s: String => s.trim
+      case s: UTF8String => UTF8String(s.toString.trim)
       case other =>
         sys.error(s"Type $other does not support string operations")
     }
@@ -26,13 +26,13 @@ case class Trim(e: Expression) extends Expression {
 /** Return the se w/o initial white chars (spaces, CR, LF, tab) */
 case class LTrim(e: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     e.eval(input) match {
       case null => null
-      case s: String =>
-        s.dropWhile({ c => c == ' ' || c == '\t' || c == '\n' || c == '\r' })
+      case s: UTF8String =>
+        UTF8String(s.toString.dropWhile({ c => c == ' ' || c == '\t' || c == '\n' || c == '\r' }))
       case other =>
         sys.error(s"Type $other does not support string operations")
     }
@@ -48,15 +48,15 @@ case class LTrim(e: Expression) extends Expression {
 /** Return the e w/o trailing white chars (spaces, CR, LF, tab) */
 case class RTrim(e: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     e.eval(input) match {
       case null => null
-      case s: String =>
-        s.reverse
+      case s: UTF8String =>
+        UTF8String(s.toString.reverse
           .dropWhile({ c => c == ' ' || c == '\t' || c == '\n' || c == '\r' })
-          .reverse
+          .reverse)
       case other =>
         sys.error(s"Type $other does not support string operations")
     }
@@ -72,12 +72,12 @@ case class RTrim(e: Expression) extends Expression {
 /** Return the se reversed (last char is first) */
 case class Reverse(e: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     e.eval(input) match {
       case null => null
-      case s: String => s.reverse
+      case s: UTF8String => UTF8String(s.toString.reverse)
       case other =>
         sys.error(s"Type $other does not support string operations")
     }
@@ -93,15 +93,15 @@ case class Reverse(e: Expression) extends Expression {
 /** Return the se right padded with pe so that it reaches le */
 case class RPad(se: Expression, le: Expression, pe: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     se.eval(input) match {
       case null => null
-      case s: String =>
+      case s: UTF8String =>
         val l = le.eval(input)
         val len: Int = if (l == null) 0 else l.asInstanceOf[Int]
-        var str = s.asInstanceOf[String]
+        var str = s.toString
         if (str.length < len) {
           val p = pe.eval(input)
           val pattern = if (p == null) " " else p.toString
@@ -110,9 +110,9 @@ case class RPad(se: Expression, le: Expression, pe: Expression) extends Expressi
           while (str.length < len) str = str + pattern
         }
         if (len < str.length) {
-          str.substring(0, len)
+          UTF8String(str.substring(0, len))
         } else {
-          str
+          UTF8String(str)
         }
       case other =>
         sys.error(s"Type $other does not support string operations")
@@ -129,13 +129,13 @@ case class RPad(se: Expression, le: Expression, pe: Expression) extends Expressi
 /** Return the se left padded with pe so that it reaches le */
 case class LPad(se: Expression, le: Expression, pe: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     se.eval(input) match {
       case null => null
-      case s: String =>
-        var str = s.asInstanceOf[String]
+      case s: UTF8String =>
+        var str = s.toString
         val l = le.eval(input)
         val len: Integer = if (l == null) 0 else l.asInstanceOf[Integer]
         if (str.length < len) {
@@ -146,9 +146,9 @@ case class LPad(se: Expression, le: Expression, pe: Expression) extends Expressi
           while (str.length < len) str = pattern + str
         }
         if (len < str.length) {
-          str.substring(0, len)
+          UTF8String(str.substring(0, len))
         } else {
-          str
+          UTF8String(str)
         }
       case other =>
         sys.error(s"Type $other does not support string operations")
@@ -165,15 +165,14 @@ case class LPad(se: Expression, le: Expression, pe: Expression) extends Expressi
 /** Return the a1 and a2 concataned */
 case class Concat(e1: Expression, e2: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     val str1 = e1.eval(input)
     val str2 = e2.eval(input)
     (str1, str2) match {
       case (null, _) | (_, null) | (null, null) => null
-      case (s1: String, s2: String) => s1 + s2
-      case _ => str1.toString + str2.toString
+      case _ => UTF8String(str1.toString + str2.toString)
     }
   }
 
@@ -194,7 +193,7 @@ case class Locate(s: Expression, p: Expression) extends Expression {
     val patEval = p.eval(input)
     (strEval, patEval) match {
       case (null, _) | (_, null) | (null, null) => -1
-      case (se: String, sp: String) => se.indexOf(sp)
+      case (se: UTF8String, sp: UTF8String) => se.toString.indexOf(sp.toString)
       case _ => -1
     }
   }
@@ -209,7 +208,7 @@ case class Locate(s: Expression, p: Expression) extends Expression {
 /** Return the se with all found sub-strings fe replaced by pe */
 case class Replace(se: Expression, fe: Expression, pe: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     val s = se.eval(input)
@@ -217,8 +216,10 @@ case class Replace(se: Expression, fe: Expression, pe: Expression) extends Expre
     val p = pe.eval(input)
     (s, f, p) match {
       case (null, _, _) | (_, null, _) | (null, null, _) => null
-      case (stre: String, strf: String, null) => stre.replaceAll(strf, "")
-      case (stre: String, strf: String, strp: String) => stre.replaceAll(strf, strp)
+      case (stre: UTF8String, strf: UTF8String, null) =>
+        UTF8String(stre.toString.replaceAll(strf.toString, ""))
+      case (stre: UTF8String, strf: UTF8String, strp: UTF8String) =>
+        UTF8String(stre.toString.replaceAll(strf.toString, strp.toString))
       case _ => null
     }
   }
@@ -238,7 +239,7 @@ case class Length(s: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     s.eval(input) match {
       case null => 0
-      case s: String => s.length
+      case s: UTF8String => s.length
       case other
       => sys.error(s"Type $other does not support string operations")
     }
@@ -254,14 +255,14 @@ case class Length(s: Expression) extends Expression {
 /** Return the s as string */
 case class ToVarChar(s: Expression) extends Expression {
 
-  override type EvaluatedType = String
+  override type EvaluatedType = UTF8String
 
   override def eval(input: Row): EvaluatedType = {
     val strEval = s.eval(input)
     if (strEval == null) {
       null
     } else {
-      strEval.toString
+      UTF8String(strEval.toString)
     }
   }
 

@@ -38,7 +38,7 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
     /* Expected data preparation */
     val expAlias1 = alias1.copy(alias1.child, alias1.name + "EID" + alias1.exprId.id)(alias1.exprId,
-      alias1.qualifiers)
+      alias1.qualifiers, alias1.explicitMetadata)
     val expAliasAttr1 = AttributeReference(alias1.name, alias1.dataType)(exprId = null)
 
     /* Assertions */
@@ -57,7 +57,7 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
     /* Expected data preparation */
     val expAlias1 = alias1.copy(alias1.child, alias1.name + "EID" + alias1.exprId.id)(alias1.exprId,
-      alias1.qualifiers)
+      alias1.qualifiers, alias1.explicitMetadata)
     val expAttr1 = AttributeReference(attr1.name, attr1.dataType)(exprId = null)
 
     /* Assertions */
@@ -77,7 +77,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
     /* Expected data preparation */
     val expAlias1 = aliasSumAttr1.copy(aliasSumAttr1.child, aliasSumAttr1.name + "EID" +
-      aliasSumAttr1.exprId.id)(aliasSumAttr1.exprId, aliasSumAttr1.qualifiers)
+      aliasSumAttr1.exprId.id)(aliasSumAttr1.exprId, aliasSumAttr1.qualifiers,
+        aliasSumAttr1.explicitMetadata)
     val expAttr1 = AttributeReference(attr1.name, attr1.dataType)(exprId = null)
 
     /* Assertions */
@@ -97,7 +98,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
     /* Expected data preparation */
     val expAlias1 = aliasSumAttr1.copy(aliasSumAttr1.child, aliasSumAttr1.name + "EID" +
-      aliasSumAttr1.exprId.id)(aliasSumAttr1.exprId, aliasSumAttr1.qualifiers)
+      aliasSumAttr1.exprId.id)(aliasSumAttr1.exprId, aliasSumAttr1.qualifiers,
+        aliasSumAttr1.explicitMetadata)
     val expAttr1 = AttributeReference(expAlias1.name,
       sumAttr1.dataType)(exprId = expAlias1.exprId)
 

@@ -1,6 +1,7 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
 
 class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQuery) {
@@ -58,10 +59,21 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
  * @param options The options map with the append configuration
  */
 private[sql] case class AppendCommand(table: LogicalPlan,
-                                      options: Map[String, String]) extends Command
+                                      options: Map[String, String])
+  extends LogicalPlan with Command {
+
+  override def output: Seq[Attribute] = Seq.empty
+
+  override def children: Seq[LogicalPlan] = Seq.empty
+}
 
 /**
  * Returned for the "DROP TABLE [dbName.]tableName" command.
  * @param table The table to be dropped
  */
-private[sql] case class DropCommand(table: LogicalPlan) extends Command
+private[sql] case class DropCommand(table: LogicalPlan) extends LogicalPlan with Command {
+
+  override def output: Seq[Attribute] = Seq.empty
+
+  override def children: Seq[LogicalPlan] = Seq.empty
+}
