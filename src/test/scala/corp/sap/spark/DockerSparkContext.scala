@@ -1,42 +1,64 @@
 package corp.sap.spark
 
 import java.io._
-import java.net.{URLClassLoader, URLConnection, HttpURLConnection, URL}
+import java.net._
 import java.util
-import java.util.jar.{JarEntry, JarOutputStream, Attributes}
+import java.util.UUID
+import java.util.jar.{Attributes, JarEntry, JarOutputStream}
 
-import com.spotify.docker.client.messages.{HostConfig, Container, ContainerCreation, ContainerConfig}
-import com.spotify.docker.client.{DockerException, ContainerNotFoundException, DefaultDockerClient, DockerClient}
+import com.spotify.docker.client._
+import com.spotify.docker.client.messages._
 import org.apache.commons.io.IOUtils
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, Suite}
+
+import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent._
+import scala.concurrent.duration.Duration
+import scala.util.{Random, Failure, Success, Try}
 
 /**
  * Shares a `SparkContext` connected to Docker initiated Cluster
  *  between all tests in a suite and closes it at the end
  */
 trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =>
+
+  private val RUN_ID = Random.alphanumeric.take(5).mkString // scalastyle:ignore
+
+  private val DOCKER_SPARK_VELOCITY_CONTAINER = s"velocity_spark_$RUN_ID"
+  private val DOCKER_ZOOKEEPER_CONTAINER = s"velocity_zookeeper_$RUN_ID"
+  private val DOCKER_HDFS_CONTAINER = DOCKER_SPARK_VELOCITY_CONTAINER
+
+  private val DOCKER_SPARK_VELOCITY_IMAGE = dockerVelocityImage()
+  private val DOCKER_ZOOKEEPER_IMAGE = "jplock/zookeeper"
+
+  protected def dockerRamLimit: Long = 1*1024*1024*1024
+  protected def resetDockerSparkCluster: Boolean = true
+  protected def numberOfSparkWorkers: Int = 3
+  protected def startSpark: Boolean = true
+
   @transient private var _sc: SparkContext = _
   def sc: SparkContext = _sc
+
   private var docker: DockerClient = _
 
-  @transient private var _hosts: Seq[String] = Seq()
-  def hosts: Seq[String] = _hosts
+  @transient private var _sparkWorkers: Seq[String] = Seq()
+  def hosts: Seq[String] = _sparkWorkers
 
-  @transient private var _zookeeperIp: String = _
-  def zookeeperIp: String = _zookeeperIp
+  lazy val zookeeperUrl: String = s"${getContainerIp(DOCKER_ZOOKEEPER_CONTAINER)}:2181"
 
-  @transient private var _sparkMasterIp: String = _
-  def sparkMasterIp: String = _sparkMasterIp
+  lazy val sparkMaster: String = s"${getContainerIp(DOCKER_SPARK_VELOCITY_CONTAINER)}:7077"
 
-  val ONEGIGABYTE:Long = 1*1024*1024*1024
+  lazy val hdfsNameNode: String = s"${getContainerIp(DOCKER_HDFS_CONTAINER)}:9000"
+
   val userHome = System.getProperty("user.home")
-
-  var createdJars: List[String] = List()
-  private var resetDockerSparkCluster:Boolean = _
 
   def sparkConf: SparkConf = {
     val conf = new SparkConf(false)
+    /* Debug */
+    /* TODO: conf.set("spark.eventLog.enabled", "true") */
+    /* Performance */
     /* XXX: Prevent 200 partitions on shuffle */
     conf.set("spark.sql.shuffle.partitions", "4")
     /* XXX: Disable join broadcast */
@@ -45,207 +67,252 @@ trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =
     conf.set("spark.shuffle.spill", "false")
     conf.set("spark.shuffle.compress", "false")
     conf.set("spark.ui.enabled", "false")
+    /* TODO: Spark might pick an incorrect interface to announce the Driver */
+    /* conf.set("spark.driver.host", "") */
   }
 
   override def beforeAll() {
-    _sc = new SparkContext(s"spark://$sparkMasterIp:7077", "docker-spark-test" , sparkConf)
-    val cl = ClassLoader.getSystemClassLoader
-    var i = 0
-    cl.asInstanceOf[URLClassLoader].getURLs.foreach(url => {
-      if (url.getFile.endsWith("/")) {
-        val manifest:util.jar.Manifest = new util.jar.Manifest()
-        manifest.getMainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0")
-        val target:JarOutputStream
-          = new JarOutputStream(new FileOutputStream(s"temp_internal$i.jar"), manifest)
-        addFileToJar(url.getFile, new File(url.getFile), target)
-        target.close()
-        _sc.addJar(s"temp_internal$i.jar")
-        createdJars = s"temp_internal$i.jar" :: createdJars
-        i += 1
+    try {
+      super.beforeAll()
+      cleanUpDockerCluster()
+      startDockerSparkCluster()
+      logDebug(s"Creating SparkContext with master $sparkMaster")
+      if (startSpark) {
+        _sc = new SparkContext(s"spark://$sparkMaster", "docker-spark-test", sparkConf)
+        addClassPathToSparkContext()
       } else {
-        _sc.addJar(url.getFile)
+        _sc = new SparkContext(s"local[4]", "docker-spark-test" , sparkConf)
       }
-    })
-    super.beforeAll()
+    } catch {
+      case ex: Throwable =>
+        cleanUpDockerCluster()
+        throw ex
+    }
   }
+
   override def afterAll() {
-    _sc.stop()
-    _sc = null
-    stopDockerSparkCluster()
-    createdJars.foreach( path => {
+    if (_sc != null) {
+      _sc.stop()
+      _sc = null
+    }
+    _createdJars.foreach( path => {
       try {
         new File(path).delete()
       } catch {
         case ioe: IOException => logError(ioe.getMessage)
       }
     })
+    cleanUpDockerCluster()
     super.afterAll()
   }
 
+  def cleanUpDockerCluster(): Unit = {
+    if (resetDockerSparkCluster) {
+      if (docker == null) {
+        docker = buildDockerClient()
+      }
+      stopRemoveAllContainers()
+      docker.close()
+      docker = null
+    }
+  }
+
+
   /**
    * Starts a docker containers to build a spark cluster.
-   *
-   * @param dataPath folder that will be shared with spark workers
-   * the folder will be visible to velocity server
-   * @param numberOfWorkers number of workers in spark cluster
-   * @param resetDockerSparkCluster should be set to true to use
-   * a fresh copy of cluster
-   * @param ramLimit limits the ram usage of docker containers
-   * ramLimit uses process groups to limit ram and cpu
-   * @return sparkMasterIp Ip address of spark master node
-   * it can be used to start a sparkContext
    */
-  def startDockerSparkCluster(dataPath:String = userHome,
-                             numberOfWorkers:Int = 2,
-                             resetDockerSparkCluster:Boolean = true,
-                             ramLimit:Long = ONEGIGABYTE
-                               ): String = {
-    this.resetDockerSparkCluster = resetDockerSparkCluster
-    docker = new DefaultDockerClient("unix:///var/run/docker.sock")
-    if (resetDockerSparkCluster) {
-      stopRemoveAllContainers()
+  private def startDockerSparkCluster(): Unit = {
+    cleanUpDockerCluster()
+    getOrCreateZooKeeperContainer
+    getOrCreateSparkMaster
+    _sparkWorkers = (1 to numberOfSparkWorkers).map { i =>
+      getOrCreateSparkWorker(i)
     }
-    _sparkMasterIp = try {
-      (docker inspectContainer "spark_master").networkSettings().ipAddress()
-    } catch {
-      case cne:ContainerNotFoundException =>
-      stopRemoveAllContainers()
-      _zookeeperIp = startZookeeper(ramLimit)
-      val masterConfig: ContainerConfig = ContainerConfig.builder()
-        .image("sparkvelocity").cmd("/start-master.sh")
-        .tty(true).memory(ramLimit).build()
-      val masterHostConfig: HostConfig = HostConfig.builder()
-        .publishAllPorts(true).build()
+  }
 
-      val masterCreation: ContainerCreation = docker.createContainer(masterConfig, "spark_master")
-      val masterId: String = masterCreation.id()
-      docker.startContainer(masterId, masterHostConfig)
+  private def getOrCreateContainer(containerId: String,
+                                   containerConfig: ContainerConfig,
+                                   portTests: Seq[(String,String)] = Nil
+                                    ): String = {
+    if (docker == null) {
+      docker = buildDockerClient()
+    }
+    logDebug(s"Get or create: $containerId")
+    val ip = Try({
+      getContainerIp(containerId)
+    }) match {
+      case Success(i) => i
+      case Failure(_: ContainerNotFoundException) =>
+        try {
+          docker.inspectImage(containerConfig.image())
+        } catch {
+          case ex: ImageNotFoundException => pullImage(containerConfig.image())
+        }
+        logDebug(s"Create: $containerId")
+        docker.createContainer(containerConfig, containerId)
+        logDebug(s"Start: $containerId")
+        docker.startContainer(containerId)
+        getContainerIp(containerId)
+      case Failure(ex) =>
+        throw ex
+    }
 
-      val newSparkMasterIp = docker.inspectContainer(masterId).networkSettings().ipAddress()
-      waitUntilNodeIsReady(newSparkMasterIp, "8080")
+    Await.ready(
+      Future.sequence(
+        portTests.map({
+          case (port, proto) => future { waitUntilNodeIsReady(ip, port, proto) }
+        })
+      ), Duration.Inf
+    )
+    
+    ip
+  }
 
-      val hostConfig: HostConfig = HostConfig.builder()
-        .publishAllPorts(true).links(s"spark_master:spark_master")
-        .binds(s"$dataPath:$dataPath:ro")
+  private def getOrCreateZooKeeperContainer: String =
+    getOrCreateContainer(
+      containerId = DOCKER_ZOOKEEPER_CONTAINER,
+      containerConfig = ContainerConfig.builder()
+        .image(DOCKER_ZOOKEEPER_IMAGE)
+        .tty(true)
+        .memory(dockerRamLimit)
+        .hostConfig(HostConfig.builder()
+          /* TODO: publishAllPorts(true) */
+          .build()
+        ).build(),
+      portTests = Seq("2181" -> "tcp")
+    )
+
+  private def getOrCreateSparkMaster: String =
+    getOrCreateContainer(
+      containerId = DOCKER_SPARK_VELOCITY_CONTAINER,
+      containerConfig = ContainerConfig.builder()
+        .image(DOCKER_SPARK_VELOCITY_IMAGE)
+        .tty(true)
+        .cmd("/start-master.sh")
+        .memory(dockerRamLimit)
+        .hostConfig(HostConfig.builder()
+        /* TODO: publishAllPorts(true) */
         .build()
+        ).build(),
+      portTests = Seq(
+        "8080" -> "http", /* Spark Master UI */
+        "9000" -> "tcp"  /* HDFS NameNode */
+      )
+    )
 
-      val workerConfig: ContainerConfig = ContainerConfig.builder()
-        .image("sparkvelocity").volumes(dataPath)
-        .cmd("/start-worker.sh").tty(true)
-        .memory(ramLimit)
+  private def getOrCreateSparkWorker(i: Int): String =
+    getOrCreateContainer(
+      containerId = s"${DOCKER_SPARK_VELOCITY_CONTAINER}_$i",
+      containerConfig = ContainerConfig.builder()
+        .image(DOCKER_SPARK_VELOCITY_IMAGE)
+        .tty(true)
+        .cmd("/start-worker.sh")
+        .memory(dockerRamLimit)
+        .hostConfig(HostConfig.builder()
+        /* TODO: publishAllPorts(true) */
+        .links(s"$DOCKER_SPARK_VELOCITY_CONTAINER:spark_master")
         .build()
+        ).build(),
+      portTests = Seq(
+        "8081" -> "http", /* Spark Worker UI */
+        "2202" -> "tcp"   /* v2server */
+      )
+    )
 
-      for (i <- 1 to numberOfWorkers) {
-        val creation: ContainerCreation = docker.createContainer(workerConfig,s"spark_worker$i")
-        val id = creation.id()
-        docker.startContainer(id, hostConfig)
+  private def pullImage(image: String): Unit = {
+    logDebug(s"Pulling image: $image")
+    docker.pull(image, new ProgressHandler {
+      override def progress(message: ProgressMessage): Unit = {
+        if (message.progress() != null) {
+          logDebug(s"Pulling $image: ${message.progress()}")
+        }
       }
-      newSparkMasterIp
-    }
-    checkHostsAndPaths(numberOfWorkers)
-    _sparkMasterIp
+    })
+    logDebug(s"Pulled image: $image")
   }
-
-  /**
-  * TODO: This method will be reduced in future
-  */
-  def checkHostsAndPaths(numberOfWorkers:Int): Unit = {
-    _zookeeperIp = docker.inspectContainer(s"spark_zookeeper").networkSettings().ipAddress()
-    for (i <- 1 to numberOfWorkers) {
-      var ip = docker.inspectContainer(s"spark_worker$i").networkSettings().ipAddress()
-      waitUntilNodeIsReady(ip, "8081")
-      ip += ":2202"
-      _hosts:+=ip
-    }
-  }
-
-  def startZookeeper(ramLimit:Long): String = {
-    val zookeeperConfig: ContainerConfig = ContainerConfig.builder()
-      .image("jplock/zookeeper")
-      .tty(true).memory(ramLimit).build()
-    val zookeeperHostConfig: HostConfig = HostConfig.builder()
-      .publishAllPorts(true).build()
-
-    val zookeeperCreation: ContainerCreation
-      = docker.createContainer(zookeeperConfig, "spark_zookeeper")
-    val zookeeperId: String = zookeeperCreation.id()
-    docker.startContainer(zookeeperId, zookeeperHostConfig)
-
-    docker.inspectContainer(zookeeperId).networkSettings().ipAddress()
-  }
-
-  def stopDockerSparkCluster() {
-    if (resetDockerSparkCluster) {
-      stopRemoveAllContainers()
-    }
-    docker.close()
-  }
+  
+  private def getContainerIp(containerId: String): String =
+    (docker inspectContainer containerId).networkSettings().ipAddress()
 
   /**
    * Stops and removes every container in the local machine
-   * 
+   *
    * a container cannot be rmeoved without stoppping
    * if a container did not stop before removing an exception occurs
    * this method waits and retries until every container is removed
    */
-  def stopRemoveAllContainers() {
+  private def stopRemoveAllContainers() {
     if (docker == null) {
-      docker = new DefaultDockerClient("unix:///var/run/docker.sock")
+      docker = buildDockerClient()
     }
     val defaultTimeout = 1000
     var iterations = 0
     val maximumIterations = 10
-    var containers: util.List[Container] = null
+    var containers: Seq[Container] = Seq()
     do {
-      containers = docker.listContainers(DockerClient.ListContainersParam.allContainers(true))
-      for (i <- 0 until containers.size()) {
+      containers = docker
+        .listContainers(DockerClient.ListContainersParam.allContainers(true))
+        .asScala.toSeq
+        .filter(_.names().asScala.exists({ name =>
+          name.startsWith("/" + DOCKER_SPARK_VELOCITY_CONTAINER) ||
+          name.startsWith("/" + DOCKER_ZOOKEEPER_CONTAINER) ||
+            name.startsWith("/" + DOCKER_HDFS_CONTAINER)
+      }))
+      containers.foreach { container =>
         try {
-          docker.stopContainer(containers.get(i).id(), 0)
-          docker.removeContainer(containers.get(i).id())
+          docker.stopContainer(container.id(), 0)
+          docker.removeContainer(container.id())
         } catch {
-          case e:DockerException => {
-            logDebug("Retrying due to :%s".format(e.getMessage))
+          case ex: DockerException =>
+            logDebug(s"Cannot stop or remove container: ${ex.getMessage}")
             Thread sleep defaultTimeout
-          }
         }
       }
-      iterations+=1
-    } while (containers.size() > 0 && iterations < maximumIterations)
+      iterations += 1
+    } while (containers.nonEmpty && iterations < maximumIterations)
   }
 
   /**
    * Checks an http port to check if a http service is up
-   * 
+   *
    * it is used to check if a spark master or spark worker is up
-   * 
+   *
    * @param ip
    * @param port
+   * @param proto
    */
-  def waitUntilNodeIsReady(ip:String, port:String) {
+  private def waitUntilNodeIsReady(ip: String, port: String, proto: String): Unit = {
     var isReady = false
     var iterations = 0
-    val maximumIterations = 240
-    val defaultTimeout = 1000
+    val maximumIterations = 50
+    val defaultTimeout = 500
 
     do {
-      isReady = pingHttp(s"http://$ip:$port", defaultTimeout)
+      logDebug(s"Pinging $ip:$port (iteration $iterations)")
+      isReady = proto match {
+        case "http" => pingHttp(ip, port, defaultTimeout)
+        case "tcp" => pingTcp(ip, port, defaultTimeout)
+        case "none" => true
+      }
       if(!isReady) {
         Thread sleep defaultTimeout
       }
-      iterations+=1
-    } while(!isReady && iterations < maximumIterations)
+      iterations += 1
+    } while (!isReady && iterations < maximumIterations)
 
-    if(!isReady) {
-      throw new Exception(s"Node at $ip may not be initialized")
+    if (!isReady) {
+      sys.error(s"Node $ip is not replying for $port/$proto")
     }
+    logDebug(s"Ready: $ip:$port/$proto")
   }
 
   /**
    * Pings a HTTP URL.
    * This effectively sends a HEAD request and returns <code>true</code>
    * if the response code is in the 200-399 range.
-   * 
-   * @param urlInput The HTTP URL to be pinged.
+   *
+   * @param ip The IP or host to be pinged.
+   * @param port HTTP port.
    * @param timeout The timeout in millis for both the connection timeout
    * and the response read timeout. Note that
    * the total timeout is effectively two times the given timeout.
@@ -253,34 +320,80 @@ trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =
    * response code 200-399 on a HEAD request within the
    * given timeout, otherwise <code>false</code>.
    */
-  def pingHttp(urlInput:String, timeout:Int): Boolean = {
-    // Otherwise an exception may be thrown on invalid SSL certificates:
-    val url = urlInput.replaceFirst("^https", "http")
+  private def pingHttp(ip: String, port: String, timeout: Int): Boolean = {
+    val url = s"http://$ip:$port"
     try {
-      val tempConnection:URLConnection = new URL(url).openConnection()
-      val connection:HttpURLConnection = tempConnection.asInstanceOf[HttpURLConnection]
+      val tempConnection = new URL(url).openConnection()
+      val connection = tempConnection.asInstanceOf[HttpURLConnection]
       connection.setConnectTimeout(timeout)
       connection.setReadTimeout(timeout)
       connection.setRequestMethod("HEAD")
-      val responseCode:Int = connection.getResponseCode
+      val responseCode = connection.getResponseCode
       200 <= responseCode && responseCode <= 399
     } catch {
       case ioe: IOException => false
     }
   }
 
+  private def pingTcp(ip: String, port: String, timeout: Int): Boolean = {
+    Try({
+      val socket = new Socket(ip, port.toInt)
+      socket.close()
+    }) match {
+      case Success(_) => true
+      case Failure(ex: ConnectException) =>
+        logTrace(s"Error when testing connection to $ip:$port", ex)
+        false
+      case Failure(ex) =>
+        logDebug(s"Error when testing connection to $ip:$port", ex)
+        false
+    }
+  }
+
+  private var _createdJars: List[String] = List()
+
+  /**
+   * Adds all JARs in ClassPath to SparkContext.
+   */
+  private def addClassPathToSparkContext(): Unit = {
+    logInfo("Adding ClassPath to SparkContext")
+    val cl = ClassLoader.getSystemClassLoader.asInstanceOf[URLClassLoader]
+    cl.getURLs.zipWithIndex.foreach({
+      /* Plain directories in classpath are bundled into a jar */
+      case (url, i) if url.getFile.endsWith("/") =>
+          val manifest = new util.jar.Manifest()
+          manifest.getMainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0")
+          val target = new JarOutputStream(new FileOutputStream(s"temp_internal$i.jar"), manifest)
+          addFileToJar(url.getFile, new File(url.getFile), target)
+          target.close()
+          _sc.addJar(s"temp_internal$i.jar")
+          _createdJars = s"temp_internal$i.jar" :: _createdJars
+      /* Jars with a prefix in PROVIDED_JARS are excluded */
+      case (url, _)
+        if PROVIDED_JARS.exists(prefix => new File(url.getFile).getName.startsWith(prefix)) =>
+        logDebug(s"Skipping $url (provided JAR)")
+      /* Other jars are added as they are */
+      case (url, _) =>
+          _sc.addJar(url.getFile)
+    })
+  }
+  private val PROVIDED_JARS = Seq(
+    "spark-core-",
+    "scala-library-"
+  )
+
   /**
    * Add files to a jar output stream
-   * 
+   *
    * it is used for adding a folder into a jar file
    * This is a recursive method
-   * 
+   *
    * @param root folder root
    * @param source file to be added
    * @param target output jar file stream
    * @return
    */
-  def addFileToJar(root:String, source:File, target:JarOutputStream ): Any = {
+  private def addFileToJar(root:String, source:File, target:JarOutputStream ): Any = {
     if (source.isDirectory) {
       var name = source.getPath.replace("\\", "/")
       if (name.nonEmpty) {
@@ -307,8 +420,26 @@ trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =
           in.close()
         }
       }
-      target.closeEntry();
+      target.closeEntry()
     }
   }
+
+  /**
+   * Builds a Docker client.
+   */
+  private def buildDockerClient(): DockerClient = {
+    DefaultDockerClient
+      .fromEnv()
+      .build()
+  }
+
+  private def dockerVelocityImage(): String = Seq(
+    Option(System.getProperty("docker.image.velocity")),
+    Option(System.getenv("DOCKER_IMAGE_VELOCITY")),
+    Some("sparkvelocity")
+  )
+    .flatten
+    .head
+
 }
 
