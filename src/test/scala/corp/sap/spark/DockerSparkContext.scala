@@ -196,7 +196,7 @@ trait DockerSparkContext extends WithSparkContext with Logging {
         })
       ), Duration.Inf
     )
-    
+
     ip
   }
 
@@ -262,7 +262,7 @@ trait DockerSparkContext extends WithSparkContext with Logging {
     })
     logDebug(s"Pulled image: $image")
   }
-  
+
   private def getContainerIp(containerId: String): String =
     (docker inspectContainer containerId).networkSettings().ipAddress()
 
