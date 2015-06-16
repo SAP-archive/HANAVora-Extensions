@@ -3,14 +3,14 @@ package corp.sap.spark
 import java.io._
 import java.net._
 import java.util
-import java.util.UUID
+import java.util.{Locale, UUID}
 import java.util.jar.{Attributes, JarEntry, JarOutputStream}
 
 import com.spotify.docker.client._
 import com.spotify.docker.client.messages._
 import org.apache.commons.io.IOUtils
 import org.apache.spark.{Logging, SparkConf, SparkContext}
-import org.scalatest.{BeforeAndAfterAll, Suite}
+import org.scalatest.Suite
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -22,24 +22,88 @@ import scala.util.{Random, Failure, Success, Try}
  * Shares a `SparkContext` connected to Docker initiated Cluster
  *  between all tests in a suite and closes it at the end
  */
-trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =>
-
-  private val RUN_ID = Random.alphanumeric.take(5).mkString // scalastyle:ignore
+trait DockerSparkContext extends WithSparkContext with Logging {
+  self: Suite =>
+  
+  /**
+   * The RUN ID identifies the set of Docker containers used for this test run. If none
+   * is specified, a random one will be generated. If a Docker cluster needs to be re-used,
+   * this must be set. This can also be set from Jenkins to have better control of which Docker
+   * containers were used for a given Jenkins job.
+   */
+  private lazy val RUN_ID =
+    getSetting("docker.run.id",
+      Random.alphanumeric.take(5).mkString // scalastyle:ignore
+    )
 
   private val DOCKER_SPARK_VELOCITY_CONTAINER = s"velocity_spark_$RUN_ID"
   private val DOCKER_ZOOKEEPER_CONTAINER = s"velocity_zookeeper_$RUN_ID"
   private val DOCKER_HDFS_CONTAINER = DOCKER_SPARK_VELOCITY_CONTAINER
 
-  private val DOCKER_SPARK_VELOCITY_IMAGE = dockerVelocityImage()
+  /**
+   * This is the Docker image to be used for Velocity. This is expected to contain Spark master
+   * and workers, HDFS namenode and datanodes, and Velocity.
+   */
+  private lazy val DOCKER_SPARK_VELOCITY_IMAGE =
+    getSetting("docker.image.velocity", "sparkvelocity")
+
   private val DOCKER_ZOOKEEPER_IMAGE = "jplock/zookeeper"
 
-  protected def dockerRamLimit: Long = 1*1024*1024*1024
-  protected def resetDockerSparkCluster: Boolean = true
-  protected def numberOfSparkWorkers: Int = 3
-  protected def startSpark: Boolean = true
+  /**
+   * A memory limit (in bytes) for each container. Default to 1GB.
+   */
+  protected lazy val dockerRamLimit: Long =
+    getSetting("docker.ram.limit", (1*1024*1024*1024).toString).toLong
+
+  /**
+   * If this is set to true (default), the Docker cluster will be clean
+   * up before and after the tests.
+   */
+  protected lazy val resetDockerSparkCluster: Boolean =
+    getSetting("docker.reset.cluster", "true").toBoolean
+
+  /**
+   * Set to true (default) to start Docker cluster inside Docker. Otherwise,
+   * a local Spark cluster will be used for the tests, and Docker containers will
+   * be used only for ZooKeeper, HDFS and Velocity.
+   */
+  protected lazy val useSparkInDocker: Boolean =
+    getSetting("use.spark.in.docker", "true").toBoolean
 
   @transient private var _sc: SparkContext = _
-  def sc: SparkContext = _sc
+  override def sc: SparkContext = _sc
+
+  override protected def setUpSparkContext(): Unit = {
+    cleanUpDockerCluster()
+
+    /* Set HADOOP_USER_NAME so that we do not get HDFS permission errors */
+    System.setProperty("HADOOP_USER_NAME", "root")
+
+    startDockerSparkCluster()
+    logDebug(s"Creating SparkContext with master $sparkMaster")
+    if (useSparkInDocker) {
+      _sc = new SparkContext(s"spark://$sparkMaster", "docker-spark-test", sparkConf)
+      addClassPathToSparkContext()
+    } else {
+      _sc = new SparkContext(s"local[$numberOfSparkWorkers]", "docker-spark-test", sparkConf)
+    }
+  }
+
+  override protected def tearDownSparkContext(): Unit = {
+    if (_sc != null) {
+      _sc.stop()
+      _sc = null
+    }
+    _createdJars.foreach( path => {
+      try {
+        new File(path).delete()
+      } catch {
+        case ioe: IOException => logError(ioe.getMessage)
+      }
+    })
+    cleanUpDockerCluster()
+  }
+
 
   private var docker: DockerClient = _
 
@@ -54,56 +118,25 @@ trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =
 
   val userHome = System.getProperty("user.home")
 
-  def sparkConf: SparkConf = {
-    val conf = new SparkConf(false)
-    /* Debug */
+  override def sparkConf: SparkConf = {
+    super.sparkConf
     /* TODO: conf.set("spark.eventLog.enabled", "true") */
-    /* Performance */
-    /* XXX: Prevent 200 partitions on shuffle */
-    conf.set("spark.sql.shuffle.partitions", "4")
-    /* XXX: Disable join broadcast */
-    conf.set("spark.sql.autoBroadcastJoinThreshold", "-1")
-    conf.set("spark.broadcast.factory", "org.apache.spark.broadcast.HttpBroadcastFactory")
-    conf.set("spark.shuffle.spill", "false")
-    conf.set("spark.shuffle.compress", "false")
-    conf.set("spark.ui.enabled", "false")
     /* TODO: Spark might pick an incorrect interface to announce the Driver */
     /* conf.set("spark.driver.host", "") */
   }
 
-  override def beforeAll() {
-    try {
-      super.beforeAll()
-      cleanUpDockerCluster()
-      startDockerSparkCluster()
-      logDebug(s"Creating SparkContext with master $sparkMaster")
-      if (startSpark) {
-        _sc = new SparkContext(s"spark://$sparkMaster", "docker-spark-test", sparkConf)
-        addClassPathToSparkContext()
-      } else {
-        _sc = new SparkContext(s"local[4]", "docker-spark-test" , sparkConf)
-      }
-    } catch {
-      case ex: Throwable =>
-        cleanUpDockerCluster()
-        throw ex
-    }
-  }
-
   override def afterAll() {
-    if (_sc != null) {
-      _sc.stop()
-      _sc = null
+    try {
+      super.afterAll()
+    } finally {
+      _createdJars.foreach( path => {
+        try {
+          new File(path).delete()
+        } catch {
+          case ioe: IOException => logError(ioe.getMessage)
+        }
+      })
     }
-    _createdJars.foreach( path => {
-      try {
-        new File(path).delete()
-      } catch {
-        case ioe: IOException => logError(ioe.getMessage)
-      }
-    })
-    cleanUpDockerCluster()
-    super.afterAll()
   }
 
   def cleanUpDockerCluster(): Unit = {
@@ -116,7 +149,6 @@ trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =
       docker = null
     }
   }
-
 
   /**
    * Starts a docker containers to build a spark cluster.
@@ -379,7 +411,9 @@ trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =
   }
   private val PROVIDED_JARS = Seq(
     "spark-core-",
-    "scala-library-"
+    "spark-network-",
+    "scala-library-",
+    "hadoop-"
   )
 
   /**
@@ -432,14 +466,6 @@ trait DockerSparkContext extends BeforeAndAfterAll  with Logging { self: Suite =
       .fromEnv()
       .build()
   }
-
-  private def dockerVelocityImage(): String = Seq(
-    Option(System.getProperty("docker.image.velocity")),
-    Option(System.getenv("DOCKER_IMAGE_VELOCITY")),
-    Some("sparkvelocity")
-  )
-    .flatten
-    .head
 
 }
 

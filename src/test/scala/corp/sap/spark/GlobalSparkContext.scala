@@ -19,38 +19,41 @@ package corp.sap.spark
 import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
-/** Shares a local `SparkContext` between all tests in a suite and closes it at the end */
-trait GlobalSparkContext extends BeforeAndAfterAll { self: Suite =>
-  def sc: SparkContext = GlobalSparkContext._sc
+/**
+ * Shares a local `SparkContext` between all tests in a suite and closes it at the end.
+ */
+trait GlobalSparkContext extends WithSparkContext {
+  self: Suite =>
 
-  def sparkConf: SparkConf = {
-    val conf = new SparkConf(false)
-    /* XXX: Prevent 200 partitions on shuffle */
-    conf.set("spark.sql.shuffle.partitions", "4")
-    /* XXX: Disable join broadcast */
-    conf.set("spark.sql.autoBroadcastJoinThreshold", "-1")
-    conf.set("spark.broadcast.factory", "org.apache.spark.broadcast.HttpBroadcastFactory")
-    conf.set("spark.shuffle.spill", "false")
-    conf.set("spark.shuffle.compress", "false")
-    conf.set("spark.ui.enabled", "false")
+  override def sc: SparkContext = GlobalSparkContext._sc
+
+  override protected def setUpSparkContext(): Unit = {
+    GlobalSparkContext.init(numberOfSparkWorkers, sparkConf)
   }
 
-  override def beforeAll(): Unit = {
-    GlobalSparkContext.init(sparkConf)
-    super.beforeAll()
+  override protected def tearDownSparkContext(): Unit = {
+    /* Do not tear down context */
   }
+
 }
 
 object GlobalSparkContext {
   @transient private var _sc: SparkContext = _
 
-  private def init(sparkConf: SparkConf): Unit = {
+  def init(numberOfSparkWorkers: Int, sparkConf: SparkConf): Unit = {
     if (_sc == null) {
       this.synchronized {
         if (_sc == null) {
-          _sc = new SparkContext("local[4]", "test", sparkConf)
+          _sc = new SparkContext(s"local[$numberOfSparkWorkers]", "test", sparkConf)
         }
       }
+    }
+  }
+
+  def close(): Unit = {
+    if (_sc != null) {
+      _sc.stop()
+      _sc = null
     }
   }
 
