@@ -43,6 +43,12 @@ trait WithSparkContext extends BeforeAndAfterAll {
     conf.set("spark.shuffle.spill", "false")
     conf.set("spark.shuffle.compress", "false")
     conf.set("spark.ui.enabled", "false")
+    /*
+     * TODO: Use old Parquet API, new one has bug:
+     *       https://issues.apache.org/jira/browse/SPARK-6330
+     *       We should be able to remove this with Spark 1.4.0.
+     */
+    conf.set("spark.sql.parquet.useDataSourceApi", "false")
   }
 
   def sc: SparkContext
