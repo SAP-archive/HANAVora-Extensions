@@ -1,13 +1,9 @@
 package org.apache.spark.sql.hierarchy
 
-import corp.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
-import org.apache.spark.sql.types.Node
-import org.apache.spark.sql.execution.{SparkPlan, HierarchyPhysicalPlan}
-import org.apache.spark.sql.hierarchy._
-import org.apache.spark.sql.types.{IntegerType, StringType, LongType}
-import org.apache.spark.sql.{VelocitySQLContext, DataFrameHolder, SQLContext, Row}
+import org.apache.spark.sql.{Row, _}
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.types.{IntegerType, LongType, Node, StringType}
 import org.scalatest.FunSuite
 
 import scala.util.Random
@@ -21,7 +17,8 @@ case class PartialResult(path: Seq[Long], pk: Long)
 // scalastyle:off magic.number
 // scalastyle:off file.size.limit
 
-class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
+class HierarchySuite extends FunSuite
+with GlobalVelocitySQLContext with Logging {
 
   implicit class Crossable[X](xs: Traversable[X]) {
     def cross[Y](ys: Traversable[Y]) : Traversable[(X,Y)] =
@@ -47,7 +44,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
   )
 
   test("use join predicates") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
@@ -105,7 +101,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
   }
 
   test("integration: build join hierarchy from SQL using RDD[Row] with UDFs") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
@@ -136,7 +131,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
   }
 
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
@@ -167,7 +161,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
   }
 
   test("integration: build broadcast hierarchy top to bottom using SQL and RDD[Row]") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(
       adjacencyList
         .take(adjacencyList.length - 1)
@@ -232,7 +225,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
   def integrationStartWithExpression(builder : HierarchyBuilder[Row, Row]): Unit = {
     test("integration: execute hierarchy from expressions using " +
       builder.getClass.getName.split("\\$").head.split("\\.").last){
-      val sqlContext = new VelocitySQLContext(sc)
       val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
       val hSrc = sqlContext.createDataFrame(rdd)
       hSrc.registerTempTable("h_src")
@@ -297,8 +289,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
   }
 
   test("integration: I can join hierarchy with table") {
-    val sqlContext = new VelocitySQLContext(sc)
-
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
@@ -333,8 +323,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
    }
 
   test("integration: I can left outer join hierarchy with table") {
-    val sqlContext = new VelocitySQLContext(sc)
-
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     hSrc.registerTempTable("h_src")
@@ -370,8 +358,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
    }
 
   test("integration: I can right outer join hierarchy with table") {
-    val sqlContext = new VelocitySQLContext(sc)
-
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
@@ -407,8 +393,6 @@ class HierarchySuite extends FunSuite with GlobalSparkContext with Logging {
    }
 
     test("integration: I can full outer join hierarchy with table") {
-    val sqlContext = new VelocitySQLContext(sc)
-
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")

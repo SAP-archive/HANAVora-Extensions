@@ -34,7 +34,9 @@ trait WithSparkContext extends BeforeAndAfterAll {
     getSetting("spark.workers", "3").toInt
 
   def sparkConf: SparkConf = {
-    val conf = new SparkConf(false)
+    val conf = new SparkConf(loadDefaults = false)
+    conf.set("spark.driver.allowMultipleContexts", "true")
+
     /* XXX: Prevent 200 partitions on shuffle */
     conf.set("spark.sql.shuffle.partitions", "4")
     /* XXX: Disable join broadcast */
@@ -43,6 +45,8 @@ trait WithSparkContext extends BeforeAndAfterAll {
     conf.set("spark.shuffle.spill", "false")
     conf.set("spark.shuffle.compress", "false")
     conf.set("spark.ui.enabled", "false")
+    conf.set("spark.ui.showConsoleProgress", "false")
+
     /*
      * TODO: Use old Parquet API, new one has bug:
      *       https://issues.apache.org/jira/browse/SPARK-6330

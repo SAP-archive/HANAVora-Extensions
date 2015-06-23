@@ -5,12 +5,12 @@ import java.util.{Calendar, Locale, TimeZone}
 
 import corp.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
-import org.apache.spark.sql.VelocitySQLContext
+import org.apache.spark.sql.{GlobalVelocitySQLContext, VelocitySQLContext}
 import org.scalatest.FunSuite
 
 class DateSuite
   extends FunSuite
-  with GlobalSparkContext
+  with GlobalVelocitySQLContext
   with Logging {
 
   // scalastyle:off magic.number
@@ -22,7 +22,6 @@ class DateSuite
   val dataWithDates = Seq(rowA, rowB, rowC)
 
   test("Date parts in project") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(dataWithDates)
     val dSrc = sqlContext.createDataFrame(rdd).cache()
     dSrc.registerTempTable("src")
@@ -50,7 +49,6 @@ class DateSuite
   }
 
   test("Date add in project") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(dataWithDates)
     val dSrc = sqlContext.createDataFrame(rdd).cache()
     dSrc.registerTempTable("src")

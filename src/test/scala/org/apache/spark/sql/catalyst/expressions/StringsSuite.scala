@@ -1,13 +1,12 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import corp.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
-import org.apache.spark.sql.{Row, VelocitySQLContext}
+import org.apache.spark.sql.GlobalVelocitySQLContext
 import org.scalatest.FunSuite
 
 class StringsSuite
   extends FunSuite
-  with GlobalSparkContext
+  with GlobalVelocitySQLContext
   with Logging {
 
   // scalastyle:off magic.number
@@ -21,7 +20,6 @@ class StringsSuite
   val dataWithDates = Seq(rowA, rowB, rowC, rowD, rowE)
 
   test("string manipulations") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(dataWithDates)
     val dSrc = sqlContext.createDataFrame(rdd).cache()
     dSrc.registerTempTable("src")

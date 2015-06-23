@@ -1,14 +1,13 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import corp.sap.spark.GlobalSparkContext
 import org.apache.commons.math3.util.FastMath
 import org.apache.spark.Logging
-import org.apache.spark.sql.VelocitySQLContext
+import org.apache.spark.sql.GlobalVelocitySQLContext
 import org.scalatest.FunSuite
 
 class MathsSuite
   extends FunSuite
-  with GlobalSparkContext
+  with GlobalVelocitySQLContext
   with Logging {
 
   // scalastyle:off magic.number
@@ -22,7 +21,6 @@ class MathsSuite
   val data = Seq(rowA, rowB)
 
   test("ln, log, pow") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(data)
     val dSrc = sqlContext.createDataFrame(rdd).cache()
     dSrc.registerTempTable("src")
@@ -46,7 +44,6 @@ class MathsSuite
   val data2 = Seq(rowC, rowD)
 
   test("ceil, floor, round, sign, mod") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(data2)
     val dSrc = sqlContext.createDataFrame(rdd).cache()
     dSrc.registerTempTable("src")
@@ -59,7 +56,6 @@ class MathsSuite
   }
 
   test("cos, SIN, TAN, ACOS, ASIN, ATAN") {
-    val sqlContext = new VelocitySQLContext(sc)
     val rdd = sc.parallelize(data2)
     val dSrc = sqlContext.createDataFrame(rdd).cache()
     dSrc.registerTempTable("src")

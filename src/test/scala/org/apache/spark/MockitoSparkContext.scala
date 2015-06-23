@@ -1,23 +1,24 @@
 package org.apache.spark
 
-import corp.sap.spark.{GlobalSparkContext, WithSparkContext}
+import corp.sap.spark.WithSparkContext
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterEach, BeforeAndAfter, Suite}
+import org.scalatest.Suite
+import org.scalatest.mock.MockitoSugar
 
 /**
  * Provides a simple mocked SparkContext.
  */
-trait MockitoSparkContext extends WithSparkContext {
+trait MockitoSparkContext extends WithSparkContext with MockitoSugar {
   self: Suite =>
 
-  private var _sparkConf : SparkConf = null
-  private var _sc : SparkContext = null
+  private var _sparkConf: SparkConf = _
+  private var _sc: SparkContext = _
 
   override def sc: SparkContext = _sc
 
   override protected def setUpSparkContext(): Unit = {
-    _sc = mock[SparkContext](classOf[SparkContext])
-    _sparkConf = new SparkConf(loadDefaults = false)
+    _sparkConf = sparkConf
+    _sc = mock[SparkContext](withSettings().stubOnly())
     when(_sc.conf).thenReturn(_sparkConf)
     when(_sc.getConf).thenReturn(_sparkConf)
   }
@@ -27,4 +28,3 @@ trait MockitoSparkContext extends WithSparkContext {
   }
 
 }
-

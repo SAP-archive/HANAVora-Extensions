@@ -32,6 +32,7 @@ trait GlobalSparkContext extends WithSparkContext {
   }
 
   override protected def tearDownSparkContext(): Unit = {
+    GlobalSparkContext.reset()
     /* Do not tear down context */
   }
 
@@ -48,6 +49,10 @@ object GlobalSparkContext {
         }
       }
     }
+  }
+
+  def reset(): Unit = {
+    _sc.cancelAllJobs()
   }
 
   def close(): Unit = {
