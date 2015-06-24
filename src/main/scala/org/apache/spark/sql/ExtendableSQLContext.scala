@@ -74,9 +74,11 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
 
     new Analyzer(catalog, functionRegistry, conf) with VelocityCheckAnalysis {
       val parentRules =
+        catalog.ParquetConversions ::
+        catalog.CreateTables ::
         ExtractPythonUdfs ::
-          sources.PreInsertCastAndRename ::
-          Nil
+        sources.PreInsertCastAndRename ::
+        Nil
       override val extendedResolutionRules = resolutionRules(this) ++ parentRules
 
       /* XXX: Override this to replace ResolveReferences with ResolveReferencesWithHierarchies */
