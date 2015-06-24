@@ -64,10 +64,7 @@ class HierarchiesSQLParser extends SqlParser {
   protected val TO_INTEGER = Keyword("TO_INTEGER")
   protected val TO_VARCHAR = Keyword("TO_VARCHAR")
 
-  lexical.delimiters +=(
-    "$","@", "*", "+", "-", "<", "=", "<>", "!=", "<=", ">=", ">", "/", "(", ")",
-    ",", ";", "%", "{", "}", ":", "[", "]", ".", "&", "|", "^", "~", "<=>"
-    )
+  lexical.delimiters += "$"
   
   override protected lazy val relation: Parser[LogicalPlan] =
     hierarchy | joinedRelation | relationFactor
@@ -222,4 +219,20 @@ class HierarchiesSQLParser extends SqlParser {
       { case d1 ~ d2 => DaysBetween(d1,d2) }
       )
   // scalastyle:on
+
+  /*
+   * TODO: Remove in future Spark versions.
+   *
+   * This is a workaround to a race condition in AbstractSparkSQLParser:
+   * https://issues.apache.org/jira/browse/SPARK-8628
+   */
+  override def parse(input: String): LogicalPlan = {
+    // Initialize the Keywords.
+    lexical.reserved ++= reservedWords
+    phrase(start)(new lexical.Scanner(input)) match {
+      case Success(plan, _) => plan
+      case failureOrError => sys.error(failureOrError.toString)
+    }
+  }
+
 }
