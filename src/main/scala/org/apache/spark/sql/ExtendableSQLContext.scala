@@ -3,11 +3,13 @@ package org.apache.spark.sql
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql.catalyst.CatalystConf
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry, _}
+import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
+import org.apache.spark.sql.execution.ExtractPythonUdfs
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.{ExtractPythonUdfs, SparkPlan}
+import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.hive._
 import org.apache.spark.sql.sources.{DDLParser, DataSourceStrategy}
 
@@ -96,6 +98,10 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
             TrimGroupingAliases ::
             typeCoercionRules ++
               extendedResolutionRules: _*)
+      )
+
+      override val extendedCheckRules = Seq(
+        sources.PreWriteCheck(catalog)
       )
     }
   }

@@ -120,6 +120,8 @@ class SqlBuilder {
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
+      case logical.Subquery(alias, src.LogicalRelation(relation:SqlLikeRelation))=>
+        s""""${relation.tableName}" AS "$alias""""
       case logical.Subquery(alias, child) =>
         s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
       case logical.Join(left, right, joinType, conditionOpt) =>
