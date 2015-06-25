@@ -219,13 +219,56 @@ class VelocitySqlParser extends SqlParser {
       { case d1 ~ d2 => DaysBetween(d1,d2) }
       )
   // scalastyle:on
+  
+  /*
+   * TODO: Remove in Spark 1.4.1/1.5.0. This fixes NOT operator precendence, which we
+   *       need for some SqlLogicTest queries.
+   *       https://issues.apache.org/jira/browse/SPARK-6740
+   */
+  override protected lazy val andExpression: Parser[Expression] =
+    booleanFactor * (AND ^^^ { (e1: Expression, e2: Expression) => And(e1, e2) })
+
+  protected lazy val booleanFactor: Parser[Expression] =
+    NOT.? ~ comparisonExpression ^^ {
+      case notOpt ~ expr => notOpt.map(s => Not(expr)).getOrElse(expr)
+    }
+
+  override protected lazy val comparisonExpression: Parser[Expression] =
+    ( termExpression ~ ("="  ~> termExpression) ^^ { case e1 ~ e2 => EqualTo(e1, e2) }
+      | termExpression ~ ("<"  ~> termExpression) ^^ { case e1 ~ e2 => LessThan(e1, e2) }
+      | termExpression ~ ("<=" ~> termExpression) ^^ { case e1 ~ e2 => LessThanOrEqual(e1, e2) }
+      | termExpression ~ (">"  ~> termExpression) ^^ { case e1 ~ e2 => GreaterThan(e1, e2) }
+      | termExpression ~ (">=" ~> termExpression) ^^ { case e1 ~ e2 => GreaterThanOrEqual(e1, e2) }
+      | termExpression ~ ("!=" ~> termExpression) ^^ { case e1 ~ e2 => Not(EqualTo(e1, e2)) }
+      | termExpression ~ ("<>" ~> termExpression) ^^ { case e1 ~ e2 => Not(EqualTo(e1, e2)) }
+      | termExpression ~ ("<=>" ~> termExpression) ^^ { case e1 ~ e2 => EqualNullSafe(e1, e2) }
+      | termExpression ~ NOT.? ~ (BETWEEN ~> termExpression) ~ (AND ~> termExpression) ^^ {
+      case e ~ not ~ el ~ eu =>
+        val betweenExpr: Expression = And(GreaterThanOrEqual(e, el), LessThanOrEqual(e, eu))
+        not.fold(betweenExpr)(f => Not(betweenExpr))
+    }
+      | termExpression ~ (RLIKE  ~> termExpression) ^^ { case e1 ~ e2 => RLike(e1, e2) }
+      | termExpression ~ (REGEXP ~> termExpression) ^^ { case e1 ~ e2 => RLike(e1, e2) }
+      | termExpression ~ (LIKE   ~> termExpression) ^^ { case e1 ~ e2 => Like(e1, e2) }
+      | termExpression ~ (NOT ~ LIKE ~> termExpression) ^^ { case e1 ~ e2 => Not(Like(e1, e2)) }
+      | termExpression ~ (IN ~ "(" ~> rep1sep(termExpression, ",")) <~ ")" ^^ {
+      case e1 ~ e2 => In(e1, e2)
+    }
+      | termExpression ~ (NOT ~ IN ~ "(" ~> rep1sep(termExpression, ",")) <~ ")" ^^ {
+      case e1 ~ e2 => Not(In(e1, e2))
+    }
+      | termExpression <~ IS ~ NULL ^^ { case e => IsNull(e) }
+      | termExpression <~ IS ~ NOT ~ NULL ^^ { case e => IsNotNull(e) }
+      /* XXX: | NOT ~> termExpression ^^ {e => Not(e)} */
+      | termExpression
+      )
 
   /*
-   * TODO: Remove in future Spark versions.
-   *
-   * This is a workaround to a race condition in AbstractSparkSQLParser:
-   * https://issues.apache.org/jira/browse/SPARK-8628
-   */
+  * TODO: Remove in future Spark versions.
+  *
+  * This is a workaround to a race condition in AbstractSparkSQLParser:
+  * https://issues.apache.org/jira/browse/SPARK-8628
+  */
   override def parse(input: String): LogicalPlan = {
     // Initialize the Keywords.
     lexical.reserved ++= reservedWords
