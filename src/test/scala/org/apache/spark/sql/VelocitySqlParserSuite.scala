@@ -8,7 +8,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{Metadata, StringType}
 import org.scalatest.FunSuite
 
-class HierarchiesSQLParserSuite extends FunSuite with Logging {
+class VelocitySqlParserSuite extends FunSuite with Logging {
 
   def t1 : LogicalPlan = new LocalRelation(output = Seq(
     new AttributeReference("pred", StringType, nullable = true, metadata = Metadata.empty)(),
@@ -25,7 +25,7 @@ class HierarchiesSQLParserSuite extends FunSuite with Logging {
 
   def analyzer : Analyzer = new Analyzer(catalog, EmptyFunctionRegistry, SimpleCatalystConf(true))
   test("basic case") {
-    val parser = new HierarchiesSQLParser
+    val parser = new VelocitySqlParser
     val result = parser.parse(
       """
         |SELECT * FROM HIERARCHY (
@@ -53,7 +53,7 @@ class HierarchiesSQLParserSuite extends FunSuite with Logging {
   }
 
   test("search by with multiple search by expressions") {
-    val parser = new HierarchiesSQLParser
+    val parser = new VelocitySqlParser
     val result = parser.parse(
       """
         |SELECT * FROM HIERARCHY (
@@ -82,7 +82,7 @@ class HierarchiesSQLParserSuite extends FunSuite with Logging {
   }
 
     test("search by with no search by") {
-      val parser = new HierarchiesSQLParser
+      val parser = new VelocitySqlParser
       val result = parser.parse(
         """
           |SELECT * FROM HIERARCHY (

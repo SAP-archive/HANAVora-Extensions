@@ -16,7 +16,7 @@ private[sql] trait HierarchiesSQLContextExtension
   }
 
   override def extendedSqlParser : SparkSQLParser = {
-      val fallback = new HierarchiesSQLParser()
+      val fallback = new VelocitySqlParser()
       new SparkSQLParser(fallback.parse)
   }
 

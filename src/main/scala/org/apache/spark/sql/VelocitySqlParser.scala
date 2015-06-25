@@ -8,7 +8,7 @@ import org.apache.spark.sql.types.StringType
 import java.util.Calendar
 import org.apache.spark.sql.types.DoubleType
 
-class HierarchiesSQLParser extends SqlParser {
+class VelocitySqlParser extends SqlParser {
 
   protected val HIERARCHY = Keyword("HIERARCHY")
   protected val USING = Keyword("USING")
