@@ -66,7 +66,7 @@
                     <junitxml>.</junitxml>
                     <filereports>WDF TestSuite.txt</filereports>
                     <forkMode>once</forkMode>
-                    <argLine>${argLine} -Xmx1024M -XX:MaxPermSize=700M</argLine>
+                    <argLine>${argLine} -Xmx1024M -XX:MaxPermSize=700M -XX:MaxHeapSize=512m</argLine>
                 </configuration>
             </plugin>
             <plugin>
