@@ -219,6 +219,7 @@ class SqlBuilder {
       case be: expr.BinaryExpression =>
         s"(${expressionToSql(be.left)} ${be.symbol} " +
           s"${expressionToSql(be.right)})"
+      case expr.UnaryMinus(child) => s"-(${expressionToSql(child)})"
       case expr.SortOrder(child,direction) =>
         val sortDirection = if (direction == Ascending) "ASC" else "DESC"
         s"${expressionToSql(child)} $sortDirection"
