@@ -25,6 +25,8 @@ private[sql] trait VelocityCommandsSQLContextExtension
         val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
         val dropRelation = logicalRelation.relation.asInstanceOf[DropRelation]
         ExecutedCommand(DropRunnableCommand(dropRelation)) :: Nil
+      case ShowDatasourceTablesCommand(dataSourceClass,options) =>
+        ExecutedCommand(ShowDataSourceTablesRunnableCommand(dataSourceClass,options)) :: Nil
       case _ => Nil
     }).headOption.toSeq
   }

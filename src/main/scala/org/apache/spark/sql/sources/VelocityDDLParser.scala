@@ -1,16 +1,22 @@
 package org.apache.spark.sql.sources
 
+import com.sun.corba.se.spi.monitoring.StringMonitoredAttributeBase
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
+import org.apache.spark.sql.types.{MetadataBuilder, StringType}
 
 class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQuery) {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
-    createTable | appendTable | dropTable | describeTable | refreshTable
+    createTable | appendTable | dropTable | describeTable | refreshTable | showTables
 
   protected val APPEND = Keyword("APPEND")
   protected val DROP = Keyword("DROP")
+  // queries the datasource catalog to get all the tables and return them
+  // only possible if the appropriate trait is inherited
+  protected val SHOW = Keyword("SHOW")
+  protected val DSTABLES = Keyword("DATASOURCETABLES")
 
   /**
    * Resolves the APPEND TABLE statements:
@@ -51,6 +57,16 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
         DropCommand(UnresolvedRelation(tblIdentifier, None))
     }
 
+  /**
+   * Resolves the SHOW DATASOURCETABLES statements:
+   *
+   * `SHOW VTABLES`
+   */
+  protected lazy val showTables: Parser[LogicalPlan] =
+    SHOW ~> DSTABLES ~> (USING ~> className) ~ (OPTIONS ~> (options)).? ^^ {
+      case classId ~ opts => ShowDatasourceTablesCommand(classId, opts)
+    }
+
 }
 
 /**
@@ -74,6 +90,20 @@ private[sql] case class AppendCommand(table: LogicalPlan,
 private[sql] case class DropCommand(table: LogicalPlan) extends LogicalPlan with Command {
 
   override def output: Seq[Attribute] = Seq.empty
+
+  override def children: Seq[LogicalPlan] = Seq.empty
+}
+
+/**
+ * Returned for the "SHOW DATASOURCETABLES" command.
+ */
+private[sql] case class ShowDatasourceTablesCommand(classIdentifier : String,
+                                                    options: Option[Map[String, String]])
+  extends LogicalPlan with Command {
+
+  override def output: Seq[Attribute] = Seq(AttributeReference("tbl_name", StringType,
+    nullable = false, new MetadataBuilder()
+      .putString("comment", "identifier of the table").build())())
 
   override def children: Seq[LogicalPlan] = Seq.empty
 }
