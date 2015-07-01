@@ -11,37 +11,11 @@ import org.apache.spark.sql.sources.{PushDownFunctionsStrategy, CatalystSourceSt
  */
 class VelocitySQLContext(@transient override val sparkContext: SparkContext)
   extends ExtendableSQLContext(sparkContext)
-  with WithVelocityFixes
   with PushDownFunctionsSQLContextExtension
   with PushDownAggregatesSQLContextExtension
   with HierarchiesSQLContextExtension
   with CatalystSourceSQLContextExtension
   with VelocityCommandsSQLContextExtension
-
-/**
- * Convenience trait to include miscelaneous general fixes for [[SQLContext]].
- */
-private[sql] trait WithVelocityFixes extends WithDefaultExchangeFix {
-  self: ExtendableSQLContext =>
-}
-
-private[sql] trait WithDefaultExchangeFix {
-  self: ExtendableSQLContext =>
-
-  /**
-   * Prepares a planned SparkPlan for execution by inserting shuffle operations as needed.
-   *
-   * We override this to solve:
-   * https://issues.apache.org/jira/browse/SPARK-6321
-   */
-  @transient
-  override protected[sql] val prepareForExecution = new RuleExecutor[SparkPlan] {
-    val batches =
-      Batch("Add exchange", Once, new EnsureRequirements(self) {
-        override def numPartitions: Int = sqlContext.sparkContext.defaultParallelism
-      }) :: Nil
-  }
-}
 
 private[sql] trait CatalystSourceSQLContextExtension extends PlannerSQLContextExtension {
 
