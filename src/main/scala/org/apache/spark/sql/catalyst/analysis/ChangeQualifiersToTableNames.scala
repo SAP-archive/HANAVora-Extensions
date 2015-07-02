@@ -41,13 +41,16 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
             val prefixedAttributeReferencesPlan = lp transformExpressionsDown {
               case attr: AttributeReference if attr.qualifiers.length > 1 =>
                 sys.error(s"Qualifiers of $attr will be only one, but was ${attr.qualifiers}")
-              case attr: AttributeReference if !expressionMap.contains(attr.exprId) =>
-                sys.error(s"No relation contains the expression id ${attr.exprId}")
               case attr: AttributeReference =>
-                val newQualifier = expressionMap(attr.exprId)
-                attr.copy(name = PREFIX.concat(attr.name))(
-                  exprId = attr.exprId, qualifiers = newQualifier :: Nil
-                )
+                expressionMap.get(attr.exprId) match {
+                  case Some(q) =>
+                    attr.copy(name = PREFIX.concat(attr.name))(
+                      exprId = attr.exprId, qualifiers = q :: Nil
+                    )
+                  case None =>
+                    log.warn(s"Qualifier with expression id ${attr.exprId} not found!")
+                    attr
+                }
             }
             /* Now we need to delete the prefix in all the attributes. */
             prefixedAttributeReferencesPlan transformExpressionsDown {

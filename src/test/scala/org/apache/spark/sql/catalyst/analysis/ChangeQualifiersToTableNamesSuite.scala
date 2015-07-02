@@ -43,10 +43,10 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   val nameAtt2 = lr2.output.find(_.name == "name").get
   val ageAtt2 = lr2.output.find(_.name == "age").get
 
-  test("Add alias to table with where clause"){
-        assertResult(lr1.subquery('table1).select(nameAtt, ageAtt).where(ageAtt <= 3)) {
-          ChangeQualifiersToTableNames(lr1.select(nameAtt, ageAtt).where(ageAtt <= 3))
-        }
+  test("Add alias to table with where clause") {
+    assertResult(lr1.subquery('table1).select(nameAtt, ageAtt).where(ageAtt <= 3)) {
+      ChangeQualifiersToTableNames(lr1.select(nameAtt, ageAtt).where(ageAtt <= 3))
+    }
   }
 
   test("Add alias to table") {
@@ -77,9 +77,7 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     }
 
     // Nonexistent attribute reference
-    intercept[RuntimeException] {
-      ChangeQualifiersToTableNames(lr1.select(AttributeReference("blah", StringType)()))
-    }
+    ChangeQualifiersToTableNames(lr1.select(AttributeReference("blah", StringType)()))
   }
 
 }
