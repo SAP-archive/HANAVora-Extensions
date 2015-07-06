@@ -110,6 +110,7 @@ class SqlBuilder {
     internalLogicalPlanToSql(plan, noProject = true)
 
   // scalastyle:off cyclomatic.complexity
+  // scalastyle:off method.length
   protected def internalLogicalPlanToSql(
                                           plan: logical.LogicalPlan,
                                           noProject: Boolean = true): String =
@@ -120,7 +121,12 @@ class SqlBuilder {
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
-      case logical.Subquery(alias, src.LogicalRelation(relation:SqlLikeRelation))=>
+      case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) if noProject =>
+        val generatedQuery = buildQuery(
+          s""""${relation.tableName}"""",
+          plan.output.map(expressionToSql), Nil, Nil, "")
+        s"""$generatedQuery AS "$alias""""
+      case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) =>
         s""""${relation.tableName}" AS "$alias""""
       case logical.Subquery(alias, child) =>
         s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
@@ -159,7 +165,7 @@ class SqlBuilder {
       case _ =>
         sys.error("Unsupported logical plan: " + plan)
     }
-
+  // scalastyle:on method.length
   // scalastyle:on cyclomatic.complexity
 
   protected def joinTypeToSql(joinType: JoinType): String = joinType match {

@@ -127,6 +127,9 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
 
   testLogicalPlan("""SELECT "c1", "c2" FROM "t1"""")(t1)
   testLogicalPlan("""SELECT * FROM "t1"""")(t1.select())
+  testLogicalPlan("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q"""")(t1.subquery('q))
+  testLogicalPlan("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q" LIMIT 100""")(
+    t1.subquery('q).limit(100))
   testLogicalPlan("""SELECT * FROM "t1"""")(t1.select().select())
   testLogicalPlan("""SELECT * FROM "t1"""")(t1.select(UnresolvedStar(None)))
   testLogicalPlan("SELECT \"t1\".\"c1\" FROM \"t1\" GROUP BY \"t1\".\"c1\"")({
