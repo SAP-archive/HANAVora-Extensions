@@ -1,6 +1,6 @@
 package org.apache.spark.sql
 
-import org.apache.spark.SparkContext
+import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql.catalyst.CatalystConf
 import org.apache.spark.sql.catalyst.analysis._
@@ -162,11 +162,27 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
 }
 
 @DeveloperApi
-trait ExtendedPlanner {
+trait ExtendedPlanner extends Logging {
   self: SQLContext#SparkPlanner =>
+
   def planLaterExt(p: LogicalPlan): SparkPlan = self.planLater(p)
 
   def optimizedPlan(p: LogicalPlan): LogicalPlan = self.sqlContext.executePlan(p).optimizedPlan
+
+  override def plan(p: LogicalPlan): Iterator[SparkPlan] = {
+    val iter = strategies.view.flatMap({ strategy =>
+      val plans = strategy(p)
+      if (plans.isEmpty) {
+        logTrace(s"Strategy $strategy did not produce plans for $p")
+      } else {
+        logDebug(s"Strategy $strategy produced a plan for $p: ${plans.head}")
+      }
+      plans
+    }).toIterator
+    assert(iter.hasNext, s"No plan for $p")
+    iter
+  }
+
 }
 
 @DeveloperApi
