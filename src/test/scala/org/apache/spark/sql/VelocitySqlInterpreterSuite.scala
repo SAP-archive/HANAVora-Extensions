@@ -1,10 +1,10 @@
 package org.apache.spark.sql
 
-import java.util
 import java.util.Properties
 
+import org.apache.spark.sql.util.CsvGetter
 import org.apache.zeppelin.display.{AngularObjectRegistry, GUI}
-import org.apache.zeppelin.interpreter.{InterpreterContextRunner, InterpreterContext, InterpreterGroup, InterpreterResult}
+import org.apache.zeppelin.interpreter.{InterpreterContext, InterpreterContextRunner, InterpreterGroup, InterpreterResult}
 import org.apache.zeppelin.spark.SparkInterpreter
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
@@ -59,6 +59,31 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
       new GUI,
       new AngularObjectRegistry(ig.getId, null),
       new java.util.LinkedList[InterpreterContextRunner]())
+  }
+
+  test("Simple Select using Velocity DataSource") {
+
+    val filePath = CsvGetter.getFileFromClassPath("/simpleData.csv")
+
+    val createQuery = s"""CREATE TEMPORARY TABLE createTestTableVelocity
+                         |USING corp.sap.spark.velocity.test
+                         |OPTIONS (
+                         |tableName "createTestTableVelocity",
+                         |schema "name varchar(*), number integer",
+                         |hosts "host",
+                         |paths "$filePath",
+                         |eagerLoad "false",
+                         |local "true")""".stripMargin
+
+    val selectQuery = "select * from createTestTableVelocity"
+
+    val createRet = sqli.interpret(createQuery, context)
+
+    assert(InterpreterResult.Code.SUCCESS == createRet.code())
+
+    val ret = sqli.interpret(selectQuery, context)
+
+    assert(InterpreterResult.Code.SUCCESS == ret.code())
   }
 
   test("Simple Select") {
