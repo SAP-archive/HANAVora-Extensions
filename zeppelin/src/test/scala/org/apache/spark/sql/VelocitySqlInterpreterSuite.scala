@@ -20,6 +20,8 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
   var velocityContext: VelocitySQLContext = null
 
+  val filePath = CsvGetter.getFileFromClassPath("/simpleData.json")
+
   override protected def beforeAll() = {
     val p = new Properties
     p.put("spark.ui.enabled", "false")
@@ -61,19 +63,13 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
       new java.util.LinkedList[InterpreterContextRunner]())
   }
 
-  test("Simple Select using Velocity DataSource") {
+  test("Simple Select using JSON DataSource") {
 
-    val filePath = CsvGetter.getFileFromClassPath("/simpleData.csv")
+    val filePath = CsvGetter.getFileFromClassPath("/simpleData.json")
 
     val createQuery = s"""CREATE TEMPORARY TABLE createTestTableVelocity
-                         |USING corp.sap.spark.velocity.test
-                         |OPTIONS (
-                         |tableName "createTestTableVelocity",
-                         |schema "name varchar(*), number integer",
-                         |hosts "host",
-                         |paths "$filePath",
-                         |eagerLoad "false",
-                         |local "true")""".stripMargin
+                         |USING org.apache.spark.sql.json
+                         |OPTIONS (path "$filePath")""".stripMargin
 
     val selectQuery = "select * from createTestTableVelocity"
 
@@ -106,15 +102,9 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
   test("Simple create table") {
 
-    val query = s"""CREATE TEMPORARY TABLE createTestTable
-                   |USING corp.sap.spark.velocity.test
-                   |OPTIONS (
-                   |tableName "createTestTable",
-                   |schema "name varchar(*), number integer",
-                   |hosts "host",
-                   |paths "path",
-                   |eagerLoad "false",
-                   |local "true")""".stripMargin
+    val query = s"""CREATE TEMPORARY TABLE createTestTableVelocity
+                   |USING org.apache.spark.sql.json
+                   |OPTIONS (path "$filePath")""".stripMargin
 
     val ret = sqli.interpret(query, context)
 
@@ -123,19 +113,14 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
   test("Simple create table with error") {
 
-    val query = s"""CREATE TEMPORARY TABLE createTestTableWithError
-                   |USING corp.sap.spark.velocity.test
-                   |OPTIONS (
-                   |schema "name varchar(*), number integer",
-                   |hosts "host1,host2",
-                   |paths "path",
-                   |eagerLoad "false",
-                   |local "true")""".stripMargin
+    val query = s"""CREATE TEMPORARY TABLE createTestTableVelocity
+                   |USING org.apache.spark.sql.json
+                   |OPTIONS (path "bad/path/file.json")""".stripMargin
 
     val ret = sqli.interpret(query, context)
 
     assertResult(InterpreterResult.Code.ERROR)(ret.code())
-    assertResult("tablename is mandatory")(ret.message())
+    assert(ret.message().contains("Input path does not exist"))
   }
 
   test("Bad query") {

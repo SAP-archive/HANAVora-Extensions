@@ -25,19 +25,15 @@ import scala.util.{Random, Try}
 class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 with Logging {
   override def mode: ServerMode.Value = ServerMode.binary
 
+  val filePath = CsvGetter.getFileFromClassPath("/simpleData.json")
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     withJdbcStatement { statement =>
       val queries = Seq(
         s"""CREATE TEMPORARY TABLE $tableName
-            |USING corp.sap.spark.velocity.test
-            |OPTIONS (
-            |tableName "$tableName",
-            |schema "$schema",
-            |hosts "0.0.0.1,0.0.0.2,0.0.0.3,0.0.0.4",
-            |eagerLoad "false",
-            |local "true",
-            |paths "$stds1,$stds2,$stds3,$stds4")""".stripMargin)
+            |USING org.apache.spark.sql.json
+            |OPTIONS (path "$filePath")""".stripMargin)
 
       queries.foreach(statement.execute)
       logInfo("Test table is created.")
@@ -81,7 +77,7 @@ class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 
 
     val values = new ListBuffer[(Any, Any)]
     while (rs.next())
-      values += new Tuple2(rs.getString(1), rs.getInt(2))
+      values += new Tuple2(rs.getString(2), rs.getInt(1))
     values.toList
   }
 
@@ -90,7 +86,7 @@ class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 
   // scalastyle:off magic.number
   test("JDBC query execution") {
     withJdbcStatement { statement =>
-      assertResult(14, "Row count mismatch") {
+      assertResult(4, "Row count mismatch") {
         val resultSet = statement.executeQuery( s"""SELECT COUNT(*) FROM $tableName""")
         resultSet.next()
         resultSet.getInt(1)
@@ -103,29 +99,13 @@ class SparkVelocityThriftBinaryServerSuite extends SparkVelocityThriftJdbcTest2 
     withJdbcStatement { statement =>
       val resultSet = statement.executeQuery( s"""SELECT * FROM $tableName""")
 
-      // Checking result size: 6 + 6 + 2 + 0
+      // Checking result size: 4
       val results = resultSetTolist(resultSet)
 
       assert(results contains("hans", 10))
-      assert(results contains("wurst", 20))
-      assert(results contains("hans", 20))
-      assert(results contains("wurst", 40))
-      assert(results contains("hans", 30))
-      assert(results contains("wurst", 15))
-
-      // Checking second node data
-      assert(results contains("peter", 10))
-      assert(results contains("john", 20))
       assert(results contains("peter", 20))
-      assert(results contains("john", 40))
-      assert(results contains("peter", 30))
-      assert(results contains("john", 15))
-
-      // Checking third node data
-      assert(results contains("keith", 10))
-      assert(results contains("paul", 20))
-
-
+      assert(results contains("hans", 20))
+      assert(results contains("peter", 40))
     }
   }
   // scalastyle:on magic.number
@@ -204,10 +184,7 @@ abstract class SparkVelocityThriftServer2Test extends FunSuite with BeforeAndAft
   val tableName = "mockedTable"
   val schema = "name varchar(200), age integer"
 
-  val stds1 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part1")
-  val stds2 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part2")
-  val stds3 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part3")
-  val stds4 = CsvGetter.getFileFromClassPath("/thriftserverTest/distributedSimple.part4")
+  val stds1 = CsvGetter.getFileFromClassPath("/simpleData.json")
 
   var includedJars = Seq("/")
 
