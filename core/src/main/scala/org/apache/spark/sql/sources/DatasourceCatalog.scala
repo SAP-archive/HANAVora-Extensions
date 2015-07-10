@@ -8,5 +8,5 @@ import org.apache.spark.sql.SQLContext
  * elements.
  */
 trait DatasourceCatalog {
-  def getTableNames(sqlContext: SQLContext, parameters: Option[Map[String, String]]) : Seq[String]
+  def getTableNames(sqlContext: SQLContext, parameters: Map[String, String]) : Seq[String]
 }

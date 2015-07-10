@@ -1,6 +1,5 @@
 package org.apache.spark.sql.sources
 
-import com.sun.corba.se.spi.monitoring.StringMonitoredAttributeBase
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
@@ -63,8 +62,10 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
    * `SHOW VTABLES`
    */
   protected lazy val showTables: Parser[LogicalPlan] =
-    SHOW ~> DSTABLES ~> (USING ~> className) ~ (OPTIONS ~> (options)).? ^^ {
-      case classId ~ opts => ShowDatasourceTablesCommand(classId, opts)
+    SHOW ~> DSTABLES ~> (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+      case classId ~ opts =>
+        val options = opts.getOrElse(Map.empty[String, String])
+        ShowDatasourceTablesCommand(classId, options)
     }
 
 }
@@ -98,7 +99,7 @@ private[sql] case class DropCommand(table: LogicalPlan) extends LogicalPlan with
  * Returned for the "SHOW DATASOURCETABLES" command.
  */
 private[sql] case class ShowDatasourceTablesCommand(classIdentifier : String,
-                                                    options: Option[Map[String, String]])
+                                                    options: Map[String, String])
   extends LogicalPlan with Command {
 
   override def output: Seq[Attribute] = Seq(AttributeReference("tbl_name", StringType,

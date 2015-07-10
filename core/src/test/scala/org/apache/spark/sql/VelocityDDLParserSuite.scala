@@ -1,50 +1,46 @@
 package org.apache.spark.sql
 
-import corp.sap.spark.datasourcecatalogtest.DefaultSource
-import corp.sap.spark.{GlobalSparkContext, WithSparkContext}
-import org.apache.spark.{MockitoSparkContext, Logging}
-import org.scalatest.{ConfigMap, FunSuite, BeforeAndAfterAll}
-import org.apache.spark.sql.types.{StructType,StructField,StringType};
+import org.apache.spark.sql.sources.{ShowDatasourceTablesCommand, VelocityDDLParser}
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.{FunSuite, GivenWhenThen}
 
-class VelocityDDLParserSuite extends FunSuite with GlobalSparkContext {
+class VelocityDDLParserSuite extends FunSuite with TableDrivenPropertyChecks with GivenWhenThen {
 
-  @Override
-  override def beforeAll() : Unit = {
-    super.beforeAll()
-    DefaultSource.addTable("testtable")
-    DefaultSource.addTable("testtable2")
-  }
+  val sqlParser = new VelocitySqlParser
+  val ddlParser = new VelocityDDLParser(sqlParser.parse)
 
-  @Override
-  override def afterAll() : Unit = {
-    super.afterAll()
-    DefaultSource.reset()
-  }
+  val showDatasourceTablesPermutations = Table(
+    ("sql", "provider", "options", "willFail"),
+    ("SHOW DATASOURCETABLES USING com.provider", "com.provider", Map.empty[String, String], false),
+    ("SHOW DATASOURCETABLES USING com.provider OPTIONS(key \"value\")",
+      "com.provider", Map("key" -> "value"), false),
+    ("SHOW DATASOURCETABLES", "", Map.empty[String, String], true)
+  )
 
-  test("Show vtables parser test without options"){
-    val sqlContext = new VelocitySQLContext(sc)
+  test("SHOW DATASOURCETABLES command") {
+    forAll(showDatasourceTablesPermutations) { (sql, provider, options, willFail) =>
+
+      Given(s"provider: $provider, options: $options, sql: $sql, willFail: $willFail")
+
+      if (willFail) {
+        intercept[RuntimeException] {
+          ddlParser.parse(sql)
+        }
+      } else {
+        val result = ddlParser.parse(sql)
+        
+        Then("it will be an instance of ShowDatasourceTablesCommand class")
+        assert(result.isInstanceOf[ShowDatasourceTablesCommand])
+
+        val instancedResult = result.asInstanceOf[ShowDatasourceTablesCommand]
+
+        Then("options will be equals")
+        assert(instancedResult.options == options)
+        Then("provider will be equals")
+        assert(instancedResult.classIdentifier == provider)
+      }
 
 
-    val result = sqlContext.sql(
-      s"""SHOW DATASOURCETABLES
-         |USING corp.sap.spark.datasourcecatalogtest""".stripMargin).collect()
-
-    assert(result.contains(Row("testtable")))
-    assert(result.contains(Row("testtable2")))
-    assert(result.size == 2)
-  }
-
-  test("Show vtables parser test with options"){
-    val sqlContext = new VelocitySQLContext(sc)
-
-    val result = sqlContext.sql(
-      s"""SHOW DATASOURCETABLES
-         |USING corp.sap.spark.datasourcecatalogtest
-         |OPTIONS(key "value")""".stripMargin).collect()
-
-    assert(result.contains(Row("testtable")))
-    assert(result.contains(Row("testtable2")))
-    assert(result.size == 2)
-    assert(DefaultSource.passedOptions.get("key") == Some("value"))
+    }
   }
 }

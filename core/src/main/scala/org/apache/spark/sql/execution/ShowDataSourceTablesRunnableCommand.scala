@@ -9,7 +9,7 @@ import org.apache.spark.sql.catalyst.expressions._
  * Extracts all the table from the catalog
  */
 case class ShowDataSourceTablesRunnableCommand(classIdentifier: String,
-                                               options: Option[Map[String, String]])
+                                               options: Map[String, String])
   extends RunnableCommand {
 
   // The result of SHOW TABLES has one column: tableName
