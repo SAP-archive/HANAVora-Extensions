@@ -1,14 +1,20 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
 import org.apache.spark.sql.types.{MetadataBuilder, StringType}
 
 class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQuery) {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
-    createTable | appendTable | dropTable | describeTable | refreshTable | showTables
+    createTable |
+      appendTable |
+      dropTable |
+      describeTable |
+      refreshTable |
+      showTables |
+      registerAllTables
 
   protected val APPEND = Keyword("APPEND")
   protected val DROP = Keyword("DROP")
@@ -16,6 +22,31 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
   // only possible if the appropriate trait is inherited
   protected val SHOW = Keyword("SHOW")
   protected val DSTABLES = Keyword("DATASOURCETABLES")
+  protected val REGISTER = Keyword("REGISTER")
+  protected val ALL = Keyword("ALL")
+  protected val TABLES = Keyword("TABLES")
+  protected val IGNORING = Keyword("IGNORING")
+  protected val CONFLICTS = Keyword("CONFLICTS")
+
+  /**
+   * Resolves the REGISTER ALL TABLES statements:
+   * REGISTER ALL TABLES USING provider.name
+   * OPTIONS(optiona "option a",optionb "option b")
+   * IGNORING CONFLICTS
+   *
+   * The IGNORING CONFLICTS command is used to avoid
+   * registration of existing tables in spark catalog.
+   */
+  protected lazy val registerAllTables: Parser[LogicalPlan] =
+    REGISTER ~> ALL ~> TABLES ~> (USING ~> className) ~
+      (OPTIONS ~> options).? ~ (IGNORING ~> CONFLICTS).? ^^ {
+      case provider ~ opts ~ ignoreConflicts =>
+        RegisterAllTablesUsing(
+          provider = provider,
+          options = opts.getOrElse(Map.empty[String, String]),
+          ignoreConflicts.isDefined
+        )
+    }
 
   /**
    * Resolves the APPEND TABLE statements:
@@ -68,6 +99,16 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
         ShowDatasourceTablesCommand(classId, options)
     }
 
+}
+
+private[sql] case class RegisterAllTablesUsing(
+                                                provider: String,
+                                                options: Map[String, String],
+                                                ignoreConflicts: Boolean
+                                                ) extends LogicalPlan with Command {
+  override def output: Seq[Attribute] = Seq.empty
+
+  override def children: Seq[LogicalPlan] = Seq.empty
 }
 
 /**
