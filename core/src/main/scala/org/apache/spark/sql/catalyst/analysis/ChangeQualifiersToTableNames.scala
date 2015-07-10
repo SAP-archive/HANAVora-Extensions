@@ -1,7 +1,7 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Subquery}
+import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan, Subquery}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.sources.{LogicalRelation, SqlLikeRelation}
 
@@ -33,6 +33,8 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
             val newName = s"table$i"
             i += 1
             Subquery(newName, relation)
+          case Hierarchy(a, Subquery(name, child), c, d, e, f, g) =>
+            Hierarchy(a, child, c, d, e, f, g)
           case lp: LogicalPlan with Product =>
             val expressionMap = lp.collect {
               case subquery@Subquery(alias, child) =>
