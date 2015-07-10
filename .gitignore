@@ -1,0 +1,10 @@
+.idea/*
+*.iml
+**/target/*
+*.log
+dependency-reduced-pom.xml
+scalastyle-output.xml
+.project
+.classpath
+.settings
+.cache
