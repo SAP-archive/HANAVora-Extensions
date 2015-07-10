@@ -9,6 +9,10 @@ import java.util.jar.{Attributes, JarEntry, JarOutputStream}
 import com.spotify.docker.client._
 import com.spotify.docker.client.messages._
 import org.apache.commons.io.IOUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.hdfs.DFSClient
+import org.apache.hadoop.hdfs.protocol.HdfsConstants
+import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.Suite
 
@@ -84,6 +88,7 @@ trait DockerSparkContext extends WithSparkContext with Logging {
     if (useSparkInDocker) {
       _sc = new SparkContext(s"spark://$sparkMaster", "docker-spark-test", sparkConf)
       addClassPathToSparkContext()
+      checkIfHdfsIsWritable()
     } else {
       _sc = new SparkContext(s"local[$numberOfSparkWorkers]", "docker-spark-test", sparkConf)
     }
@@ -117,6 +122,8 @@ trait DockerSparkContext extends WithSparkContext with Logging {
   lazy val hdfsNameNode: String = s"${getContainerIp(DOCKER_HDFS_CONTAINER)}:9000"
 
   val userHome = System.getProperty("user.home")
+
+  @transient private var timingResults: Seq[String] = Seq()
 
   override def sparkConf: SparkConf = {
     super.sparkConf
@@ -154,12 +161,21 @@ trait DockerSparkContext extends WithSparkContext with Logging {
    * Starts a docker containers to build a spark cluster.
    */
   private def startDockerSparkCluster(): Unit = {
-    cleanUpDockerCluster()
-    getOrCreateZooKeeperContainer
-    getOrCreateSparkMaster
-    _sparkWorkers = (1 to numberOfSparkWorkers).map { i =>
-      getOrCreateSparkWorker(i)
+    time(s"Clean up docker cluster") {
+      cleanUpDockerCluster()
     }
+    time(s"Creating Zookeeper Container") {
+      getOrCreateZooKeeperContainer
+    }
+    time(s"Creating Spark Master") {
+      getOrCreateSparkMaster
+    }
+    time(s"Creating $numberOfSparkWorkers Spark Workers") {
+      _sparkWorkers = (1 to numberOfSparkWorkers).par.map { i =>
+        getOrCreateSparkWorker(i)
+      }.toList
+    }
+    timingResults.foreach(msg => logDebug(msg))
   }
 
   private def getOrCreateContainer(containerId: String,
@@ -183,7 +199,9 @@ trait DockerSparkContext extends WithSparkContext with Logging {
         logDebug(s"Create: $containerId")
         docker.createContainer(containerConfig, containerId)
         logDebug(s"Start: $containerId")
-        docker.startContainer(containerId)
+        this.synchronized {
+          docker.startContainer(containerId)
+        }
         getContainerIp(containerId)
       case Failure(ex) =>
         throw ex
@@ -277,9 +295,9 @@ trait DockerSparkContext extends WithSparkContext with Logging {
     if (docker == null) {
       docker = buildDockerClient()
     }
-    val defaultTimeout = 1000
     var iterations = 0
     val maximumIterations = 10
+    val defaultTimeout = 1000
     var containers: Seq[Container] = Seq()
     do {
       containers = docker
@@ -317,8 +335,7 @@ trait DockerSparkContext extends WithSparkContext with Logging {
     var isReady = false
     var iterations = 0
     val maximumIterations = 50
-    val defaultTimeout = 500
-
+    val defaultTimeout = 1000
     do {
       logDebug(s"Pinging $ip:$port (iteration $iterations)")
       isReady = proto match {
@@ -467,5 +484,58 @@ trait DockerSparkContext extends WithSparkContext with Logging {
       .build()
   }
 
+  // Time measurement function
+  private def time[A](id: String)(f: => A) = {
+    val s = System.nanoTime
+    val ret = f
+    val result = (System.nanoTime - s) / 1e6
+    timingResults = timingResults :+ s"time in $id: $result ms. Result: $ret"
+    ret
+  }
+
+  protected def fail(i: Int): Unit = {
+    if (docker == null) {
+      docker = buildDockerClient()
+    }
+    logDebug(s"Stopping the Spark Worker Container ${DOCKER_SPARK_VELOCITY_CONTAINER}_$i")
+    docker.stopContainer(s"${DOCKER_SPARK_VELOCITY_CONTAINER}_$i", 0)
+  }
+
+  protected def revive(i: Int): Unit = {
+    if (docker == null) {
+      docker = buildDockerClient()
+    }
+    logDebug(s"Re-Starting the Spark Worker Container ${DOCKER_SPARK_VELOCITY_CONTAINER}_$i")
+    docker.startContainer(s"${DOCKER_SPARK_VELOCITY_CONTAINER}_$i")
+  }
+  
+  /**
+   * Namenode starts in safe (read-only) mode and stays in this state
+   * until it reaches a stable state
+   * This method checks if namenode is in safe mode
+   * and waits until namenode is out of safe mode
+   * @return true if namenode is out of safe mode
+   */
+  protected def checkIfHdfsIsWritable(): Boolean = {
+    val conf = new Configuration()
+    conf.set("fs.defaultFS", s"hdfs://$hdfsNameNode")
+    val nameNodeUri: URI = new URI(s"hdfs://$hdfsNameNode")
+    val dfsc:DFSClient = new DFSClient(nameNodeUri, conf)
+
+    val maximumNumberOfIterations = 30
+    var numberOfTrialsLeft = maximumNumberOfIterations
+    val defaultTimeout = 1000
+    var isSafeMode = true
+    do {
+      isSafeMode = dfsc.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_GET)
+      if (isSafeMode) {
+        logDebug(s"Hdsf Namenode is still in safe mode.")
+        Thread sleep defaultTimeout
+      }
+      numberOfTrialsLeft = numberOfTrialsLeft-1
+    } while (numberOfTrialsLeft > 0 && isSafeMode)
+
+    !isSafeMode
+  }
 }
 
