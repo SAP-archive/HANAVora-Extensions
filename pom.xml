@@ -21,7 +21,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>corp.sap.spark.velocity</groupId>
-  <artifactId>spark-velocity-extensions</artifactId>
+  <artifactId>spark-velocity-parent</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Spark Velocity Extensions Project</name>
@@ -123,27 +123,6 @@
         <version>${project.version}</version>
         <type>test-jar</type>
       </dependency>
-<!--      <dependency>
-        <groupId>corp.sap.spark.velocity</groupId>
-        <artifactId>datasource</artifactId>
-        <version>${project.version}</version>
-        <type>test-jar</type>
-      </dependency>
-      <dependency>
-        <groupId>corp.sap.spark.velocity</groupId>
-        <artifactId>datasource</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>corp.sap.spark.velocity</groupId>
-        <artifactId>hanadatasource</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>corp.sap.spark.velocity</groupId>
-        <artifactId>benchmark</artifactId>
-        <version>${project.version}</version>
-      </dependency> -->
       <dependency>
         <groupId>com.spotify</groupId>
         <artifactId>docker-client</artifactId>
