@@ -29,6 +29,7 @@
    <module>core</module>
    <module>zeppelin</module>
     <module>sparkvelocity-thriftserver</module>
+   <module>dist</module>
   </modules>
   <properties>
     <mockito.version>1.10.19</mockito.version>

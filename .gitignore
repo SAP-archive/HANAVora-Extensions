@@ -8,3 +8,4 @@ scalastyle-output.xml
 .classpath
 .settings
 .cache
+metastore_db

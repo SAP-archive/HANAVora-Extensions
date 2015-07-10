@@ -19,8 +19,13 @@
 
 # Stops the thrift server on the machine this script is executed on.
 
-sbin="`dirname "$0"`"
-sbin="`cd "$sbin"; pwd`"
-sbin=$SPARK_HOME/sbin
+CLASS="org.apache.spark.sql.hive.thriftserver.SparkVelocityThriftServer"
 
-"$sbin"/spark-daemon.sh stop org.apache.spark.sql.hive.velocity.thriftserver.SparkVelocityThriftServer 1
+
+if [[ -z $SPARK_HOME ]]; then
+  echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
+  exit 1
+fi
+
+
+$SPARK_HOME/sbin/spark-daemon.sh stop $CLASS 1
