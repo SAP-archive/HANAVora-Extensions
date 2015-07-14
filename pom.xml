@@ -42,6 +42,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <minimum.code.covered.ratio>0.80</minimum.code.covered.ratio>
     <spotify.dockerclient.version>3.0.0</spotify.dockerclient.version>
+    <maven.compiler.source>1.7</maven.compiler.source>
+    <maven.compiler.target>1.7</maven.compiler.target>
   </properties>
 
   <dependencyManagement>
@@ -180,10 +182,6 @@
               </goals>
             </execution>
           </executions>
-          <configuration>
-            <source>1.7</source>
-            <target>1.7</target>
-          </configuration>
         </plugin>
         <plugin>
           <groupId>org.scalastyle</groupId>
@@ -290,36 +288,6 @@
       </plugin>
     </plugins>
   </build>
-
-  <repositories>
-    <repository>
-      <id>sap-xmake</id>
-      <url>http://nexus.wdf.sap.corp:8081/nexus/content/repositories/deploy.milestones.xmake/</url>
-      <layout>default</layout>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-    </repository>
-    <repository>
-      <id>sap-snapshots</id>
-      <url>http://nexus.wdf.sap.corp:8081/nexus/content/repositories/deploy.snapshots/</url>
-      <layout>default</layout>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-    <repository>
-      <id>deploy-releases</id>
-      <url>http://nexus.wdf.sap.corp:8081/nexus/content/repositories/deploy.releases/</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-    </repository>
-
-  </repositories>
 
   <profiles>
     <profile>
