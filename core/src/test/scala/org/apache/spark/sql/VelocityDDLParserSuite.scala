@@ -1,6 +1,6 @@
 package org.apache.spark.sql
 
-import org.apache.spark.sql.sources.{ShowDatasourceTablesCommand, VelocityDDLParser}
+import org.apache.spark.sql.sources.{RegisterAllTablesUsing, ShowDatasourceTablesCommand, VelocityDDLParser}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}
 
@@ -28,7 +28,7 @@ class VelocityDDLParserSuite extends FunSuite with TableDrivenPropertyChecks wit
         }
       } else {
         val result = ddlParser.parse(sql)
-        
+
         Then("it will be an instance of ShowDatasourceTablesCommand class")
         assert(result.isInstanceOf[ShowDatasourceTablesCommand])
 
@@ -39,8 +39,40 @@ class VelocityDDLParserSuite extends FunSuite with TableDrivenPropertyChecks wit
         Then("provider will be equals")
         assert(instancedResult.classIdentifier == provider)
       }
+    }
+  }
 
+  val registerAllTablesCommandPermutations =
+    Table(
+      ("sql", "provider", "options", "ignoreConflicts"),
+      ("REGISTER ALL TABLES USING provider.name OPTIONS() IGNORING CONFLICTS",
+        "provider.name", Map.empty[String, String], true),
+      ( """REGISTER ALL TABLES USING provider.name OPTIONS(optionA "option")""",
+        "provider.name", Map("optionA" -> "option"), false),
+      ( """REGISTER ALL TABLES USING provider.name""",
+        "provider.name", Map.empty[String, String], false),
+      ( """REGISTER ALL TABLES USING provider.name IGNORING CONFLICTS""",
+        "provider.name", Map.empty[String, String], true)
+    )
 
+  test("REGISTER ALL TABLES command") {
+    forAll(registerAllTablesCommandPermutations) {
+      (sql: String, provider: String, options: Map[String, String], ignoreConflicts: Boolean) =>
+        Given(s"provider: $provider, options: $options, ignoreConflicts: $ignoreConflicts")
+        val result = ddlParser.parse(sql)
+
+        Then("the result will be a instance of RegisterAllTablesUsing")
+        assert(result.isInstanceOf[RegisterAllTablesUsing])
+
+        val convertedResult = result.asInstanceOf[RegisterAllTablesUsing]
+
+        Then("the ignoreConflicts will be correct")
+        assert(convertedResult.ignoreConflicts == ignoreConflicts)
+        Then("the options will be correct")
+        assert(convertedResult.options == options)
+        Then("the provider name will be correct")
+        assert(convertedResult.provider == provider)
     }
   }
 }
+
