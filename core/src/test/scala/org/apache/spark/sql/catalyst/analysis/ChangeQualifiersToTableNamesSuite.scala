@@ -1,18 +1,15 @@
 package org.apache.spark.sql.catalyst.analysis
 
-import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan, Hierarchy}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, SortOrder, AttributeReference}
+import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LocalRelation, LogicalPlan}
 import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation, SqlLikeRelation}
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
-
-// scalastyle:off magic.number
-// scalastyle:off line.length
 
 class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
 
@@ -81,14 +78,15 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     }
 
     // Two Joins different tables
-    assertResult(lr1.subquery('table1).select(nameAtt)
-      .join(lr2.subquery('table2).select(nameAtt2))) {
+    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
+      .join(lr2.subquery('table2).select(nameAtt2).subquery('table2))) {
+      val r = ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr2.select(nameAtt2)))
       ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr2.select(nameAtt2)))
     }
 
     // Join same table
-    assertResult(lr1.subquery('table1).select(nameAtt)
-      .join(lr1.subquery('table2).select(nameAtt))) {
+    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
+      .join(lr1.subquery('table2).select(nameAtt).subquery('table2))) {
       ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
     }
 
@@ -102,6 +100,12 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
 
     // Nonexistent attribute reference
     ChangeQualifiersToTableNames(lr1.select(AttributeReference("blah", StringType)()))
+
+    // Join of sub-queries will cause sub-queries to be aliased
+    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
+      .join(lr1.subquery('table2).select(nameAtt).subquery('table2))) {
+      ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
+    }
 
     // Do not alias hierarchy source relation
     assertResult(h.select('name)) {
