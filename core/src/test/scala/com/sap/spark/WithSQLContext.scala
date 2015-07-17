@@ -1,4 +1,4 @@
-package corp.sap.spark
+package com.sap.spark
 
 import org.apache.spark.sql.SQLContext
 import org.scalatest.{BeforeAndAfterEach, Suite}

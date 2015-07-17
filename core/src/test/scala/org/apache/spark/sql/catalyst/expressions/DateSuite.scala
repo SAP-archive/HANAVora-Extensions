@@ -2,8 +2,7 @@ package org.apache.spark.sql.catalyst.expressions
 
 import java.sql
 import java.util.{Calendar, Locale, TimeZone}
-
-import corp.sap.spark.GlobalSparkContext
+import com.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
 import org.apache.spark.sql.{GlobalVelocitySQLContext, VelocitySQLContext}
 import org.scalatest.FunSuite

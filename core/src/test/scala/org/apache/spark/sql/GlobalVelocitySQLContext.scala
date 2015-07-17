@@ -1,6 +1,6 @@
 package org.apache.spark.sql
 
-import corp.sap.spark.{GlobalSparkContext, WithSQLContext}
+import com.sap.spark.{GlobalSparkContext, WithSQLContext}
 import org.apache.spark.SparkContext
 import org.scalatest.Suite
 

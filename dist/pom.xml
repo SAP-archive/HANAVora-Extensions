@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
     <artifactId>spark-velocity-parent</artifactId>
-    <groupId>corp.sap.spark.velocity</groupId>
-    <version>0.0.1-SNAPSHOT</version>
+    <groupId>com.sap.spark.velocity</groupId>
+    <version>0.0.2-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -16,17 +16,17 @@
   </properties>
   <dependencies>
     <dependency>
-      <groupId>corp.sap.spark.velocity</groupId>
+      <groupId>com.sap.spark.velocity</groupId>
       <artifactId>core</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>corp.sap.spark.velocity</groupId>
+      <groupId>com.sap.spark.velocity</groupId>
       <artifactId>sparkvelocity-thriftserver</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>corp.sap.spark.velocity</groupId>
+      <groupId>com.sap.spark.velocity</groupId>
       <artifactId>zeppelin</artifactId>
       <version>${project.version}</version>
     </dependency>

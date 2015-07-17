@@ -1,6 +1,6 @@
 package org.apache.spark
 
-import corp.sap.spark.WithSparkContext
+import com.sap.spark.WithSparkContext
 import org.mockito.Mockito._
 import org.scalatest.Suite
 import org.scalatest.mock.MockitoSugar

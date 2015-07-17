@@ -1,4 +1,4 @@
-package corp.sap.spark
+package com.sap.spark
 
 import java.util.Locale
 
