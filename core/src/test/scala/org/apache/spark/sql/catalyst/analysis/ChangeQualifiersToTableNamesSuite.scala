@@ -61,7 +61,9 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   val ageAtt2 = lr2.output.find(_.name == "age").get
 
   val h = Hierarchy("hchy", lr1,
-    "u", 'pred==='succ, SortOrder('name, Ascending) :: Nil, 'bla, 'bla)
+    "u", 'pred==='succ, SortOrder('name, Ascending) :: Nil,
+    new AttributeReference("blah", StringType, nullable = true, metadata = Metadata.empty)().expr,
+    new AttributeReference("bleh", StringType, nullable = true, metadata = Metadata.empty)())
 
 
   test("Add alias to table with where clause") {
@@ -108,8 +110,15 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     }
 
     // Do not alias hierarchy source relation
-    assertResult(h.select('name)) {
+    assertResult(h.subquery('table1).select('name)) {
       ChangeQualifiersToTableNames(h.select('name))
+    }
+
+    // Do alias a hierarchy in a join statement.
+    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
+      .join(h.subquery('table2).select(nameAtt).subquery('table2))) {
+      ChangeQualifiersToTableNames(lr1.select(nameAtt).join
+        (h.select(nameAtt)))
     }
   }
 

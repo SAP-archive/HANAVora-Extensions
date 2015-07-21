@@ -36,7 +36,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
             i += 1
             Subquery(newName, relation)
           case Hierarchy(a, Subquery(name, child), c, d, e, f, g) =>
-            Hierarchy(a, child, c, d, e, f, g)
+            Subquery(name, Hierarchy(a, child, c, d, e, f, g))
           case lp: LogicalPlan with Product =>
             val mo : LogicalPlan = lp match {
               case Join(l, r, jt, c) =>
