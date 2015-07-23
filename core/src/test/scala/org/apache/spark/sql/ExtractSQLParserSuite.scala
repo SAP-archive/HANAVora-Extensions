@@ -1,13 +1,14 @@
 package org.apache.spark.sql
 
+import com.sap.spark.PlanTest
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.PlanTest
+import org.scalatest.FunSuite
 
-class ExtractSQLParserSuite extends PlanTest with Logging {
+class ExtractSQLParserSuite extends FunSuite with PlanTest with Logging {
 
   // scalastyle:off magic.number
 

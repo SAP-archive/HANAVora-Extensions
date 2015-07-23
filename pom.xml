@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sap.spark.velocity</groupId>
   <artifactId>spark-velocity-parent</artifactId>
-  <version>0.0.2-SNAPSHOT</version>
+  <version>0.0.3-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Spark Velocity Extensions Project</name>
   <modules>
@@ -35,7 +35,7 @@
     <mockito.version>1.10.19</mockito.version>
     <scala.version>2.10.4</scala.version>
     <scala.binary.version>2.10</scala.binary.version>
-    <spark.version>1.4.0</spark.version>
+    <spark.version>1.4.1</spark.version>
     <scalacheck.version>1.11.3</scalacheck.version>
     <scalaz.version>7.1.1</scalaz.version>
     <hadoop.version>2.4.1</hadoop.version>
