@@ -43,6 +43,44 @@ with GlobalVelocitySQLContext with Logging {
     AddressRow("Darth Vader", "Death Star")
   )
 
+  test("test hierarchy self join on hierarchy-UDF using repeated derivation") {
+    val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("hSrc")
+
+    val queryString =
+      """
+        |SELECT A.name, B.name
+        |FROM
+        |(SELECT name, node
+        |  FROM HIERARCHY
+        |     (USING hSrc AS v JOIN PARENT u ON v.pred = u.succ
+        |     SEARCH BY ord ASC
+        |     START WHERE pred IS NULL
+        |     SET node) AS H) A,
+        |(SELECT name, node
+        |  FROM HIERARCHY
+        |     (USING hSrc AS v JOIN PARENT u ON v.pred = u.succ
+        |     SEARCH BY ord ASC
+        |     START WHERE pred IS NULL
+        |     SET node) AS H) B
+        |WHERE IS_CHILD(A.node, B.node)
+      """.stripMargin
+
+    val hierarchy = sqlContext.sql(queryString).collect()
+
+    val expected = Set(
+      Row("The Other Middle Manager", "THE BOSS"),
+      Row("The Middle Manager", "THE BOSS"),
+      Row("Minion 1", "The Middle Manager"),
+      Row("Minion 2", "Senior Developer"),
+      Row("Minion 3", "Senior Developer"),
+      Row("Senior Developer", "The Middle Manager")
+    )
+
+    assertResult(expected)(hierarchy.toSet)
+  }
+
   test("use join predicates") {
     val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
