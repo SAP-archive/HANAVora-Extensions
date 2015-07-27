@@ -1,8 +1,7 @@
 package org.apache.spark.sql.catalyst.analysis
 
-import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy}
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference}
-import org.apache.spark.sql.catalyst.plans.logical.{Project, Join, LogicalPlan, Subquery}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.sources.{LogicalRelation, SqlLikeRelation}
 
@@ -17,11 +16,20 @@ import org.apache.spark.sql.sources.{LogicalRelation, SqlLikeRelation}
 object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
 
   /**
-   * This prefix is used to force to method "transformExpressionsDown"
-   * to trait the new copy of AttributeReference as a different one,
-   * because the "equals" method only check the exprId, name and the dataType.
+   * XXX: This prefix is used to force to method "transformExpressionsDown"
+   *      to trait the new copy of AttributeReference as a different one,
+   *      because the "equals" method only check the exprId, name and the dataType.
+   * See:
+   * https://issues.apache.org/jira/browse/SPARK-8658
    */
   private val PREFIX = "XXX___"
+
+  /**
+   * XXX: Used to force change on transformUp (SPARK-8658)
+   */
+  private case class DummyPlan(child: LogicalPlan) extends UnaryNode {
+    override def output: Seq[Attribute] = child.output
+  }
 
   // scalastyle:off cyclomatic.complexity
   // scalastyle:off method.length
@@ -30,13 +38,16 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
       case _: LogicalRelation => plan
       case _ =>
         var i: Int = 1
-        plan transformUp {
+        val transformedPlan = plan transformUp {
           case relation@LogicalRelation(baseRelation: SqlLikeRelation) =>
             val newName = s"table$i"
             i += 1
+            logTrace(s"Added subquery $newName to table ${baseRelation.tableName}")
             Subquery(newName, relation)
-          case Hierarchy(a, Subquery(name, child), c, d, e, f, g) =>
-            Subquery(name, Hierarchy(a, child, c, d, e, f, g))
+          case Subquery(name, Subquery(innerName, child)) =>
+            /* If multiple subqueries, preserve the outer one */
+            logDebug(s"Nested subqueries ($name, $innerName) -> $name")
+            Subquery(name, child)
           case lp: LogicalPlan with Product =>
             val mo : LogicalPlan = lp match {
               case Join(l, r, jt, c) =>
@@ -56,31 +67,37 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
               case a:LogicalPlan => a
             }
             val expressionMap = mo.collect {
-              case subquery@Subquery(alias, child) =>
+              case subquery@Subquery(alias, _) =>
                 subquery.output.map({ attr => (attr.exprId, alias) })
-            }.flatten.toMap
+            }.reverse.flatten.toMap
             val prefixedAttributeReferencesPlan = mo transformExpressionsDown {
               case attr: AttributeReference if attr.qualifiers.length > 1 =>
-                sys.error(s"Qualifiers of $attr will be only one, but was ${attr.qualifiers}")
+                sys.error(s"Only 1 qualifier is supported per attribute: $attr ${attr.qualifiers}")
               case attr: AttributeReference =>
                 expressionMap.get(attr.exprId) match {
                   case Some(q) =>
+                    logTrace(s"Using new qualifier ($q) for attribute: $attr")
                     attr.copy(name = PREFIX.concat(attr.name))(
                       exprId = attr.exprId, qualifiers = q :: Nil
                     )
                   case None =>
-                    log.warn(s"Qualifier with expression id ${attr.exprId} not found!")
+                    logWarning(s"Qualifier not found for expression ID: ${attr.exprId}")
                     attr
                 }
             }
             /* Now we need to delete the prefix in all the attributes. */
-            prefixedAttributeReferencesPlan transformExpressionsDown {
+            DummyPlan(prefixedAttributeReferencesPlan transformExpressionsDown {
               case attr: AttributeReference =>
                 attr.copy(name = attr.name.replaceFirst(PREFIX, ""))(
                   exprId = attr.exprId, qualifiers = attr.qualifiers
                 )
-            }
+            })
+        }
+        transformedPlan transformUp {
+          case DummyPlan(child) => child
+          case p => p
         }
     }
   }
+
 }

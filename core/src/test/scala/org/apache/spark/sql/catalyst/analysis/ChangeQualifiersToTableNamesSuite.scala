@@ -4,7 +4,7 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
-import org.apache.spark.sql.catalyst.expressions.{Ascending, SortOrder, AttributeReference}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, AttributeReference, SortOrder}
 import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LocalRelation, LogicalPlan}
 import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation, SqlLikeRelation}
 import org.apache.spark.sql.types._
@@ -60,11 +60,10 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   val nameAtt2 = lr2.output.find(_.name == "name").get
   val ageAtt2 = lr2.output.find(_.name == "age").get
 
-  val h = Hierarchy("hchy", lr1,
+  val h = Hierarchy(lr1,
     "u", 'pred==='succ, SortOrder('name, Ascending) :: Nil,
     new AttributeReference("blah", StringType, nullable = true, metadata = Metadata.empty)().expr,
     new AttributeReference("bleh", StringType, nullable = true, metadata = Metadata.empty)())
-
 
   test("Add alias to table with where clause") {
     assertResult(lr1.subquery('table1).select(nameAtt, ageAtt).where(ageAtt <= 3)) {
@@ -80,46 +79,58 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     }
 
     // Two Joins different tables
-    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
-      .join(lr2.subquery('table2).select(nameAtt2).subquery('table2))) {
+    assertResult(lr1.subquery('table1).select(nameAtt)
+      .join(lr2.subquery('table2).select(nameAtt2))) {
       val r = ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr2.select(nameAtt2)))
       ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr2.select(nameAtt2)))
     }
 
     // Join same table
-    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
-      .join(lr1.subquery('table2).select(nameAtt).subquery('table2))) {
+    assertResult(lr1.subquery('table1).select(nameAtt)
+      .join(lr1.subquery('table2).select(nameAtt))) {
       ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
     }
 
-    // Simple select forcing two qualifiers
+    // Join of sub-queries will cause sub-queries to be aliased
+    assertResult(lr1.subquery('table1).select(nameAtt)
+      .join(lr1.subquery('table2).select(nameAtt))) {
+      ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
+    }
+
+  }
+
+  test("Preserve the outer subquery") {
+    val input = lr1.subquery('q1).subquery('q2)
+    val expected = lr1.subquery('q2)
+    assertResult(expected)(ChangeQualifiersToTableNames(input))
+  }
+
+  test("Non-existent attribute reference does not break the rule") {
+    val att = AttributeReference("blah", StringType)()
+    val input = lr1.select(att)
+    val expected = lr1.subquery('table1).select(att)
+    assertResult(expected)(ChangeQualifiersToTableNames(input))
+  }
+
+  test("Fail with two qualifiers") {
     val nameAttrModified = nameAtt
       .copy()(exprId = nameAtt.exprId, qualifiers = "blah" :: "bleh" :: Nil)
-
     intercept[RuntimeException] {
       ChangeQualifiersToTableNames(lr1.select(nameAttrModified))
     }
+  }
 
-    // Nonexistent attribute reference
-    ChangeQualifiersToTableNames(lr1.select(AttributeReference("blah", StringType)()))
+  test("Fix qualifiers") {
+    val input = lr1.select(nameAtt.copy()(exprId = nameAtt.exprId, qualifiers = "Boo" :: Nil))
+    assertResult("table1" :: Nil)(ChangeQualifiersToTableNames(input).output(0).qualifiers)
+  }
 
-    // Join of sub-queries will cause sub-queries to be aliased
-    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
-      .join(lr1.subquery('table2).select(nameAtt).subquery('table2))) {
-      ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
-    }
-
-    // Do not alias hierarchy source relation
-    assertResult(h.subquery('table1).select('name)) {
-      ChangeQualifiersToTableNames(h.select('name))
-    }
-
-    // Do alias a hierarchy in a join statement.
-    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
-      .join(h.subquery('table2).select(nameAtt).subquery('table2))) {
-      ChangeQualifiersToTableNames(lr1.select(nameAtt).join
-        (h.select(nameAtt)))
-    }
+  test("Fix qualifiers with multiple subqueries") {
+    val input = lr1
+      .select(nameAtt.copy()(exprId = nameAtt.exprId, qualifiers = "Boo" :: Nil))
+      .subquery('q)
+      .select(nameAtt.copy()(exprId = nameAtt.exprId, qualifiers = "Boo" :: Nil))
+    assertResult("q" :: Nil)(ChangeQualifiersToTableNames(input).output(0).qualifiers)
   }
 
 }

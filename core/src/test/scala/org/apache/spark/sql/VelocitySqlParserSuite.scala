@@ -37,15 +37,14 @@ class VelocitySqlParserSuite extends FunSuite with Logging {
         |) AS H
       """.stripMargin)
 
-    val expected = Project(UnresolvedStar(None) :: Nil, Hierarchy(
-      alias = "H",
+    val expected = Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
       relation = UnresolvedRelation("T1" :: Nil, Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
       startWhere = IsNull(UnresolvedAttribute("pred")),
       searchBy = SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,
       nodeAttribute = UnresolvedAttribute("Node")
-    ))
+    )))
     assertResult(expected)(result)
 
     val analyzed = analyzer.execute(result)
@@ -64,8 +63,7 @@ class VelocitySqlParserSuite extends FunSuite with Logging {
         | SET Node
         |) AS H
       """.stripMargin)
-    val expected = Project(UnresolvedStar(None) :: Nil, Hierarchy(
-      alias = "H",
+    val expected = Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
       relation = UnresolvedRelation("T1" :: Nil, Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
@@ -74,7 +72,7 @@ class VelocitySqlParserSuite extends FunSuite with Logging {
         SortOrder(UnresolvedAttribute("otherAttr"), Descending) ::
         SortOrder(UnresolvedAttribute("yetAnotherAttr"), Ascending) :: Nil,
       nodeAttribute = UnresolvedAttribute("Node")
-    ))
+    )))
     assertResult(expected)(result)
 
     val analyzed = analyzer.execute(result)
@@ -92,8 +90,7 @@ class VelocitySqlParserSuite extends FunSuite with Logging {
           | SET Node
           |) AS H
         """.stripMargin)
-      val expected = Project(UnresolvedStar(None) :: Nil, Hierarchy(
-        alias = "H",
+      val expected = Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
@@ -101,7 +98,7 @@ class VelocitySqlParserSuite extends FunSuite with Logging {
         startWhere = IsNull(UnresolvedAttribute("pred")),
         searchBy = Nil,
         nodeAttribute = UnresolvedAttribute("Node")
-      ))
+      )))
       assertResult(expected)(result)
 
       val analyzed = analyzer.execute(result)

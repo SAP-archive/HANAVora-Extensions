@@ -5,9 +5,9 @@ import org.apache.spark.sql.execution.{SparkPlan, HierarchyPhysicalPlan}
 
 case class HierarchyStrategy(planner : ExtendedPlanner) extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    case h @ Hierarchy(alias, relation, childAlias, parenthoodExp, searchBy, startWhere, _) =>
+    case h @ Hierarchy(relation, childAlias, parenthoodExp, searchBy, startWhere, _) =>
       HierarchyPhysicalPlan(
-        alias, childAlias,
+        childAlias,
         parenthoodExp, searchBy, startWhere, h.nodeAttribute, planner.planLaterExt(relation)
       ) :: Nil
     case _ => Nil
