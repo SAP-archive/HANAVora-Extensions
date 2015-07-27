@@ -90,7 +90,7 @@ case class ResolveReferencesWithHierarchies(analyzer: Analyzer) extends Rule[Log
           if AttributeSet(windowExpressions.map(_.toAttribute)).intersect(conflictingAttributes)
             .nonEmpty =>
           (oldVersion, oldVersion.copy(windowExpressions = newAliases(windowExpressions)))
-        case oldVersion@Hierarchy(alias, relation, childAlias, parenthoodExpression,
+        case oldVersion@Hierarchy(relation, childAlias, parenthoodExpression,
         searchBy, startWhere, nodeAttr) if (conflictingAttributes.contains(nodeAttr)) =>
           (oldVersion, oldVersion.copy(nodeAttribute = nodeAttr.newInstance))
       }.headOption.getOrElse {

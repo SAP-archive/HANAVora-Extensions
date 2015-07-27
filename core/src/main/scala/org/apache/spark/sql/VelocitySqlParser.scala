@@ -3,7 +3,7 @@ package org.apache.spark.sql
 import org.apache.spark.sql.catalyst.SqlParser
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedFunction, UnresolvedAttribute}
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{Subquery, Hierarchy, LogicalPlan}
 import org.apache.spark.sql.types.StringType
 import java.util.Calendar
 import org.apache.spark.sql.types.DoubleType
@@ -124,14 +124,13 @@ class VelocitySqlParser extends SqlParser {
         (SET ~> ident <~ ")") ~
         (AS ~> ident) ^^ {
       case rel ~ ca ~ pexpr ~ sba ~ sw ~ nc ~ alias =>
-       new Hierarchy(
-         alias = alias,
+       Subquery(alias, Hierarchy(
          relation = rel,
          childAlias = ca,
          parenthoodExpression = pexpr,
          searchBy = sba.getOrElse(Seq()),
          startWhere = sw,
-         nodeAttribute = UnresolvedAttribute(nc))
+         nodeAttribute = UnresolvedAttribute(nc)))
     }
 
   protected lazy val extract: Parser[Expression] =
