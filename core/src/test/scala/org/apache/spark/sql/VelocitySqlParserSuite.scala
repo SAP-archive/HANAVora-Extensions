@@ -5,6 +5,7 @@ import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.execution.CreateViewCommand
 import org.apache.spark.sql.types.{Metadata, StringType}
 import org.scalatest.FunSuite
 
@@ -103,6 +104,38 @@ class VelocitySqlParserSuite extends FunSuite with Logging {
 
       val analyzed = analyzer.execute(result)
       log.info(s"$analyzed")
+  }
+
+  test("create view") {
+    val parser = new VelocitySqlParser
+    val result = parser.parse("CREATE VIEW myview AS SELECT * FROM mytable")
+    val expected = CreateViewCommand("myview",
+      Project(UnresolvedStar(None) :: Nil, UnresolvedRelation("mytable" :: Nil))
+    )
+    assertResult(expected)(result)
+  }
+
+  test("create view of a hierarchy") {
+    val parser = new VelocitySqlParser
+    val result = parser.parse("""
+                              CREATE VIEW HV AS SELECT * FROM HIERARCHY (
+                                 USING T1 AS v
+                                 JOIN PARENT u ON v.pred = u.succ
+                                 START WHERE pred IS NULL
+                                 SET Node
+                                ) AS H
+                              """.stripMargin)
+    val expected = CreateViewCommand("HV",
+      Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
+        relation = UnresolvedRelation("T1" :: Nil, Some("v")),
+        parenthoodExpression =
+          EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+        childAlias = "u",
+        startWhere = IsNull(UnresolvedAttribute("pred")),
+        searchBy = Nil,
+        nodeAttribute = UnresolvedAttribute("Node")
+      ))))
+    assertResult(expected)(result)
   }
 
 }

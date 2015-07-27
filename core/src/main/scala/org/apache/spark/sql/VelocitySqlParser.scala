@@ -4,6 +4,7 @@ import org.apache.spark.sql.catalyst.SqlParser
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedFunction, UnresolvedAttribute}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Subquery, Hierarchy, LogicalPlan}
+import org.apache.spark.sql.execution.CreateViewCommand
 import org.apache.spark.sql.types.StringType
 import java.util.Calendar
 import org.apache.spark.sql.types.DoubleType
@@ -16,6 +17,9 @@ class VelocitySqlParser extends SqlParser {
   protected val SEARCH = Keyword("SEARCH")
   protected val START = Keyword("START")
   protected val SET = Keyword("SET")
+
+  protected val CREATE = Keyword("CREATE")
+  protected val VIEW = Keyword("VIEW")
 
   /* XXX Those expressions are not only for hierarchies */
   /* EXTRACT keywords */
@@ -65,7 +69,10 @@ class VelocitySqlParser extends SqlParser {
   protected val TO_VARCHAR = Keyword("TO_VARCHAR")
 
   lexical.delimiters += "$"
-  
+
+  override protected lazy val start: Parser[LogicalPlan] =
+    start1 | insert | cte | createView
+
   override protected lazy val relation: Parser[LogicalPlan] =
     hierarchy | joinedRelation | relationFactor
 
@@ -133,6 +140,11 @@ class VelocitySqlParser extends SqlParser {
          nodeAttribute = UnresolvedAttribute(nc)))
     }
 
+  protected lazy val createView: Parser[LogicalPlan] =
+    (CREATE ~> VIEW ~> ident <~ AS) ~ start1 ^^ {
+      case name ~ query => CreateViewCommand(name, query)
+    }
+  
   protected lazy val extract: Parser[Expression] =
     EXTRACT ~ "(" ~> dateIdLiteral ~ (FROM ~> expression) <~ ")" ^^ {
       case dFlag ~ d => Extract(dFlag, d)

@@ -29,6 +29,8 @@ private[sql] trait VelocityCommandsSQLContextExtension
         ExecutedCommand(ShowDataSourceTablesRunnableCommand(provider, options)) :: Nil
       case RegisterAllTablesUsing(provider, options, ignoreConflicts) =>
         ExecutedCommand(RegisterAllTablesCommand(provider, options, ignoreConflicts)) :: Nil
+      case cv@CreateViewCommand(name, query) =>
+        ExecutedCommand(cv) :: Nil
       case _ => Nil
     }).headOption.toSeq
   }
