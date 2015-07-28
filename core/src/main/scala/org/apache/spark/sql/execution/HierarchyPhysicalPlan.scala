@@ -5,7 +5,8 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
 
-case class HierarchyPhysicalPlan(childAlias: String,
+case class HierarchyPhysicalPlan(alias: String,
+                                 childAlias: String,
                                  parenthoodExpression: Expression,
                                  searchBy: Seq[SortOrder],
                                  startWhere: Expression,

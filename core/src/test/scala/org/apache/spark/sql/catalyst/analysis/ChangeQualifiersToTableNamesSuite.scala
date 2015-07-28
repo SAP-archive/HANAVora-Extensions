@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.{Ascending, SortOrder, AttributeReference}
-import org.apache.spark.sql.catalyst.plans.logical.{Subquery, Hierarchy, LocalRelation, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LocalRelation, LogicalPlan}
 import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation, SqlLikeRelation}
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
@@ -60,10 +60,11 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   val nameAtt2 = lr2.output.find(_.name == "name").get
   val ageAtt2 = lr2.output.find(_.name == "age").get
 
-  val h = Hierarchy(lr1,
+  val h = Hierarchy("hchy", lr1,
     "u", 'pred==='succ, SortOrder('name, Ascending) :: Nil,
     new AttributeReference("blah", StringType, nullable = true, metadata = Metadata.empty)().expr,
     new AttributeReference("bleh", StringType, nullable = true, metadata = Metadata.empty)())
+
 
   test("Add alias to table with where clause") {
     assertResult(lr1.subquery('table1).select(nameAtt, ageAtt).where(ageAtt <= 3)) {

@@ -2,9 +2,10 @@ package org.apache.spark.sql.catalyst.plans.logical
 
 import org.apache.spark.sql.catalyst.analysis.Resolver
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DataType, NodeType}
+import org.apache.spark.sql.types.{NodeType, DataType}
 
 case class Hierarchy(
+                      alias: String,
                       relation: LogicalPlan,
                       childAlias: String,
                       parenthoodExpression: Expression,
@@ -13,14 +14,14 @@ case class Hierarchy(
                       nodeAttribute: Attribute)
   extends UnaryNode {
 
-  override def child: LogicalPlan = relation
-
-  override def output: Seq[Attribute] = child.output :+ nodeAttribute
+  override def child : LogicalPlan = relation
+  override def output : Seq[Attribute] =
+    (child.output :+ nodeAttribute).map(_.withQualifiers(alias :: Nil))
 
   /* TODO: This will be needed if we use generic Node inner types */
-  private val joinDataType: Option[DataType] = {
+  private val joinDataType : Option[DataType] = {
     parenthoodExpression match {
-      case be: BinaryExpression if be.resolved && be.left.dataType.sameType(be.right.dataType) =>
+      case be : BinaryExpression if be.resolved && be.left.dataType.sameType(be.right.dataType) =>
         Some(be.left.dataType)
       case x if !parenthoodExpression.resolved =>
         None
@@ -31,8 +32,7 @@ case class Hierarchy(
     }
   }
 
-  private lazy val aliasedRelation: LogicalPlan =
-      Subquery(childAlias, relation)
+  private lazy val parenthoodRelation : LogicalPlan = Subquery(childAlias, relation)
 
   override lazy val resolved: Boolean = !expressions.exists(!_.resolved) &&
     childrenResolved &&
@@ -51,7 +51,7 @@ case class Hierarchy(
   override def missingInput: AttributeSet = references -- inputSet - nodeAttribute
 
   private def candidateAttributesForParenthoodExpression() : Seq[Attribute] =
-    relation.output ++ aliasedRelation.output
+    relation.output ++ parenthoodRelation.output
 
   private[sql] def resolveParenthoodExpression(nameParts: Seq[String], resolver: Resolver)
   : Option[NamedExpression] =
