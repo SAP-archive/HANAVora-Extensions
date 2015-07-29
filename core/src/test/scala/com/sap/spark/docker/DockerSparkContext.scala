@@ -3,7 +3,7 @@ package com.sap.spark.docker
 import java.io.IOException
 import java.net.{ConnectException, HttpURLConnection, Socket, URL}
 
-import com.sap.spark.WithSparkContext
+import com.sap.spark.{WithVelocitySQLContext, WithSparkContext}
 import com.spotify.docker.client._
 import com.spotify.docker.client.messages.{ContainerConfig, ProgressMessage}
 import org.apache.spark.{Logging, SparkConf, SparkContext}
@@ -15,10 +15,14 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Random, Success, Try}
 
 /**
- * Generic trait to be extended by any class/trait using a Spark context in a docker container. 
- * It contains generic methods to generate a docker container with the given configuration.
+ * Generic trait to be extended by any class/trait using a Velocity sql context in a docker 
+ * container. It contains generic methods to generate a docker container with the given 
+ * configuration.
  */
-private[spark] trait DockerSparkContext extends WithSparkContext with Logging {
+private[spark] trait DockerSparkContext 
+  extends WithSparkContext
+  with WithVelocitySQLContext
+  with Logging {
   self: Suite =>
 
   /**
