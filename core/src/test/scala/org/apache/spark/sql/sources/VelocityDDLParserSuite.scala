@@ -1,6 +1,6 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.sources.{RegisterAllTablesUsing, ShowDatasourceTablesCommand, VelocityDDLParser}
+import org.apache.spark.sql.VelocitySqlParser
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}
 
