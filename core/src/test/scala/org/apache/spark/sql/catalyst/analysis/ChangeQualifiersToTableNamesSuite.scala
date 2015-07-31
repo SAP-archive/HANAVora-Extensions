@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.{Ascending, AttributeReference, SortOrder}
-import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LocalRelation, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, Hierarchy, LocalRelation, LogicalPlan}
 import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation, SqlLikeRelation}
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
@@ -65,6 +65,10 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     new AttributeReference("blah", StringType, nullable = true, metadata = Metadata.empty)().expr,
     new AttributeReference("bleh", StringType, nullable = true, metadata = Metadata.empty)())
 
+  val aliasedSum1 = sum(nameAtt).as('aliasedSum1)
+  val aliasedSum2 = sum(nameAtt).as('aliasedSum2)
+  val aliasedSum3 = sum(nameAtt).as('aliasedSum3)
+
   test("Add alias to table with where clause") {
     assertResult(lr1.subquery('table1).select(nameAtt, ageAtt).where(ageAtt <= 3)) {
       ChangeQualifiersToTableNames(lr1.select(nameAtt, ageAtt).where(ageAtt <= 3))
@@ -79,21 +83,21 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     }
 
     // Two Joins different tables
-    assertResult(lr1.subquery('table1).select(nameAtt)
-      .join(lr2.subquery('table2).select(nameAtt2))) {
+    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
+      .join(lr2.subquery('table2).select(nameAtt2).subquery('table2))) {
       val r = ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr2.select(nameAtt2)))
       ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr2.select(nameAtt2)))
     }
 
     // Join same table
-    assertResult(lr1.subquery('table1).select(nameAtt)
-      .join(lr1.subquery('table2).select(nameAtt))) {
+    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
+      .join(lr1.subquery('table2).select(nameAtt).subquery('table2))) {
       ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
     }
 
     // Join of sub-queries will cause sub-queries to be aliased
-    assertResult(lr1.subquery('table1).select(nameAtt)
-      .join(lr1.subquery('table2).select(nameAtt))) {
+    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table1)
+      .join(lr1.subquery('table2).select(nameAtt).subquery('table2))) {
       ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
     }
 
@@ -131,6 +135,32 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
       .subquery('q)
       .select(nameAtt.copy()(exprId = nameAtt.exprId, qualifiers = "Boo" :: Nil))
     assertResult("q" :: Nil)(ChangeQualifiersToTableNames(input).output(0).qualifiers)
+  }
+
+  test("Fix aggregate aliases") {
+    // Put subquery between two consequitive aggregates
+    assertResult(Aggregate(Nil, aliasedSum1 :: Nil,
+      Aggregate(Nil, aliasedSum2 :: Nil,
+        lr1.subquery('table1).select(nameAtt)).subquery('aggregate2))) {
+      ChangeQualifiersToTableNames(Aggregate(Nil, aliasedSum1 :: Nil,
+        Aggregate(Nil, aliasedSum2 :: Nil, lr1.select(nameAtt))))
+    }
+
+    // Put subquery between three consequitive aggregates
+    assertResult(
+      Aggregate(Nil, aliasedSum1 :: Nil,
+        Aggregate(Nil, aliasedSum2 :: Nil,
+          Aggregate(Nil, aliasedSum3 :: Nil,
+            lr1.subquery('table1).select(nameAtt))
+            .subquery('aggregate2))
+          .subquery('aggregate3))) {
+      ChangeQualifiersToTableNames(
+        Aggregate(Nil, aliasedSum1 :: Nil,
+          Aggregate(Nil, aliasedSum2 :: Nil,
+            Aggregate(Nil, aliasedSum3 :: Nil,
+              lr1.select(nameAtt))))
+      )
+    }
   }
 
 }

@@ -54,16 +54,44 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
                 val new_l = l match {
                   // the scope of projection alias is limited to subquery
                   // therefor we can use it outside as well.
-                  case Project(p, Subquery(a, c)) =>
-                    Subquery(a, Project(p, Subquery(a, c)))
+                  case dProject@DummyPlan(Project(p, b)) => b match {
+                    case s@Subquery(alias, q) =>
+                      DummyPlan(Subquery(alias, dProject))
+                    case s@DummyPlan(Subquery(alias, q)) =>
+                      DummyPlan(Subquery(alias, dProject))
+                  }
+                  case project@Project(p, b) => b match {
+                    case s@Subquery(alias, q) =>
+                      Subquery(alias, project)
+                    case s@DummyPlan(Subquery(alias, q)) =>
+                      Subquery(alias, project)
+                  }
                   case _ => l
                 }
                 val new_r = r match {
-                  case Project(p, Subquery(a, c)) =>
-                    Subquery(a, Project(p, Subquery(a, c)))
+                  case dProject@DummyPlan(Project(p, b)) => b match {
+                    case s@Subquery(alias, q) =>
+                      DummyPlan(Subquery(alias, dProject))
+                    case s@DummyPlan(Subquery(alias, q)) =>
+                      DummyPlan(Subquery(alias, dProject))
+                  }
+                  case project@Project(p, b) => b match {
+                    case s@Subquery(alias, q) =>
+                      Subquery(alias, project)
+                    case s@DummyPlan(Subquery(alias, q)) =>
+                      Subquery(alias, project)
+                  }
                   case _ => r
                 }
                 Join(new_l, new_r, jt, c)
+              case agg@Aggregate(a, b, c@DummyPlan(d:Aggregate)) =>
+                val newName = s"aggregate$i"
+                i += 1
+                Aggregate(a, b, Subquery(newName, c))
+              case agg@Aggregate(a, b, c:Aggregate) =>
+                val newName = s"aggregate$i"
+                i += 1
+                Aggregate(a, b, Subquery(newName, c))
               case a:LogicalPlan => a
             }
             val expressionMap = mo.collect {
