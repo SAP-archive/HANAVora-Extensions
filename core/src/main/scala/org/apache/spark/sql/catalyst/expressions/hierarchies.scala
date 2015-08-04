@@ -2,7 +2,7 @@ package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.sql.types._
 
-private[expressions] abstract class UnaryNodeExpression extends UnaryExpression {
+abstract class UnaryNodeExpression extends UnaryExpression {
   self: Product =>
 
   override def nullable : Boolean = child.nullable
@@ -18,7 +18,7 @@ private[expressions] abstract class UnaryNodeExpression extends UnaryExpression 
   }
 }
 
-private[expressions] abstract class NodePredicate extends BinaryComparison {
+abstract class NodePredicate extends BinaryComparison {
   self: Product =>
 
   protected def check() = {
