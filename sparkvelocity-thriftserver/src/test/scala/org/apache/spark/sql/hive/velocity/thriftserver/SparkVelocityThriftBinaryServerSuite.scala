@@ -169,9 +169,17 @@ abstract class SparkVelocityThriftServer2Test extends FunSuite with BeforeAndAft
     } else {
       ConfVars.HIVE_SERVER2_THRIFT_HTTP_PORT
     }
-
+    /*
+    the variables deploy mode and master might not be necessary, however in some build
+    environments they are required. This test should only start a local thriftserver during unit
+    tests (consequently: client and local) for more information on that parameters refer to the
+    Spark submit documentiation
+    */
     s"""java -cp ${sys.props("java.class.path")}
-        |  -Xms512m -Xmx512m -XX:MaxPermSize=128m org.apache.spark.deploy.SparkSubmit --class
+        |  -Xms512m -Xmx512m -XX:MaxPermSize=128m org.apache.spark.deploy.SparkSubmit
+        |  --deploy-mode client
+        |  --master local
+        |  --class
         |  org.apache.spark.sql.hive.thriftserver.SparkVelocityThriftServer spark-internal
         |  --hiveconf ${ConfVars.METASTORECONNECTURLKEY}=$metastoreJdbcUri
         |  --hiveconf ${ConfVars.METASTOREWAREHOUSE}=$warehousePath
