@@ -43,7 +43,7 @@
             <version>2.3</version>
             <configuration>
               <finalName>
-                ${parent.artifactId}-${project.version}-${env.classifier}
+                ${project.parent.artifactId}-${project.version}-${env.classifier}
               </finalName>
               <relocations>
                 <relocation>
@@ -94,6 +94,7 @@
         <!-- this creates your *.tar.gz -->
         <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.5.5</version>
           <executions>
             <execution>
               <id>Create final ZIP package</id>
