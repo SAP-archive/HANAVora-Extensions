@@ -104,6 +104,7 @@
               </goals>
               <configuration>
                 <appendAssemblyId>false</appendAssemblyId>
+                <tarLongFileMode>posix</tarLongFileMode>
                 <descriptors>
                   <descriptor>platform-assembly.xml</descriptor>
                 </descriptors>
