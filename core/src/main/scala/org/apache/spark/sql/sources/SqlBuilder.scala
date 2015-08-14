@@ -43,7 +43,10 @@ class SqlBuilder {
                            groupByClauses: Seq[String],
                            havingClause: String): String = {
     val fieldList = fields match {
-      case Nil => "*"
+        // The optimizer sometimes does not report any fields (since no specifc is required by
+        // the query (usually a nested select), thus we add the group by clauses as fields
+      case Nil if groupByClauses.isEmpty =>  "*"
+      case Nil => groupByClauses mkString ", "
       case s => s mkString ", "
     }
     val where = filters match {
