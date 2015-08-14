@@ -101,6 +101,23 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
       Seq('a.string)
     )
 
+  /**
+   * this tests a corner case: no field list but a group by, so we have to choose the group by
+   * fields as field list. This is necessary for nested selects that go with a *:
+   *
+   * SELECT COUNT(*) from (SELECT a FROM table GROUP BY a)
+   *
+   * The optimizer/Parser cannot resolve the *, and creates a plan without "fields".
+   */
+  testBuildSelect[Expression,Expression,Expression](
+    "SELECT \"a\" FROM \"table\" GROUP BY \"a\""
+  )(
+      "table",
+      Nil,
+      Nil,
+      Seq('a.string)
+    )
+
   testExpressionToSql("AVG(1) AS \"PartialAvg\"")(avg(1) as "PartialAvg")
   testExpressionToSql("SUM(1) AS \"PartialSum\"")(sum(1) as "PartialSum")
   testExpressionToSql("COUNT(1) AS \"PartialCount\"")(count(1) as "PartialCount")
