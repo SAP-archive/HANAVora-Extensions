@@ -151,7 +151,7 @@ with GlobalVelocitySQLContext with Logging {
       START WHERE pred IS NULL
       SET node
       ) AS H
-    """
+                      """
 
     val result = sqlContext.sql(queryString).collect()
 
@@ -181,7 +181,7 @@ with GlobalVelocitySQLContext with Logging {
       START WHERE pred IS NULL
       SET node
       ) AS H
-    """
+                      """
 
     val result = sqlContext.sql(queryString).collect()
 
@@ -214,20 +214,20 @@ with GlobalVelocitySQLContext with Logging {
       START WHERE pred IS NULL
       SET node
       ) AS H
-    """
+                      """
 
-   val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(queryString).collect()
 
-   val expected = Set(
-     Row("THE BOSS", null, 1L, 1, Node(List(1L))),
-     Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
-     Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L))),
-     Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L))),
-     Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L))),
-     Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L)))
-   )
+    val expected = Set(
+      Row("THE BOSS", null, 1L, 1, Node(List(1L))),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L))),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L))),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L))),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L)))
+    )
 
-   assertResult(expected)(result.toSet)
+    assertResult(expected)(result.toSet)
   }
 
   integrationStartWithExpression(HierarchyRowJoinBuilder(
@@ -303,26 +303,26 @@ with GlobalVelocitySQLContext with Logging {
   def buildFromAdjacencyListTest(builder : HierarchyBuilder[HierarchyRow, PartialResult]) {
     test("unitary: testing method buildFromAdjacencyList of class " +
       builder.getClass.getSimpleName){
-       val rdd = sc.parallelize(adjacencyList)
-       val hBuilder = HierarchyBroadcastBuilder(
-         pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
-         succ = (myRow: HierarchyRow) => myRow.succ,
-         startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
-         transformRowFunction = (r : HierarchyRow, node : Node) =>
-           PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
-       )
-       val hierarchy = builder.buildFromAdjacencyList(rdd)
+      val rdd = sc.parallelize(adjacencyList)
+      val hBuilder = HierarchyBroadcastBuilder(
+        pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
+        succ = (myRow: HierarchyRow) => myRow.succ,
+        startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
+        transformRowFunction = (r : HierarchyRow, node : Node) =>
+          PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
+      )
+      val hierarchy = builder.buildFromAdjacencyList(rdd)
 
-       val expected = Set(
-         PartialResult(List(1),1),
-         PartialResult(List(1, 2),2),
-         PartialResult(List(1, 3),3),
-         PartialResult(List(1, 2, 4),4),
-         PartialResult(List(1, 2, 5),5),
-         PartialResult(List(1, 2, 4, 6),6),
-         PartialResult(List(1, 2, 4, 7),7)
-       )
-       assertResult(expected)(hierarchy.collect().toSet)
+      val expected = Set(
+        PartialResult(List(1),1),
+        PartialResult(List(1, 2),2),
+        PartialResult(List(1, 3),3),
+        PartialResult(List(1, 2, 4),4),
+        PartialResult(List(1, 2, 5),5),
+        PartialResult(List(1, 2, 4, 6),6),
+        PartialResult(List(1, 2, 4, 7),7)
+      )
+      assertResult(expected)(hierarchy.collect().toSet)
     }
   }
 
@@ -348,17 +348,17 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) B, t_src A
         WHERE B.name = A.name
-    """
+                      """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-     Row("THE BOSS", "Nice Street", 1),
-     Row("The Middle Manager", "Acceptable Street", 2),
-     Row("Senior Developer", "Near-Acceptable Street", 3),
-     Row("Minion 3", "The Street", 4)
+      Row("THE BOSS", "Nice Street", 1),
+      Row("The Middle Manager", "Acceptable Street", 2),
+      Row("Senior Developer", "Near-Acceptable Street", 3),
+      Row("Minion 3", "The Street", 4)
     )
     assertResult(expected)(result.toSet)
-   }
+  }
 
   test("integration: I can left outer join hierarchy with table") {
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
@@ -380,20 +380,20 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) A LEFT JOIN t_src B
         ON A.name = B.name
-    """
+                      """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-     Row("THE BOSS", "Nice Street", 1),
-     Row("The Other Middle Manager", null, 2),
-     Row("The Middle Manager", "Acceptable Street", 2),
-     Row("Senior Developer", "Near-Acceptable Street", 3),
-     Row("Minion 1", null, 3),
-     Row("Minion 2", null, 4),
-     Row("Minion 3", "The Street", 4)
+      Row("THE BOSS", "Nice Street", 1),
+      Row("The Other Middle Manager", null, 2),
+      Row("The Middle Manager", "Acceptable Street", 2),
+      Row("Senior Developer", "Near-Acceptable Street", 3),
+      Row("Minion 1", null, 3),
+      Row("Minion 2", null, 4),
+      Row("Minion 3", "The Street", 4)
     )
     assertResult(expected)(result.toSet)
-   }
+  }
 
   test("integration: I can right outer join hierarchy with table") {
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
@@ -417,20 +417,20 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) B RIGHT OUTER JOIN t_src A
         ON A.name = B.name
-    """
+                      """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-     Row("THE BOSS", "Nice Street", 1),
-     Row("The Middle Manager", "Acceptable Street", 2),
-     Row("Senior Developer", "Near-Acceptable Street", 3),
-     Row("Minion 3", "The Street", 4),
-     Row("Darth Vader", "Death Star", null)
+      Row("THE BOSS", "Nice Street", 1),
+      Row("The Middle Manager", "Acceptable Street", 2),
+      Row("Senior Developer", "Near-Acceptable Street", 3),
+      Row("Minion 3", "The Street", 4),
+      Row("Darth Vader", "Death Star", null)
     )
     assertResult(expected)(result.toSet)
-   }
+  }
 
-    test("integration: I can full outer join hierarchy with table") {
+  test("integration: I can full outer join hierarchy with table") {
     val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
@@ -452,19 +452,57 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) A FULL OUTER JOIN t_src B
         ON A.name = B.name
-    """
+                      """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-     Row("THE BOSS", "Nice Street", 1),
-     Row("The Other Middle Manager", null, 2),
-     Row("The Middle Manager", "Acceptable Street", 2),
-     Row("Senior Developer", "Near-Acceptable Street", 3),
-     Row("Minion 1", null, 3),
-     Row("Minion 2", null, 4),
-     Row("Minion 3", "The Street", 4),
-     Row(null, "Death Star", null)
+      Row("THE BOSS", "Nice Street", 1),
+      Row("The Other Middle Manager", null, 2),
+      Row("The Middle Manager", "Acceptable Street", 2),
+      Row("Senior Developer", "Near-Acceptable Street", 3),
+      Row("Minion 1", null, 3),
+      Row("Minion 2", null, 4),
+      Row("Minion 3", "The Street", 4),
+      Row(null, "Death Star", null)
     )
     assertResult(expected)(result.toSet)
-   }
+  }
+
+  test("integration: I can use star with full outer join hierarchy with table and unary UDFs") {
+    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(hRdd).cache()
+    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    hSrc.registerTempTable("h_src")
+
+    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
+    val tSrc = sqlContext.createDataFrame(tRdd).cache()
+    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    tSrc.registerTempTable("t_src")
+
+    val queryString = """
+      SELECT A.name, B.address, LEVEL(A.node), IS_ROOT(A.node)
+      FROM
+      (SELECT * FROM HIERARCHY (
+        USING h_src AS v
+          JOIN PARENT u ON v.pred = u.succ
+          SEARCH BY ord ASC
+        START WHERE pred IS NULL
+        SET node)
+        AS H) A FULL OUTER JOIN t_src B
+        ON A.name = B.name
+                      """
+    val result = sqlContext.sql(queryString).collect()
+
+    val expected = Set(
+      Row("THE BOSS", "Nice Street", 1, true),
+      Row("The Other Middle Manager", null, 2, false),
+      Row("The Middle Manager", "Acceptable Street", 2, false),
+      Row("Senior Developer", "Near-Acceptable Street", 3, false),
+      Row("Minion 1", null, 3, false),
+      Row("Minion 2", null, 4, false),
+      Row("Minion 3", "The Street", 4, false),
+      Row(null, "Death Star", null, null)
+    )
+    assertResult(expected)(result.toSet)
+  }
 }

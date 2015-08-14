@@ -33,13 +33,17 @@ abstract class NodePredicate extends BinaryComparison {
 }
 
 case class Level(child: Expression) extends UnaryNodeExpression {
-  type EvaluatedType = Int
+  type EvaluatedType = java.lang.Integer
   override def dataType : DataType = IntegerType
   override protected def name = "LEVEL"
-
+  override def nullable: Boolean = true
   override def eval(input: Row): EvaluatedType = {
     val node = child.eval(input).asInstanceOf[Node]
-    node.path.length
+    if(node == null) {
+      null
+    } else {
+      node.path.length
+    }
   }
 
   check()
@@ -77,15 +81,24 @@ case class IsRoot(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = java.lang.Boolean
   override def dataType : DataType = BooleanType
   override protected def name = "IS_ROOT"
-
+  override def nullable: Boolean = true
   override def eval(input: Row): EvaluatedType = {
     val node = child.eval(input).asInstanceOf[Node]
-    node.path.length == 1
+    if(node == null) {
+      null
+    } else {
+      node.path.length == 1
+    }
   }
 
   check()
 }
 
+/**
+ * This UDF is not part of the official list of UDFs we want to support.
+ * TODO (YH, SM) either keep it and it to both Spark and Velocity
+ * of remove it completely (#90029).
+ */
 case class IsLeaf(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = Any
   override def dataType : DataType = BooleanType
