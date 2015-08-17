@@ -28,7 +28,7 @@ trait GlobalSparkContext extends WithSparkContext {
   override def sc: SparkContext = GlobalSparkContext._sc
 
   override protected def setUpSparkContext(): Unit = {
-    GlobalSparkContext.init(numberOfSparkWorkers, sparkConf)
+    GlobalSparkContext.init(sparkMaster, sparkConf)
   }
 
   override protected def tearDownSparkContext(): Unit = {
@@ -41,11 +41,11 @@ trait GlobalSparkContext extends WithSparkContext {
 object GlobalSparkContext {
   @transient private var _sc: SparkContext = _
 
-  def init(numberOfSparkWorkers: Int, sparkConf: SparkConf): Unit = {
+  def init(sparkMaster: String, sparkConf: SparkConf): Unit = {
     if (_sc == null) {
       this.synchronized {
         if (_sc == null) {
-          _sc = new SparkContext(s"local[$numberOfSparkWorkers]", "test", sparkConf)
+          _sc = new SparkContext( sparkMaster, "test", sparkConf)
         }
       }
     }
