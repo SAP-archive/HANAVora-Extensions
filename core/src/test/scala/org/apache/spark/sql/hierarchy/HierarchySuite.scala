@@ -312,6 +312,7 @@ class HierarchySuite extends FunSuite
     pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
     succ = (myRow: EmployeeRow) => myRow.succ,
     startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
+    ord = (myRow: EmployeeRow) => myRow.ord,
     transformRowFunction = (r : EmployeeRow, node : Node) =>
       PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
   ))
@@ -324,6 +325,7 @@ class HierarchySuite extends FunSuite
         pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
         succ = (myRow: EmployeeRow) => myRow.succ,
         startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
+        ord = (myRow: EmployeeRow) => myRow.ord,
         transformRowFunction = (r : EmployeeRow, node : Node) =>
           PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
       )
@@ -339,8 +341,23 @@ class HierarchySuite extends FunSuite
         PartialResult(List(1, 2, 4, 7),7)
       )
       assertResult(expected)(hierarchy.collect().toSet)
+
+      val in_order = hierarchy.collect().toVector
+      assertResult(1)(  // should follow in order
+        in_order.indexOf( PartialResult(List(1, 3),3)) -
+          in_order.indexOf( PartialResult(List(1, 2),2))
+      )
+      assertResult(1)(  // should follow in order
+        in_order.indexOf( PartialResult(List(1, 2, 5),5) ) -
+          in_order.indexOf( PartialResult(List(1, 2, 4),4) )
+      )
+      assertResult(1)(  // should follow in order
+        in_order.indexOf( PartialResult(List(1, 2, 4, 7),7) ) -
+          in_order.indexOf( PartialResult(List(1, 2, 4, 6),6) )
+      )
     }
   }
+
 
   test("integration: I can join hierarchy with table") {
     val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))

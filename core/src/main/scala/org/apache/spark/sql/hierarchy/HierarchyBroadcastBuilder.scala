@@ -9,7 +9,10 @@ import scala.reflect.ClassTag
 
 
 /* TODO (YH, SM) enhance this type, currently it is mutable. */
-private[hierarchy] class Tree[T](val root: T, var children: Option[Seq[Tree[T]]])
+private[hierarchy] class Tree[T](
+                                  val root: T,
+                                  var children: Option[Seq[Tree[T]]],
+                                  var siblingRank: java.lang.Long = null)
   extends Serializable {
 
   override def toString: String = {
@@ -22,11 +25,22 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
 (pred : I => C,
  succ : I => C,
  startWhere: I => Boolean,
+ ord: I => C,
  transformRowFunction : (I, Node) => O) extends HierarchyBuilder[I, O] {
 
-  def buildTree(t : Tree[C], list : Array[(C, C)]) : Unit = {
+  def buildTree(t : Tree[C], list : Array[((C, C), (C,C))]) : Unit = {
     if (t.children.isEmpty) {
-      t.children = Some(list filter (p => p._1 == t.root) map (i => new Tree(i._2, None)))
+      t.children = Some(
+        list
+          filter (p => p._1._1 == t.root)
+          map (i => new Tree(i._1._2, None,
+        {i._2._2 match {
+          case l: Long => l
+          case _ => -1L
+        }}
+        ))
+      sortWith({(lhs,rhs) => lhs.siblingRank < rhs.siblingRank})
+      )
     }
     if (t.children.isDefined) {
       t.children.get foreach (buildTree(_, list))
@@ -55,12 +69,18 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     }
 
   override def buildFromAdjacencyList(rdd: RDD[I]): RDD[O] = {
+    // providing sibling-order is optional: use succ as fallback for now:
+    val ord_f = ord match {
+      case null => succ
+      case _ => ord
+    }
     val adjacency = rdd keyBy pred mapValues succ
+    val rank_list: RDD[(C, C)] = rdd keyBy pred mapValues ord_f
+    val list_with_order = adjacency zip rank_list collect
     val roots = rdd filter startWhere map succ collect
-    val list = adjacency collect
     val forest = {
       val obj = roots map (root => new Tree(root, None))
-      obj foreach(buildTree(_, list))
+      obj foreach(buildTree(_, list_with_order))
       obj
     }
     val forestBroadcast = rdd.sparkContext.broadcast(forest)
@@ -97,8 +117,17 @@ object HierarchyRowBroadcastBuilder {
     val startsWhere = HierarchyRowFunctions.rowStartWhere(
       HierarchyRowFunctions.bindExpression(startWhere, attributes))
 
+    // Todo(Weidner): currently, only first ordering rule is applied:
+    val ord = searchBy.isEmpty match{
+      case true => null
+      case false =>
+        HierarchyRowFunctions.rowGet[java.lang.Long](
+          attributes.indexWhere(_.name ==
+            searchBy.head.child.asInstanceOf[AttributeReference].name ))
+    }
+
     new HierarchyBroadcastBuilder[Row,Row,Any, Node](
-      pred, succ, startsWhere, HierarchyRowFunctions.rowAppend
+      pred, succ, startsWhere, ord, HierarchyRowFunctions.rowAppend
     ) {
       override def buildFromAdjacencyList(rdd : RDD[Row]) : RDD[Row] = {
         /* FIXME: Hack to prevent wrong join results between Long and MutableLong? */
