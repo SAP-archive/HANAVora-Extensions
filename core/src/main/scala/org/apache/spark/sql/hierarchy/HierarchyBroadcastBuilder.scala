@@ -2,8 +2,7 @@ package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference, EqualTo, Expression, Attribute}
-import org.apache.spark.sql.catalyst.expressions.SortOrder
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.Node
 
 import scala.reflect.ClassTag
@@ -94,7 +93,9 @@ object HierarchyRowBroadcastBuilder {
 
     val succ = HierarchyRowFunctions.rowGet[java.lang.Long](succIdx)
     val pred = HierarchyRowFunctions.rowGet[java.lang.Long](predIdx)
-    val startsWhere = HierarchyRowFunctions.rowStartWhere(pred)
+
+    val startsWhere = HierarchyRowFunctions.rowStartWhere(
+      HierarchyRowFunctions.bindExpression(startWhere, attributes))
 
     new HierarchyBroadcastBuilder[Row,Row,Any, Node](
       pred, succ, startsWhere, HierarchyRowFunctions.rowAppend

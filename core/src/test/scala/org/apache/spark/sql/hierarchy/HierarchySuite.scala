@@ -10,6 +10,8 @@ import scala.util.Random
 
 case class HierarchyRow(name : String, pred : Option[Long], succ : Long, ord : Int)
 
+case class ComponentRow(extraField: String, name : String, pred: Long, succ : Long, ord : Long)
+
 case class AddressRow(name : String, address : String)
 
 case class PartialResult(path: Seq[Long], pk: Long)
@@ -79,6 +81,42 @@ with GlobalVelocitySQLContext with Logging {
     )
 
     assertResult(expected)(hierarchy.toSet)
+  }
+
+  test("use numerical startWhere predicate") {
+
+    def parts : Seq[ComponentRow] = Seq(
+      ComponentRow("bla", "mat-for-stuff",0L,1L,1L),
+      ComponentRow("bla", "item-a-gen",1L,2L,2L),
+      ComponentRow("bla", "item-o-piece",2L,3L,3L),
+      ComponentRow("bla", "object-for-entity",3L,4L,4L),
+      ComponentRow("bla", "whack-to-piece",3L,5L,5L),
+      ComponentRow("bla", "gen-a-stuff",3L,6L,6L),
+      ComponentRow("bla", "mat-with-whack",5L,7L,7L)
+    )
+
+    val rdd = sc.parallelize(parts.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("hSrc")
+
+    val hierarchy = sqlContext.sql("""
+                                     |SELECT name, node FROM HIERARCHY (
+                                     |USING hSrc AS v
+                                     |  JOIN PARENT u ON v.pred = u.succ
+                                     |  SEARCH BY ord ASC
+                                     |START WHERE pred = 0
+                                     |SET node
+                                     |) AS H
+                                   """.stripMargin)
+    hierarchy.registerTempTable("h")
+
+    val result = sqlContext.sql("select name from h where IS_ROOT(node)").collect()
+
+    val expected = Set(
+      Row("mat-for-stuff")
+    )
+
+    assertResult(expected)(result.toSet)
   }
 
   test("use join predicates") {
@@ -241,7 +279,7 @@ with GlobalVelocitySQLContext with Logging {
       AttributeReference("pred", LongType, nullable = true)(),
       AttributeReference("succ", LongType, nullable = false)()
     ),
-    IsNull(null),
+    IsNull(AttributeReference("pred", LongType, nullable = true)()),
     Seq()
   ))
 
@@ -256,7 +294,7 @@ with GlobalVelocitySQLContext with Logging {
       AttributeReference("pred", LongType, nullable = true)(),
       AttributeReference("succ", LongType, nullable = false)()
     ),
-    IsNull(null),
+    IsNull(AttributeReference("pred", LongType, nullable = true)()),
     Seq()
   ))
 

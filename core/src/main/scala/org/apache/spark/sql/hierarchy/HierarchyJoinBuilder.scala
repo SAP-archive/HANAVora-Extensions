@@ -2,9 +2,8 @@ package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.{AttributeReference, EqualTo, Expression, Attribute}
-import org.apache.spark.sql.catalyst.expressions.SortOrder
-import org.apache.spark.sql.types.Node
+import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.types.{StructType, Node}
 import org.apache.spark.storage.StorageLevel
 
 import scala.reflect.ClassTag
@@ -79,7 +78,9 @@ object HierarchyRowJoinBuilder {
 
     val pk = HierarchyRowFunctions.rowGet[java.lang.Long](pkIdx)
     val pred = HierarchyRowFunctions.rowGet[java.lang.Long](predIdx)
-    val startsWhere = HierarchyRowFunctions.rowStartWhere(pred)
+    val startsWhere = HierarchyRowFunctions.rowStartWhere(
+      HierarchyRowFunctions.bindExpression(startWhere, attributes))
+
     val init = HierarchyRowFunctions.rowInit(pk)
     val modify = HierarchyRowFunctions.rowModify(pk)
 
@@ -112,8 +113,15 @@ private[hierarchy] object HierarchyRowFunctions {
     Row(row.toSeq :+ node : _*)
   }
 
-  private[hierarchy] def rowStartWhere[K](pred : Row => K) : Row => Boolean = { row =>
-    pred(row) == null
+  private[hierarchy] def rowStartWhere[K](exp : Expression) : Row => Boolean = { row =>
+    exp.eval(row).asInstanceOf[Boolean]
+  }
+
+  private[hierarchy] def bindExpression(exp: Expression, attributes: Seq[Attribute])
+    : Expression = exp.transform {
+    case a: AttributeReference =>
+      val index = attributes.indexWhere(_.name == a.name)
+      BoundReference(index, a.dataType, a.nullable)
   }
 
 }
