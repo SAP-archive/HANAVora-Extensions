@@ -163,4 +163,9 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     }
   }
 
+  test("Regression test: Bug 90478") {
+    val input = lr1.where(nameAtt === "STRING").select(nameAtt).join(lr2)
+    ChangeQualifiersToTableNames(input)
+  }
+
 }

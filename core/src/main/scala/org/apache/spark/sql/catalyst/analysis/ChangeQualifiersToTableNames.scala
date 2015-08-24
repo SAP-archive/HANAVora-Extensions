@@ -31,6 +31,12 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
     override def output: Seq[Attribute] = child.output
   }
 
+  private def removeDummyPlans(p: LogicalPlan): LogicalPlan =
+    p transformUp {
+      case DummyPlan(child) => child
+      case p => p
+    }
+
   // scalastyle:off cyclomatic.complexity
   // scalastyle:off method.length
   override def apply(plan: LogicalPlan): LogicalPlan = {
@@ -51,39 +57,21 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
           case lp: LogicalPlan with Product =>
             val mo : LogicalPlan = lp match {
               case Join(l, r, jt, c) =>
-                val new_l = l match {
+                val newL = removeDummyPlans(l) match {
                   // the scope of projection alias is limited to subquery
                   // therefor we can use it outside as well.
-                  case dProject@DummyPlan(Project(p, b)) => b match {
-                    case s@Subquery(alias, q) =>
-                      DummyPlan(Subquery(alias, dProject))
-                    case s@DummyPlan(Subquery(alias, q)) =>
-                      DummyPlan(Subquery(alias, dProject))
-                  }
-                  case project@Project(p, b) => b match {
-                    case s@Subquery(alias, q) =>
+                  case project@Project(p, Subquery(alias, q)) =>
                       Subquery(alias, project)
-                    case s@DummyPlan(Subquery(alias, q)) =>
-                      Subquery(alias, project)
-                  }
-                  case _ => l
+                  case other => other
                 }
-                val new_r = r match {
-                  case dProject@DummyPlan(Project(p, b)) => b match {
-                    case s@Subquery(alias, q) =>
-                      DummyPlan(Subquery(alias, dProject))
-                    case s@DummyPlan(Subquery(alias, q)) =>
-                      DummyPlan(Subquery(alias, dProject))
-                  }
-                  case project@Project(p, b) => b match {
-                    case s@Subquery(alias, q) =>
-                      Subquery(alias, project)
-                    case s@DummyPlan(Subquery(alias, q)) =>
-                      Subquery(alias, project)
-                  }
-                  case _ => r
+                val newR = removeDummyPlans(r) match {
+                  // the scope of projection alias is limited to subquery
+                  // therefor we can use it outside as well.
+                  case project@Project(p, Subquery(alias, q)) =>
+                    Subquery(alias, project)
+                  case other => other
                 }
-                Join(new_l, new_r, jt, c)
+                Join(newL, newR, jt, c)
               case agg@Aggregate(a, b, c@DummyPlan(d:Aggregate)) =>
                 val newName = s"aggregate$i"
                 i += 1
@@ -121,10 +109,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
                 )
             })
         }
-        transformedPlan transformUp {
-          case DummyPlan(child) => child
-          case p => p
-        }
+        removeDummyPlans(transformedPlan)
     }
   }
 
