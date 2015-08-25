@@ -129,8 +129,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     val ret = sqli.interpret(query, context)
 
     assert(InterpreterResult.Code.ERROR == ret.code())
-    assert(ret.message().contains("expected but identifier BAD found")
-    )
+    assert(ret.message().contains("Syntax error"))
   }
 
   test("Tree view keyword") {

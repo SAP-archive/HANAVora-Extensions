@@ -9,6 +9,8 @@ import org.apache.spark.sql.types.StringType
 import java.util.Calendar
 import org.apache.spark.sql.types.DoubleType
 
+import scala.util.parsing.input.Position
+
 class VelocitySqlParser extends SqlParser {
 
   protected val HIERARCHY = Keyword("HIERARCHY")
@@ -276,6 +278,8 @@ class VelocitySqlParser extends SqlParser {
 
   /*
   * TODO: Remove in future Spark versions.
+  * CAUTION: This override catches and reformats
+  *  the raw scala parse error message.
   *
   * This is a workaround to a race condition in AbstractSparkSQLParser:
   * https://issues.apache.org/jira/browse/SPARK-8628
@@ -285,8 +289,12 @@ class VelocitySqlParser extends SqlParser {
     lexical.reserved ++= reservedWords
     phrase(start)(new lexical.Scanner(input)) match {
       case Success(plan, _) => plan
-      case failureOrError => sys.error(failureOrError.toString)
+      case failureOrError =>
+        // Now the native scala parser error is reformatted
+        // to be non-misleading. An idea is to allow the user
+        // to set the error message type in the future.
+        val pos: Position = failureOrError.next.pos
+        throw new VelocityParserException(input, pos.line, pos.column, failureOrError.toString)
     }
   }
-
 }

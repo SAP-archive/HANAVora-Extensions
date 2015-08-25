@@ -1,9 +1,12 @@
 package org.apache.spark.sql.sources
 
+import org.apache.spark.sql.VelocityParserException
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
 import org.apache.spark.sql.types.{MetadataBuilder, StringType}
+import scala.util.parsing.input.Position
+
 
 class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQuery) {
 
@@ -118,6 +121,53 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
         ShowDatasourceTablesCommand(classId, options)
     }
 
+  /*
+   * Overridden to appropriately decide which
+   * parser error to use in case both parsers (ddl, sql)
+   * failed. Now chooses the error of the parser
+   * that succeeded most.
+   */
+  override def parse(input: String, ddlExceptionOnError: Boolean): LogicalPlan = {
+    try {
+      parse(input)
+    } catch {
+      case vpeDDL: VelocityParserException =>
+        if(ddlExceptionOnError) throw vpeDDL
+        // in case ddlparser failed, try sqlparser
+        try {
+          parseQuery(input)
+        }
+        catch {
+          case vpeSQL: VelocityParserException =>
+            // in case sqlparser also failed,
+            // use the exception from the parser
+            // that read the most characters
+            if(vpeSQL.line > vpeDDL.line) throw vpeSQL
+            else if(vpeSQL.line < vpeDDL.line) throw vpeDDL
+            else {
+              if(vpeSQL.column > vpeDDL.column) throw vpeSQL
+              else throw vpeDDL
+            }
+        }
+    }
+  }
+
+  /* Overridden to throw a VelocityParserException
+   * instead of as sys.error(failureOrError.toString). This allows
+   * to unify the parser exception handling in the
+   * upper layers.
+   *
+   */
+  override def parse(input: String): LogicalPlan = {
+    // Initialize the Keywords.
+    initLexical
+    phrase(start)(new lexical.Scanner(input)) match {
+      case Success(plan, _) => plan
+      case failureOrError =>
+        val pos: Position = failureOrError.next.pos
+        throw new VelocityParserException(input, pos.line, pos.column, failureOrError.toString)
+    }
+  }
 }
 
 private[sql] case class RegisterAllTablesUsing(
