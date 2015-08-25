@@ -44,7 +44,7 @@ class VelocitySqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
         )))
     velocityContext.registerDataFrameAsTable(df, "testTable")
 
-    sqli = new VelocitySqlInterpreter(velocityContext)
+    sqli = new VelocitySqlInterpreter(new VelocitySqlContextProviderMock(velocityContext))
 
     val ig = new InterpreterGroup
     ig.add(si)

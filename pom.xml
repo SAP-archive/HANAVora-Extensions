@@ -26,10 +26,10 @@
   <packaging>pom</packaging>
   <name>Spark Velocity Extensions Project</name>
   <modules>
-   <module>core</module>
-   <module>zeppelin</module>
+    <module>core</module>
+    <module>zeppelin</module>
     <module>sparkvelocity-thriftserver</module>
-   <module>dist</module>
+    <module>dist</module>
   </modules>
   <properties>
     <velocity.core.version>0.0.5-SNAPSHOT</velocity.core.version>
@@ -129,8 +129,31 @@
         <version>${spotify.dockerclient.version}</version>
         <scope>test</scope>
       </dependency>
+
+
+      <dependency>
+        <groupId>org.pegdown</groupId> <!-- required to create html test results output -->
+        <artifactId>pegdown</artifactId>
+        <version>1.4.2</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <!-- required by pegdown.
+             Important: Originally scalatest and pegdown have a dependency to groupID org.ow2.asm
+             and ArtifactID asm-all with version 4.1 in their POM.xml
+             Since a version asm 3.x is in the classpath already and asm 3.x and asm 4.x are binary incompatible,
+             we refer the 3.1 version of asm here -->
+        <groupId>asm</groupId>
+        <artifactId>asm</artifactId>
+        <version>3.2</version>
+        <scope>test</scope>
+      </dependency>
+
     </dependencies>
   </dependencyManagement>
+
+
   <build>
     <pluginManagement>
       <plugins>
@@ -138,20 +161,22 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.17</version>
           <configuration>
-            <skipTests>true</skipTests>
+            <skipTests>true</skipTests>  <!-- disabling surefire in favor of scalatest -->
           </configuration>
         </plugin>
+
         <plugin>
           <groupId>org.scalatest</groupId>
           <artifactId>scalatest-maven-plugin</artifactId>
           <version>1.0</version>
           <configuration>
-            <reportsDirectory>${project.build.directory}/surefire-reports
-            </reportsDirectory>
+            <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
             <filereports>WDF TestSuite.txt</filereports>
-            <forkMode>once</forkMode>
-            <argLine>${argLine} -Xmx1536M -XX:MaxPermSize=1024M -XX:MaxHeapSize=512m</argLine>
+            <!-- TODO: html report generation does not work for project thriftserver, so: defined for each sub project
+                 <htmlreporters>${project.build.directory}/surefire-reports</htmlreporters>
+              -->
+            <testFailureIgnore>false</testFailureIgnore>
           </configuration>
           <executions>
             <execution>
@@ -167,6 +192,7 @@
             </execution>
           </executions>
         </plugin>
+
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -180,6 +206,7 @@
             </execution>
           </executions>
         </plugin>
+
         <plugin>
           <groupId>org.scalastyle</groupId>
           <artifactId>scalastyle-maven-plugin</artifactId>
@@ -206,6 +233,7 @@
         </plugin>
       </plugins>
     </pluginManagement>
+
     <plugins>
       <plugin>
         <groupId>org.jacoco</groupId>

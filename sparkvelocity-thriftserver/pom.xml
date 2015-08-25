@@ -33,12 +33,24 @@
             <artifactId>core</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- TODO: active this for html result generation in the scalatest plugin
+        <dependency>
+            <groupId>org.pegdown</groupId>
+            <artifactId>pegdown</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>asm</groupId>
+            <artifactId>asm</artifactId>
+            <scope>test</scope>
+        </dependency> -->
     </dependencies>
     <build>
         <plugins>
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
-              <version>2.6</version>
+                <version>2.6</version>
                 <executions>
                     <execution>
                         <id>prepare-test-jar</id>
@@ -53,12 +65,9 @@
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
                 <configuration>
-                    <reportsDirectory>${project.build.directory}/surefire-reports
-                    </reportsDirectory>
-                    <junitxml>.</junitxml>
-                    <filereports>WDF TestSuite.txt</filereports>
                     <forkMode>once</forkMode>
                     <argLine>${argLine} -Xmx1024M -XX:MaxPermSize=700M -XX:MaxHeapSize=512m</argLine>
+                    <htmlreporters> </htmlreporters>
                 </configuration>
             </plugin>
             <plugin>
@@ -123,7 +132,7 @@
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>
-                                      org.apache.spark.sql.hive.thriftserver.SparkVelocityThriftServer
+                                        org.apache.spark.sql.hive.thriftserver.SparkVelocityThriftServer
                                     </mainClass>
                                 </transformer>
                                 <transformer

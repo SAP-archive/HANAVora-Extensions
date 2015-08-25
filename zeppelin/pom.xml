@@ -33,9 +33,9 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
-        <groupId>com.sap.spark.velocity</groupId>
-        <artifactId>core</artifactId>
-      </dependency>
+      <groupId>com.sap.spark.velocity</groupId>
+      <artifactId>core</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.binary.version}</artifactId>
@@ -149,12 +149,27 @@
       <version>1.10.19</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.pegdown</groupId>  <!-- required to create hmtl test results output -->
+      <artifactId>pegdown</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>asm</groupId>          <!-- required by pegdown -->
+      <artifactId>asm</artifactId>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
   <build>
     <plugins>
       <plugin>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest-maven-plugin</artifactId>
+        <configuration>
+          <htmlreporters>${project.build.directory}/surefire-reports</htmlreporters>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -190,9 +205,9 @@
           </filters>
           <transformers>
             <transformer
-                implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
             <transformer
-                implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                    implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
               <resource>reference.conf</resource>
             </transformer>
           </transformers>
