@@ -1,5 +1,6 @@
 package org.apache.spark.sql.hierarchy
 
+import org.apache.ivy.core.search.OrganisationEntry
 import org.apache.spark.Logging
 import org.apache.spark.sql.{Row, _}
 import org.apache.spark.sql.catalyst.expressions._
@@ -8,45 +9,22 @@ import org.scalatest.FunSuite
 
 import scala.util.Random
 
-case class HierarchyRow(name : String, pred : Option[Long], succ : Long, ord : Int)
-
 case class ComponentRow(extraField: String, name : String, pred: Long, succ : Long, ord : Long)
-
-case class AddressRow(name : String, address : String)
-
-case class PartialResult(path: Seq[Long], pk: Long)
 
 // scalastyle:off magic.number
 // scalastyle:off file.size.limit
-
 class HierarchySuite extends FunSuite
-with GlobalVelocitySQLContext with Logging {
+  with HierarchyTestUtils
+  with GlobalVelocitySQLContext
+  with Logging {
 
   implicit class Crossable[X](xs: Traversable[X]) {
     def cross[Y](ys: Traversable[Y]) : Traversable[(X,Y)] =
       for { x <- xs; y <- ys } yield (x, y)
   }
 
-  def adjacencyList : Seq[HierarchyRow] = Seq(
-    HierarchyRow("THE BOSS", None, 1L, 1),
-    HierarchyRow("The Middle Manager", Some(1L), 2L, 1),
-    HierarchyRow("The Other Middle Manager", Some(1L), 3L, 2),
-    HierarchyRow("Senior Developer", Some(2L), 4L, 1),
-    HierarchyRow("Minion 1", Some(2L), 5L, 2),
-    HierarchyRow("Minion 2", Some(4L), 6L, 1),
-    HierarchyRow("Minion 3", Some(4L), 7L, 2)
-  )
-
-  def addresses : Seq[AddressRow] = Seq(
-    AddressRow("THE BOSS", "Nice Street"),
-    AddressRow("The Middle Manager", "Acceptable Street"),
-    AddressRow("Senior Developer", "Near-Acceptable Street"),
-    AddressRow("Minion 3", "The Street"),
-    AddressRow("Darth Vader", "Death Star")
-  )
-
   test("test hierarchy self join on hierarchy-UDF using repeated derivation") {
-    val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("hSrc")
 
@@ -120,7 +98,7 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   test("use join predicates") {
-    val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
 
@@ -159,7 +137,7 @@ with GlobalVelocitySQLContext with Logging {
       Row("Minion 3", "The Middle Manager", true, true, false),
       Row("Minion 3", "Senior Developer", true, true, true)
     )
-    val names = adjacencyList map (_.name)
+    val names = organizationHierarchy map (_.name)
     val allPairNames : Set[(String, String)] = (names cross names) toSet
     val positivePairNames : Set[(String, String)] =
       expectedPositives.map(r => r.getString(0) -> r.getString(1))
@@ -177,7 +155,7 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   test("integration: build join hierarchy from SQL using RDD[Row] with UDFs") {
-    val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
@@ -207,7 +185,7 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
-    val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
@@ -238,8 +216,8 @@ with GlobalVelocitySQLContext with Logging {
 
   test("integration: build broadcast hierarchy top to bottom using SQL and RDD[Row]") {
     val rdd = sc.parallelize(
-      adjacencyList
-        .take(adjacencyList.length - 1)
+      organizationHierarchy
+        .take(organizationHierarchy.length - 1)
         .sortBy(x => Random.nextDouble())
     )
     val hSrc = sqlContext.createDataFrame(rdd).cache()
@@ -301,7 +279,7 @@ with GlobalVelocitySQLContext with Logging {
   def integrationStartWithExpression(builder : HierarchyBuilder[Row, Row]): Unit = {
     test("integration: execute hierarchy from expressions using " +
       builder.getClass.getName.split("\\$").head.split("\\.").last){
-      val rdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+      val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
       val hSrc = sqlContext.createDataFrame(rdd)
       hSrc.registerTempTable("h_src")
 
@@ -322,31 +300,31 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   buildFromAdjacencyListTest(HierarchyJoinBuilder(
-    startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
-    pk = (myRow: HierarchyRow) => myRow.succ,
-    pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
-    init = (myRow: HierarchyRow) => PartialResult(pk = myRow.succ, path = Seq(myRow.succ)),
-    modify = (pr: PartialResult, myRow: HierarchyRow) =>
+    startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
+    pk = (myRow: EmployeeRow) => myRow.succ,
+    pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
+    init = (myRow: EmployeeRow) => PartialResult(pk = myRow.succ, path = Seq(myRow.succ)),
+    modify = (pr: PartialResult, myRow: EmployeeRow) =>
       PartialResult(path = pr.path ++ Seq(myRow.succ), pk = myRow.succ)
   ))
 
   buildFromAdjacencyListTest(HierarchyBroadcastBuilder(
-    pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
-    succ = (myRow: HierarchyRow) => myRow.succ,
-    startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
-    transformRowFunction = (r : HierarchyRow, node : Node) =>
+    pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
+    succ = (myRow: EmployeeRow) => myRow.succ,
+    startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
+    transformRowFunction = (r : EmployeeRow, node : Node) =>
       PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
   ))
 
-  def buildFromAdjacencyListTest(builder : HierarchyBuilder[HierarchyRow, PartialResult]) {
+  def buildFromAdjacencyListTest(builder : HierarchyBuilder[EmployeeRow, PartialResult]) {
     test("unitary: testing method buildFromAdjacencyList of class " +
       builder.getClass.getSimpleName){
-      val rdd = sc.parallelize(adjacencyList)
+      val rdd = sc.parallelize(organizationHierarchy)
       val hBuilder = HierarchyBroadcastBuilder(
-        pred = (myRow: HierarchyRow) => myRow.pred.getOrElse(-1),
-        succ = (myRow: HierarchyRow) => myRow.succ,
-        startWhere = (myRow: HierarchyRow) => myRow.pred.isEmpty,
-        transformRowFunction = (r : HierarchyRow, node : Node) =>
+        pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
+        succ = (myRow: EmployeeRow) => myRow.succ,
+        startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
+        transformRowFunction = (r : EmployeeRow, node : Node) =>
           PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
       )
       val hierarchy = builder.buildFromAdjacencyList(rdd)
@@ -365,7 +343,7 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   test("integration: I can join hierarchy with table") {
-    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
@@ -386,7 +364,7 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) B, t_src A
         WHERE B.name = A.name
-                      """
+    """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
@@ -399,7 +377,7 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   test("integration: I can left outer join hierarchy with table") {
-    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     hSrc.registerTempTable("h_src")
 
@@ -418,7 +396,7 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) A LEFT JOIN t_src B
         ON A.name = B.name
-                      """
+    """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
@@ -431,10 +409,10 @@ with GlobalVelocitySQLContext with Logging {
       Row("Minion 3", "The Street", 4)
     )
     assertResult(expected)(result.toSet)
-  }
+   }
 
   test("integration: I can right outer join hierarchy with table") {
-    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
@@ -455,7 +433,7 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) B RIGHT OUTER JOIN t_src A
         ON A.name = B.name
-                      """
+    """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
@@ -469,7 +447,7 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   test("integration: I can full outer join hierarchy with table") {
-    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
@@ -490,7 +468,7 @@ with GlobalVelocitySQLContext with Logging {
         SET node)
         AS H) A FULL OUTER JOIN t_src B
         ON A.name = B.name
-                      """
+    """
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
@@ -507,7 +485,7 @@ with GlobalVelocitySQLContext with Logging {
   }
 
   test("integration: I can use star with full outer join hierarchy with table and unary UDFs") {
-    val hRdd = sc.parallelize(adjacencyList.sortBy(x => Random.nextDouble()))
+    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
