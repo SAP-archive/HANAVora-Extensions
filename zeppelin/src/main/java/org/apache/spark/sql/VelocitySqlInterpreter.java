@@ -38,18 +38,18 @@ import java.util.*;
 public class VelocitySqlInterpreter extends Interpreter {
     Logger logger = LoggerFactory.getLogger(VelocitySqlInterpreter.class);
 
-    private VelocitySQLContext vsqlc;
+    private VelocitySqlContextProvider vsqlProvider;
 
     private static final String TREEVIEWKEYWORD = "treeview";
 
     /**
      * Constructor just for testing
      *
-     * @param vsqlc a VelocitySqlContext
+     * @param vsqlProvider a VelocitySqlContext provider
      */
-    public VelocitySqlInterpreter(VelocitySQLContext vsqlc) {
+    public VelocitySqlInterpreter(VelocitySqlContextProvider vsqlProvider) {
         super(new Properties());
-        this.vsqlc = vsqlc;
+        this.vsqlProvider = vsqlProvider;
     }
 
     static {
@@ -123,6 +123,7 @@ public class VelocitySqlInterpreter extends Interpreter {
         String idColumn = null;
         String predColumn = null;
         String nameColumn = null;
+        VelocitySQLContext vsqlc = null;
         if ( TREEVIEWKEYWORD.equalsIgnoreCase(keyword) ) {
             if (arr.length < 5) {
                 return new InterpreterResult(Code.ERROR, "id column, pred column, name column can not be empty");
@@ -138,10 +139,8 @@ public class VelocitySqlInterpreter extends Interpreter {
             viewType = 1;
         }
 
-        if (vsqlc == null) {
-            logger.info("Creating VelocitySqlContext...");
-            vsqlc = new VelocitySQLContext(sc);
-        }
+        logger.info("Creating/Getting VelocitySqlContext...");
+        vsqlc = this.vsqlProvider.getSqlContext(sc);
 
         // SchemaRDD - spark 1.1, 1.2, DataFrame - spark 1.3
         Object rdd;
