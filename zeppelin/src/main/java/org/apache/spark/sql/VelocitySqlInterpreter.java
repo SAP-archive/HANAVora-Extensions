@@ -38,7 +38,7 @@ import java.util.*;
 public class VelocitySqlInterpreter extends Interpreter {
     Logger logger = LoggerFactory.getLogger(VelocitySqlInterpreter.class);
 
-    private VelocitySqlContextProvider vsqlProvider;
+    private VelocitySqlContextProvider vsqlProvider = VelocitySqlContextProvider.getProvider();
 
     private static final String TREEVIEWKEYWORD = "treeview";
 
