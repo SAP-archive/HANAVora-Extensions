@@ -137,5 +137,4 @@ class VelocitySqlParserSuite extends FunSuite with Logging {
       ))))
     assertResult(expected)(result)
   }
-
 }

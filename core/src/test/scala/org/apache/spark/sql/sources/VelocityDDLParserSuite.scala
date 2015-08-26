@@ -110,5 +110,33 @@ class VelocityDDLParserSuite extends FunSuite with TableDrivenPropertyChecks wit
         assert(convertedResult.provider == provider)
     }
   }
+
+  test("test DDL of Bug 90774") {
+    val testTable = """
+CREATE TEMPORARY TABLE testBaldat (field1 string, field2 string, field3 string,
+  field4 string, field5 integer, field6 string, field7 integer)
+USING com.sap.spark.velocity
+OPTIONS (
+  tableName "testBaldat",
+  paths "/user/u1234/data.csv",
+  hosts "a1.b.c.d.com,a2.b.c.d.com,a3.b.c.d.com",
+  zkurls "a1.b.c.d.com:2181,a2.b.c.d.com:2181",
+  nameNodeUrl "a5.b.c.d.com:8020"
+)"""
+    ddlParser.parse(testTable, exceptionOnError = true)
+    ddlParser.parse(testTable, exceptionOnError = false)
+  }
+
+  test("test simple CREATE TEMPORARY TABLE (Bug 90774)") {
+    val testTable = """CREATE TEMPORARY TABLE tab001(a int)
+      USING a.b.c.d
+      OPTIONS (
+        tableName "blaaa"
+      )"""
+    ddlParser.parse(testTable, exceptionOnError = true)
+    ddlParser.parse(testTable, exceptionOnError = false)
+  }
+
+
 }
 
