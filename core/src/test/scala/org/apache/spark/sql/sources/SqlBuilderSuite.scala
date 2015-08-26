@@ -154,6 +154,11 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
     val c2 = 'c2.string.withQualifiers("t1" :: Nil)
     t1.select(c1, c2).groupBy(c1)(c1)
   })
+  testLogicalPlan("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q" LIMIT 1""")(
+    t1.subquery('q).limit(1))
+
+  testLogicalPlan("""(SELECT "c1", "c2" FROM "t1" LIMIT 1) AS "q"""")(
+    t1.limit(1).subquery('q))
 
   testLogicalPlan("""SELECT "t1"."c1" FROM "t1" GROUP BY "t1"."c1"""")(
     t1.groupBy('c1.string.withQualifiers("t1" :: Nil))('c1.string.withQualifiers("t1" :: Nil))

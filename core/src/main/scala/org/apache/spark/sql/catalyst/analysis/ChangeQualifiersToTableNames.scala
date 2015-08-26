@@ -67,6 +67,11 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
         i += 1
         logTrace(s"Added subquery $newName to filter")
         Subquery(newName, f)
+      /* Put Limit and OrderBy below Subqueries */
+      case l@Limit(n, s@Subquery(alias, child)) =>
+        Subquery(alias, Limit(n, child))
+      case l@Sort(so, b, Subquery(alias, child)) =>
+        Subquery(alias, Sort(so, b, child))
       case other => other
     }
     val transformedPlan = planWithSubqueries transformUp {
