@@ -33,6 +33,11 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
 
   private def removeDummyPlans(p: LogicalPlan): LogicalPlan =
     p transformUp {
+      /* TODO: This is duplicated here */
+      case Subquery(name, Subquery(innerName, child)) =>
+        /* If multiple subqueries, preserve the outer one */
+        logDebug(s"Nested subqueries ($name, $innerName) -> $name")
+        Subquery(name, child)
       case DummyPlan(child) => child
       case p => p
     }
@@ -40,21 +45,38 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
   // scalastyle:off cyclomatic.complexity
   // scalastyle:off method.length
   override def apply(plan: LogicalPlan): LogicalPlan = {
-    plan match {
-      case _: LogicalRelation => plan
-      case _ =>
-        var i: Int = 1
-        val transformedPlan = plan transformUp {
-          case relation@LogicalRelation(baseRelation: SqlLikeRelation) =>
-            val newName = s"table$i"
-            i += 1
-            logTrace(s"Added subquery $newName to table ${baseRelation.tableName}")
-            Subquery(newName, relation)
-          case Subquery(name, Subquery(innerName, child)) =>
-            /* If multiple subqueries, preserve the outer one */
-            logDebug(s"Nested subqueries ($name, $innerName) -> $name")
-            Subquery(name, child)
-          case lp: LogicalPlan with Product =>
+    var i: Int = 1
+    val planWithSubqueries = plan transformUp {
+      case relation@LogicalRelation(baseRelation: SqlLikeRelation) =>
+        val newName = s"table$i"
+        i += 1
+        logTrace(s"Added subquery $newName to table ${baseRelation.tableName}")
+        Subquery(newName, relation)
+      case proj@Project(projectList, child) =>
+        val newName = s"table$i"
+        i += 1
+        logTrace(s"Added subquery $newName to projection")
+        Subquery(newName, proj)
+      case agg@Aggregate(_, _, child) =>
+        val newName = s"table$i"
+        i += 1
+        logTrace(s"Added subquery $newName to aggregation")
+        Subquery(newName, agg)
+      case f@Filter(_, child) =>
+        val newName = s"table$i"
+        i += 1
+        logTrace(s"Added subquery $newName to filter")
+        Subquery(newName, f)
+      case other => other
+    }
+    val transformedPlan = planWithSubqueries transformUp {
+      case lr: LogicalRelation => lr
+      case Subquery(name, Subquery(innerName, child)) =>
+        /* If multiple subqueries, preserve the outer one */
+        logDebug(s"Nested subqueries ($name, $innerName) -> $name")
+        Subquery(name, child)
+      case lp: LogicalPlan with Product =>
+        /* TODO
             val mo : LogicalPlan = lp match {
               case Join(l, r, jt, c) =>
                 val newL = removeDummyPlans(l) match {
@@ -82,34 +104,38 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
                 Aggregate(a, b, Subquery(newName, c))
               case a:LogicalPlan => a
             }
-            val expressionMap = mo.collect {
-              case subquery@Subquery(alias, _) =>
-                subquery.output.map({ attr => (attr.exprId, alias) })
-            }.reverse.flatten.toMap
-            val prefixedAttributeReferencesPlan = mo transformExpressionsDown {
-              case attr: AttributeReference if attr.qualifiers.length > 1 =>
-                sys.error(s"Only 1 qualifier is supported per attribute: $attr ${attr.qualifiers}")
-              case attr: AttributeReference =>
-                expressionMap.get(attr.exprId) match {
-                  case Some(q) =>
-                    logTrace(s"Using new qualifier ($q) for attribute: $attr")
-                    attr.copy(name = PREFIX.concat(attr.name))(
-                      exprId = attr.exprId, qualifiers = q :: Nil
-                    )
-                  case None =>
-                    logWarning(s"Qualifier not found for expression ID: ${attr.exprId}")
-                    attr
-                }
-            }
-            /* Now we need to delete the prefix in all the attributes. */
-            DummyPlan(prefixedAttributeReferencesPlan transformExpressionsDown {
-              case attr: AttributeReference =>
-                attr.copy(name = attr.name.replaceFirst(PREFIX, ""))(
-                  exprId = attr.exprId, qualifiers = attr.qualifiers
+            */
+        val expressionMap = lp.collect {
+          case subquery@Subquery(alias, _) =>
+            subquery.output.map({ attr => (attr.exprId, alias) })
+        }.reverse.flatten.toMap
+        val prefixedAttributeReferencesPlan = lp transformExpressionsDown {
+          case attr: AttributeReference if attr.qualifiers.length > 1 =>
+            sys.error(s"Only 1 qualifier is supported per attribute: $attr ${attr.qualifiers}")
+          case attr: AttributeReference =>
+            expressionMap.get(attr.exprId) match {
+              case Some(q) =>
+                logTrace(s"Using new qualifier ($q) for attribute: $attr")
+                attr.copy(name = PREFIX.concat(attr.name))(
+                  exprId = attr.exprId, qualifiers = q :: Nil
                 )
-            })
+              case None =>
+                logWarning(s"Qualifier not found for expression ID: ${attr.exprId}")
+                attr
+            }
         }
-        removeDummyPlans(transformedPlan)
+        /* Now we need to delete the prefix in all the attributes. */
+        DummyPlan(prefixedAttributeReferencesPlan transformExpressionsDown {
+          case attr: AttributeReference =>
+            attr.copy(name = attr.name.replaceFirst(PREFIX, ""))(
+              exprId = attr.exprId, qualifiers = attr.qualifiers
+            )
+        })
+    }
+    removeDummyPlans(transformedPlan) match {
+      /* Remove outer subquery, if any */
+      case Subquery(_, child) if !child.isInstanceOf[LogicalRelation] => child
+      case other => other
     }
   }
 
