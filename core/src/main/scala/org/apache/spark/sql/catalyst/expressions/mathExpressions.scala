@@ -66,18 +66,18 @@ case class Power(d: Expression, p: Expression) extends Expression {
   // scalastyle:off cyclomatic.complexity
   override def eval(input: Row): EvaluatedType = {
     val ce = d.eval(input) match {
-       case null => 0.0 
-      case d : Double => d   
-      case l : Long   => l.toDouble   
+       case null => 0.0
+      case d : Double => d
+      case l : Long   => l.toDouble
       case i : Integer=> i.toDouble
       case f : Float  => f.toDouble
       case other =>
         sys.error(s"Type ${other.getClass} does not support numeric operations")
     }
     val cp = p.eval(input) match {
-      case null => 1.0 
-      case d : Double => d   
-      case l : Long   => l.toDouble   
+      case null => 1.0
+      case d : Double => d
+      case l : Long   => l.toDouble
       case i : Integer=> i.toDouble
       case f : Float  => f.toDouble
       case other =>
@@ -100,8 +100,8 @@ case class Cos(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 1.0
-      case d : Double => FastMath.cos(d)   
-      case l : Long   => FastMath.cos(l.toDouble)   
+      case d : Double => FastMath.cos(d)
+      case l : Long   => FastMath.cos(l.toDouble)
       case i : Integer=> FastMath.cos(i.toDouble)
       case f : Float  => FastMath.cos(f.toDouble)
       case other =>
@@ -122,8 +122,8 @@ case class Acos(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 0.0
-      case d : Double => FastMath.acos(d)   
-      case l : Long   => FastMath.acos(l.toDouble)   
+      case d : Double => FastMath.acos(d)
+      case l : Long   => FastMath.acos(l.toDouble)
       case i : Integer=> FastMath.acos(i.toDouble)
       case f : Float  => FastMath.acos(f.toDouble)
       case other =>
@@ -144,8 +144,8 @@ case class Sin(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 0
-      case d : Double => FastMath.sin(d)   
-      case l : Long   => FastMath.sin(l.toDouble)   
+      case d : Double => FastMath.sin(d)
+      case l : Long   => FastMath.sin(l.toDouble)
       case i : Integer=> FastMath.sin(i.toDouble)
       case f : Float  => FastMath.sin(f.toDouble)
       case other =>
@@ -166,8 +166,8 @@ case class Asin(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 0
-      case d : Double => FastMath.asin(d)   
-      case l : Long   => FastMath.asin(l.toDouble)   
+      case d : Double => FastMath.asin(d)
+      case l : Long   => FastMath.asin(l.toDouble)
       case i : Integer=> FastMath.asin(i.toDouble)
       case f : Float  => FastMath.asin(f.toDouble)
       case other =>
@@ -188,8 +188,8 @@ case class Tan(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 0
-      case d : Double => FastMath.tan(d)   
-      case l : Long   => FastMath.tan(l.toDouble)   
+      case d : Double => FastMath.tan(d)
+      case l : Long   => FastMath.tan(l.toDouble)
       case i : Integer=> FastMath.tan(i.toDouble)
       case f : Float  => FastMath.tan(f.toDouble)
       case other =>
@@ -210,8 +210,8 @@ case class Atan(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 0
-      case d : Double => FastMath.atan(d)   
-      case l : Long   => FastMath.atan(l.toDouble)   
+      case d : Double => FastMath.atan(d)
+      case l : Long   => FastMath.atan(l.toDouble)
       case i : Integer=> FastMath.atan(i.toDouble)
       case f : Float  => FastMath.atan(f.toDouble)
       case other =>
@@ -231,8 +231,8 @@ case class Ceil(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 0
-      case d : Double => FastMath.ceil(d)   
-      case l : Long   => FastMath.ceil(l.toDouble)   
+      case d : Double => FastMath.ceil(d)
+      case l : Long   => FastMath.ceil(l.toDouble)
       case i : Integer=> FastMath.ceil(i.toDouble)
       case f : Float  => FastMath.ceil(f)
       case other =>
@@ -262,14 +262,14 @@ case class Round(d: Expression, dec: Expression) extends Expression {
         case null => 0
         case i : Integer=> i
         case d : Double => d.toInt
-        case l : Long   => l.toInt   
+        case l : Long   => l.toInt
         case other =>
           sys.error(s"Type ${other.getClass} does not support numeric operations")
       }
       val m = FastMath.pow(RAISED_NUMBER,n)
       de match {
-        case d : Double => FastMath.round(d*m) / m   
-        case l : Long   => l   
+        case d : Double => FastMath.round(d*m) / m
+        case l : Long   => l
         case i : Integer=> i.toLong
         case f : Float  => FastMath.round(f*m) / m
         case other =>
@@ -292,8 +292,8 @@ case class Floor(d: Expression) extends Expression {
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
       case null => 0.0
-      case d : Double => FastMath.floor(d)   
-      case l : Long   => l.toDouble   
+      case d : Double => FastMath.floor(d)
+      case l : Long   => l.toDouble
       case i : Integer=> i.toDouble
       case other =>
         sys.error(s"Type ${other.getClass} does not support numeric operations")
@@ -314,9 +314,9 @@ case class Sign(d: Expression) extends Expression {
 
   override def eval(input: Row): EvaluatedType = {
     d.eval(input) match {
-      case null => 0 
-      case d : Double => FastMath.signum(d)   
-      case l : Long   => FastMath.signum(l.toDouble)   
+      case null => 0
+      case d : Double => FastMath.signum(d)
+      case l : Long   => FastMath.signum(l.toDouble)
       case i : Integer=> FastMath.signum(i.toDouble)
       case f : Float  => FastMath.signum(f)
       case other =>
@@ -336,10 +336,10 @@ case class ToDouble(s: Expression) extends Expression {
 
   override def eval(input: Row): EvaluatedType = {
     s.eval(input) match {
-      case null => 0 
+      case null => 0
       case s : String => s.toDouble
-      case d : Double => d   
-      case l : Long   => l.toDouble   
+      case d : Double => d
+      case l : Long   => l.toDouble
       case i : Integer=> i.toDouble
       case f : Float  => f.toDouble
       case other =>
@@ -359,10 +359,10 @@ case class ToInteger(s: Expression) extends Expression {
 
   override def eval(input: Row): EvaluatedType = {
     s.eval(input) match {
-      case null => 0 
+      case null => 0
       case s : String => s.toInt
-      case d : Double => d.toInt   
-      case l : Long   => l.toInt   
+      case d : Double => d.toInt
+      case l : Long   => l.toInt
       case i : Integer=> i
       case f : Float  => f.toInt
       case other =>
@@ -374,5 +374,3 @@ case class ToInteger(s: Expression) extends Expression {
   override def dataType: DataType = IntegerType
   override def children: Seq[Expression] = s :: Nil
 }
-
-

@@ -19,7 +19,7 @@ trait HierarchyTestUtils {
     AnimalRow("Mammal", Some(1L), 2L, 1L),
     AnimalRow("Oviparous", Some(1L), 3L, 2L)
   )
-  
+
   protected def organizationHierarchy : Seq[EmployeeRow] = Seq(
     EmployeeRow("THE BOSS", None, 1L, 1),
     EmployeeRow("The Middle Manager", Some(1L), 2L, 1),

@@ -15,11 +15,11 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Random, Success, Try}
 
 /**
- * Generic trait to be extended by any class/trait using a Velocity sql context in a docker 
- * container. It contains generic methods to generate a docker container with the given 
+ * Generic trait to be extended by any class/trait using a Velocity sql context in a docker
+ * container. It contains generic methods to generate a docker container with the given
  * configuration.
  */
-private[spark] trait DockerSparkContext 
+private[spark] trait DockerSparkContext
   extends WithSparkContext
   with WithVelocitySQLContext
   with Logging {
@@ -133,7 +133,7 @@ private[spark] trait DockerSparkContext
 
   /**
    * Pulls a remote docker image by its name.
-   * 
+   *
    * @param image docker image name
    */
   private def pullImage(image: String): Unit = {
@@ -150,9 +150,9 @@ private[spark] trait DockerSparkContext
 
   /**
    * Retrieves the container IP for a container id.
-   * 
+   *
    * @param containerId container id
-   *                    
+   *
    * @return container IP
    */
   protected def getContainerIp(containerId: String): String =
@@ -231,11 +231,11 @@ private[spark] trait DockerSparkContext
 
   /**
    * Pings to a TCP port.
-   * 
+   *
    * @param ip Machine IP
    * @param port Machine port
    * @param timeout Maximum timeout
-   *                
+   *
    * @return true, if address responds; false, otherwise.
    */
   private def pingTcp(ip: String, port: String, timeout: Int): Boolean = {

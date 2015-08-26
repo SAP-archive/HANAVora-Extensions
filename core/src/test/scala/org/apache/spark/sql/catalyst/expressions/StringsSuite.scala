@@ -24,31 +24,31 @@ class StringsSuite
     val dSrc = sqlContext.createDataFrame(rdd).cache()
     dSrc.registerTempTable("src")
 
-    val result1 = 
+    val result1 =
       sqlContext.sql("SELECT name,TRIM(name),RTRIM(name),LTRIM(name) FROM src").collect
 
     assertResult(Row(rowA.name, "AAA"," AAA","AAA") ::
       Row(rowB.name, "BBB","BBB","BBB ") ::
       Row(rowC.name, "CCC"," CCC","CCC ") ::
-      Row(rowD.name, "DDDDDDD","DDDDDDD","DDDDDDD") :: 
+      Row(rowD.name, "DDDDDDD","DDDDDDD","DDDDDDD") ::
       Row(rowE.name, null, null, null) :: Nil)(result1)
 
-    val result2 = 
+    val result2 =
       sqlContext.sql("SELECT name,LPAD(name,6,'x'),RPAD(name,6,'xyz') FROM src").collect
 
     assertResult(Row(rowA.name, "xx AAA", " AAAxy") ::
       Row(rowB.name, "xxBBB ", "BBB xy") ::
       Row(rowC.name, "x CCC ", " CCC x") ::
-      Row(rowD.name, "DDDDDD", "DDDDDD") :: 
+      Row(rowD.name, "DDDDDD", "DDDDDD") ::
       Row(rowE.name, null, null) :: Nil)(result2)
 
-    val result3 = 
+    val result3 =
       sqlContext.sql("SELECT name, LENGTH(name), LOCATE(name,'B') FROM src").collect
 
     assertResult(Row(rowA.name, 4, -1) ::
       Row(rowB.name, 4, 0) ::
       Row(rowC.name, 5,-1) ::
-      Row(rowD.name, 7,-1) :: 
+      Row(rowD.name, 7,-1) ::
       Row(rowE.name, 0, -1) :: Nil)(result3)
 
     val result4 = sqlContext.sql("SELECT name, CONCAT(name,'aa') FROM src").collect
@@ -59,16 +59,15 @@ class StringsSuite
       Row(rowD.name, "DDDDDDDaa") ::
       Row(rowE.name, null) ::Nil)(result4)
 
-    val result5 = 
+    val result5 =
       sqlContext.sql("SELECT name,REPLACE(name,'DD','de'),REVERSE(name) FROM src").collect
 
     assertResult(Row(rowA.name, " AAA", "AAA ") ::
       Row(rowB.name, "BBB ", " BBB") ::
       Row(rowC.name, " CCC ", " CCC ") ::
-      Row(rowD.name, "dededeD","DDDDDDD") :: 
+      Row(rowD.name, "dededeD","DDDDDDD") ::
       Row(rowE.name, null, null) :: Nil)(result5)
   }
 }
 
 case class StringRow(name: String)
-

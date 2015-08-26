@@ -19,13 +19,13 @@ private[spark] trait DockerZookeeperSparkContext extends DockerSparkContext {
 
   protected val DOCKER_ZOOKEEPER_IMAGE = "jplock/zookeeper"
 
-  lazy val zookeeperUrl: String = 
+  lazy val zookeeperUrl: String =
     s"${getContainerIp(DOCKER_ZOOKEEPER_CONTAINER)}:${DOCKER_ZOOKEEPER_PORT}"
 
   /**
-   * Retrieves a zookeeper docker container if exists, otherwise creates it with 
+   * Retrieves a zookeeper docker container if exists, otherwise creates it with
    * the given configuration.
-   * 
+   *
    * @return Docker container IP
    */
   protected def getOrCreateZooKeeperContainer: String =
@@ -51,7 +51,7 @@ private[spark] trait DockerZookeeperSparkContext extends DockerSparkContext {
 
   override protected def stopRemoveAllContainers(): Unit = {
     super.stopRemoveAllContainers
-    
+
     if (docker == null) {
       docker = buildDockerClient()
     }

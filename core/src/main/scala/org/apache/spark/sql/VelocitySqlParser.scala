@@ -49,7 +49,7 @@ class VelocitySqlParser extends SqlParser {
   protected val LOCATE = Keyword("LOCATE")
   protected val REPLACE = Keyword("REPLACE")
   protected val REVERSE = Keyword("REVERSE")
-  
+
   protected val LN = Keyword("LN")
   protected val LOG = Keyword("LOG")
   protected val COS = Keyword("COS")
@@ -144,7 +144,7 @@ class VelocitySqlParser extends SqlParser {
     (CREATE ~> VIEW ~> ident <~ AS) ~ start1 ^^ {
       case name ~ query => CreateViewCommand(name, query)
     }
-  
+
   protected lazy val extract: Parser[Expression] =
     EXTRACT ~ "(" ~> dateIdLiteral ~ (FROM ~> expression) <~ ")" ^^ {
       case dFlag ~ d => Extract(dFlag, d)
@@ -230,7 +230,7 @@ class VelocitySqlParser extends SqlParser {
       { case d1 ~ d2 => DaysBetween(d1,d2) }
       )
   // scalastyle:on
-  
+
   /*
    * TODO: Remove in Spark 1.4.1/1.5.0. This fixes NOT operator precendence, which we
    *       need for some SqlLogicTest queries.

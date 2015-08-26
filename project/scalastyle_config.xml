@@ -57,7 +57,7 @@
  </check>
  -->
  <check level="error" class="org.scalastyle.scalariform.SpacesAfterPlusChecker" enabled="true"/>
- <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="false"/>
+ <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="true"/>
  <check level="error" class="org.scalastyle.scalariform.SpacesBeforePlusChecker" enabled="true"/>
  <check level="error" class="org.scalastyle.file.FileLineLengthChecker" enabled="true">
   <parameters>

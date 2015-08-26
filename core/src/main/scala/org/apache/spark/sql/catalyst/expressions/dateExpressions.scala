@@ -35,7 +35,7 @@ case class DatePart(ed: Expression, part: Integer) extends Expression {
     } else {
       val calendar = Calendar.getInstance
       calendar.clear()
-      
+
       date match {
         case dateTime: Timestamp =>
           calendar.setTimeInMillis(dateTime.getTime)
@@ -77,8 +77,8 @@ case class AddDays(ed: Expression, en: Expression) extends Expression {
     } else {
       val n : Long = en.eval(input) match {
         case null => 0
-        case d : Double => d.toLong * (24*3600*1000)   
-        case l : Long   => l * (24*3600*1000)  
+        case d : Double => d.toLong * (24*3600*1000)
+        case l : Long   => l * (24*3600*1000)
         case i : Integer=> i * (24*3600*1000)
         case f : Float  => f.toLong * (24*3600*1000)
         case other =>
@@ -114,7 +114,7 @@ case class AddMonths(ed: Expression, en: Expression) extends Expression {
     } else {
       val calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"), Locale.ENGLISH)
       calendar.clear()
-      
+
       date match {
         case dt: Timestamp =>
           calendar.setTimeInMillis(dt.getTime)
@@ -131,8 +131,8 @@ case class AddMonths(ed: Expression, en: Expression) extends Expression {
       val n = en.eval(input)
       if (n!= null) {
         val count : Integer = n match {
-          case d : Double => d.toInt  
-          case l : Long   => l.toInt  
+          case d : Double => d.toInt
+          case l : Long   => l.toInt
           case i : Integer=> i
           case f : Float  => f.toInt
           case other =>
@@ -163,7 +163,7 @@ case class AddYears(ed: Expression, en: Expression) extends Expression {
     } else {
       val calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"), Locale.ENGLISH)
       calendar.clear()
-      
+
       date match {
         case dt: Timestamp =>
           calendar.setTimeInMillis(dt.getTime)
@@ -180,8 +180,8 @@ case class AddYears(ed: Expression, en: Expression) extends Expression {
       val n = en.eval(input)
       if (n!= null) {
         val count : Integer = n match {
-          case d : Double => d.toInt   
-          case l : Long   => l.toInt   
+          case d : Double => d.toInt
+          case l : Long   => l.toInt
           case i : Integer=> i
           case f : Float  => f.toInt
           case other =>
@@ -213,7 +213,7 @@ case class DaysBetween(ed1: Expression, ed2: Expression) extends Expression {
       case (_,_) =>
         val calendar1 = Calendar.getInstance
         calendar1.clear()
-        
+
         date1 match {
           case dt1: Timestamp =>
             calendar1.setTimeInMillis(dt1.getTime)
@@ -227,10 +227,10 @@ case class DaysBetween(ed1: Expression, ed2: Expression) extends Expression {
           case other =>
             sys.error(s"Type ${other.getClass} does not support date operations")
         }
-        
+
         val calendar2 = Calendar.getInstance
         calendar2.clear()
-        
+
         date2 match {
           case dt2: Timestamp =>
             calendar2.setTimeInMillis(dt2.getTime)
@@ -245,12 +245,11 @@ case class DaysBetween(ed1: Expression, ed2: Expression) extends Expression {
             sys.error(s"Type ${other.getClass} does not support date operations")
         }
         (calendar2.getTimeInMillis - calendar1.getTimeInMillis)/(24*3600*1000)
-    }    
+    }
   }
   // scalastyle:on cyclomatic.complexity
 
-  override def nullable: Boolean = ed1.nullable || ed2.nullable 
+  override def nullable: Boolean = ed1.nullable || ed2.nullable
   override def dataType: DataType = LongType
   override def children: Seq[Expression] = ed1 :: ed2 :: Nil
 }
-

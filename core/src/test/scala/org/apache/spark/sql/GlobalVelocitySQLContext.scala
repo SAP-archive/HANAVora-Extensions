@@ -26,9 +26,9 @@ object GlobalVelocitySQLContext {
       _sqlc = new VelocitySQLContext(sc)
     }
   }
-  
+
   private def reset(): Unit = {
     _sqlc.catalog.unregisterAllTables()
   }
-  
+
 }
