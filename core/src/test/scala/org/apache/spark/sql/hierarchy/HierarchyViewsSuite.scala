@@ -21,12 +21,12 @@ class HierarchyViewsSuite
   before {
     val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
 
     val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
     val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
     tSrc.registerTempTable("t_src")
   }
 

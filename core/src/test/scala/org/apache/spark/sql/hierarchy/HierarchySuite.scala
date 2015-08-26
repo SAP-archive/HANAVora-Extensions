@@ -203,7 +203,7 @@ class HierarchySuite extends FunSuite
   test("integration: build join hierarchy from SQL using RDD[Row] with UDFs") {
     val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
     val queryString = """
     SELECT name, LEVEL(node), IS_ROOT(node) FROM HIERARCHY (
@@ -233,7 +233,7 @@ class HierarchySuite extends FunSuite
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
     val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
     val queryString = """
     SELECT * FROM HIERARCHY (
@@ -248,13 +248,13 @@ class HierarchySuite extends FunSuite
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L))),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L))),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L))),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L))),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L))),
-      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L)))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4)),
+      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5))
     )
 
     assertResult(expected)(result.toSet)
@@ -281,12 +281,12 @@ class HierarchySuite extends FunSuite
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L))),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L))),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L))),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L))),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L)))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4))
     )
 
     assertResult(expected)(result.toSet)
@@ -331,15 +331,28 @@ class HierarchySuite extends FunSuite
 
       val result = builder.buildFromAdjacencyList(hSrc.rdd)
 
-      val expected = Set(
-        Row("THE BOSS", null, 1L, 1, Node(List(1L))),
-        Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
-        Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L))),
-        Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L))),
-        Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L))),
-        Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L))),
-        Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L)))
-      )
+      // TODO(Weidner): workaround, implement prerank for join builder!
+      val is_join = builder.getClass.getName.split("\\$")
+        .head.split("\\.").last.contains("RowJoinBuilder")
+      val expected = if(is_join == true) {
+        Set(
+          Row("THE BOSS", null, 1L, 1, Node(List(1L))),
+          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
+          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L))),
+          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L))),
+          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L))),
+          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L))),
+          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L))))
+      } else {
+        Set(
+          Row("THE BOSS", null, 1L, 1, Node(List(1L), 1)),
+          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7)),
+          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2)),
+          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3)),
+          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6)),
+          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4)),
+          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5)))
+      }
 
       assertResult(expected)(result.collect().toSet)
     }
@@ -408,12 +421,12 @@ class HierarchySuite extends FunSuite
   test("integration: I can join hierarchy with table") {
     val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
 
     val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
     val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
     tSrc.registerTempTable("t_src")
 
     val queryString = """
@@ -477,12 +490,12 @@ class HierarchySuite extends FunSuite
   test("integration: I can right outer join hierarchy with table") {
     val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
 
     val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
     val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
     tSrc.registerTempTable("t_src")
 
     val queryString = """
@@ -512,12 +525,12 @@ class HierarchySuite extends FunSuite
   test("integration: I can full outer join hierarchy with table") {
     val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
 
     val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
     val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
     tSrc.registerTempTable("t_src")
 
     val queryString = """
@@ -550,12 +563,12 @@ class HierarchySuite extends FunSuite
   test("integration: I can use star with full outer join hierarchy with table and unary UDFs") {
     val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
 
     val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
     val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.error(s"tSrc: ${tRdd.collect().mkString("|")}")
+    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
     tSrc.registerTempTable("t_src")
 
     val queryString = """

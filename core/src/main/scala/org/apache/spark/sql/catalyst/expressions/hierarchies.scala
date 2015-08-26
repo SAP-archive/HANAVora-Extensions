@@ -52,12 +52,14 @@ case class Level(child: Expression) extends UnaryNodeExpression {
 case class PreRank(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = java.lang.Integer
   override def dataType: DataType = IntegerType
-  override def nullable: Boolean = true
+  override def nullable: Boolean = true  // need to be initialized
   override protected def name = "PRERANK"
 
   override def eval(input: Row): EvaluatedType = {
-    val node = child.eval(input).asInstanceOf[Node]
-    node.preRank
+    child.eval(input) match {
+      case x: Node => x.preRank
+      case _ => null
+    }
   }
 
   check()
@@ -70,8 +72,10 @@ case class PostRank(child: Expression) extends UnaryNodeExpression {
   override protected def name = "POSTRANK"
 
   override def eval(input: Row): EvaluatedType = {
-    val node = child.eval(input).asInstanceOf[Node]
-    node.postRank
+    child.eval(input) match {
+      case x: Node => x.postRank
+      case _ => null
+    }
   }
 
   check()
@@ -165,16 +169,28 @@ case class IsSibling(left: Expression, right: Expression) extends NodePredicate 
 
 case class IsFollowing(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_FOLLOWING"
-  override def nullable: Boolean = true
+  override def nullable: Boolean = false
 
   override def eval(input: Row): Any = {
-    val leftNode = left.eval(input).asInstanceOf[Node]
-    val rightNode = right.eval(input).asInstanceOf[Node]
-    if (leftNode.preRank == null || rightNode.preRank == null) {
-      null
-    } else {
-      leftNode.preRank > rightNode.preRank
-    }
+    val u: java.lang.Integer = PreRank(left).eval(input)
+    val v: java.lang.Integer = PreRank(right).eval(input)
+    /** node u follows node v in pre-order and is not a descendant of v */
+    (u > v && !IsDescendant(left, right).eval(input).asInstanceOf[Boolean])
+  }
+
+  check()
+}
+
+case class IsPreceding(left: Expression, right: Expression) extends NodePredicate {
+  override def symbol: String = "IS_PRECEDING"
+  override def nullable: Boolean = false
+
+  override def eval(input: Row): Any = {
+    val u: java.lang.Integer = PreRank(left).eval(input)
+    val v: java.lang.Integer = PreRank(right).eval(input)
+    /** node u precedes node v in pre-order and is not an ancestor of v */
+    // IsDescendant(right,left) <=> IsAncestor(left, right):
+    (u < v) && !IsDescendant(right, left).eval(input).asInstanceOf[Boolean]
   }
 
   check()

@@ -12,6 +12,8 @@ import scala.reflect.ClassTag
 private[hierarchy] class Tree[T](
                                   val root: T,
                                   var children: Option[Seq[Tree[T]]],
+                                  var preRank: java.lang.Integer = null,
+                                  var postRank: java.lang.Integer = null,
                                   var siblingRank: java.lang.Long = null)
   extends Serializable {
 
@@ -20,6 +22,9 @@ private[hierarchy] class Tree[T](
   }
 
 }
+
+case class PrePostRank(var preRank: java.lang.Integer,
+                       var postRank: java.lang.Integer)
 
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
 (pred: I => C,
@@ -33,9 +38,10 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
       t.children = Some(
         list
           filter (p => p._1._1 == t.root)
-          map (i => new Tree(i._1._2, None,
+          map (i => new Tree(i._1._2, None, siblingRank =
         {i._2._2 match {
           case l: Long => l
+          case myi: Int => myi.toLong
           case _ => -1L
         }}
         ))
@@ -68,6 +74,71 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
       case Some(result) => result
     }
 
+  /**
+   * Sets the pre/post-order DFS ranks of tree-root and works recursively on children
+   * @param tree (sub-)tree to iterate
+   * @param ranks last assigned-ranks of the caller
+   * @return {pre-rank of the most right leaf, self-assigned post-rank}
+   */
+  private def setPrePostRank(tree: Tree[C], ranks: PrePostRank)
+  : PrePostRank =
+  /** returns last-assigned prerank */ {
+    // we are in java, so let's take a copy - nobody will complain:
+    var local_rank = PrePostRank(ranks.preRank + 1, ranks.postRank + 1)
+    tree.preRank = local_rank.preRank
+    tree.children match {
+      case Some(child) => {
+        child.foreach(subtree =>
+          local_rank = setPrePostRank(subtree, local_rank))
+      }
+      case None =>
+    }
+    tree.postRank = local_rank.postRank
+    local_rank.postRank += 1
+    local_rank
+  }
+
+  /**
+   * Extract the pre-/post-rank information for a given node from the tree
+   * @param tree searched structure
+   * @param id searched node
+   * @return {pre-rank, post-rank} of searched node
+   */
+  private def getTreePreRank(tree: Tree[C], id: C): java.lang.Integer = {
+    var return_pre_rank: java.lang.Integer = null
+    if (tree.root == id) {
+      return_pre_rank = tree.preRank
+    } else {
+      tree.children match {
+        case Some(child) => child.foreach(subtree => {
+          val loc_pre_rank: java.lang.Integer = getTreePreRank(subtree, id)
+          if (loc_pre_rank != null) {
+            return_pre_rank = loc_pre_rank
+          }
+        })
+        case None =>
+      }
+    }
+    return_pre_rank
+  }
+
+  /**
+   * Wrapper to extract the pre/post rank for given node
+   * @param f forest
+   * @param id tree-node to search for
+   * @return
+   */
+  private def getPreRank(f: Seq[Tree[C]], id: C): java.lang.Integer = {
+    var return_pre_rank: java.lang.Integer = null
+    f.foreach(t => {
+      val local_pre_rank = getTreePreRank(t, id)
+      if (local_pre_rank != null) {
+        return_pre_rank = local_pre_rank
+      }
+    })
+    return_pre_rank
+  }
+
   override def buildFromAdjacencyList(rdd: RDD[I]): RDD[O] = {
     // providing sibling-order is optional: use succ as fallback for now:
     val ord_f = ord match {
@@ -92,9 +163,21 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
       obj foreach(buildTree(_, list_with_order))
       obj
     }
+
+    /* Init pre-/post-rank for each tree node */
+    var prev_rank = PrePostRank(0,0)
+    forest.foreach( f => {
+      prev_rank = setPrePostRank(f, prev_rank)
+      // prepare for next tree in forest:
+      prev_rank.preRank += 1
+      prev_rank.postRank += 1
+    })
+
     val forestBroadcast = rdd.sparkContext.broadcast(forest)
     /* TODO (YH) define extra attributes for Node */
-    rdd map (x => transformRowFunction (x, Node(getPrefix(forestBroadcast.value, succ(x)))))
+    rdd map (x =>
+      transformRowFunction (x, Node(getPrefix(forestBroadcast.value, succ(x)),
+      getPreRank(forestBroadcast.value, succ(x)))))
   }
 
 }
