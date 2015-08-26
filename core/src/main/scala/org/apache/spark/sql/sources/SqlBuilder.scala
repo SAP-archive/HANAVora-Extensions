@@ -1,7 +1,9 @@
 package org.apache.spark.sql.sources
 
+import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 
+import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.expressions.Ascending
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.{analysis, expressions => expr}
@@ -11,7 +13,7 @@ import org.apache.spark.sql.{sources => src}
 /**
  * SQL builder class.
  */
-class SqlBuilder {
+class SqlBuilder extends Logging {
 
   implicit object ExpressionToSql extends ToSql[expr.Expression] {
     override def toSql(e: expr.Expression): String = expressionToSql(e)
@@ -274,15 +276,24 @@ class SqlBuilder {
     expressions.map(expressionToSql).reduceLeft((x, y) => x + delimiter + y)
   }
 
+  // scalastyle:off cyclomatic.complexity
   protected def literalToSql(value: Any): String = value match {
     case s: String => s"'$s'"
     case s: UTF8String => s"'$s'"
     case i: Int    => s"$i"
+    case l: Long    => s"$l"
+    case f: Float    => s"$f"
+    case d: Double    => s"$d"
+    case b: Boolean    => s"$b"
+    case bi: BigInteger    => s"$bi"
     case t: Timestamp => s"TO_TIMESTAMP('$t')"
     case d: Date => s"TO_DATE('$d')"
     case null => "NULL"
-    case other => other.toString
+    case o =>
+      logWarning(s"Converting literal with unknown type (${o.getClass.getSimpleName}}}): $o")
+      s"'o.toString'"
   }
+  // scalastyle:on cyclomatic.complexity
 
   def typeToSql(sparkType: DataType): String =
     sparkType match {
