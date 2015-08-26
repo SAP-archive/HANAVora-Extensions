@@ -65,12 +65,28 @@
       <classifier>shaded</classifier>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.pegdown</groupId> <!-- required to create hmtl test results output -->
+      <artifactId>pegdown</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>asm</groupId>         <!-- required by pegdown -->
+      <artifactId>asm</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
+
+
   <build>
     <plugins>
       <plugin>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest-maven-plugin</artifactId>
+        <configuration>
+          <htmlreporters>${project.build.directory}/surefire-reports</htmlreporters>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.scalastyle</groupId>
