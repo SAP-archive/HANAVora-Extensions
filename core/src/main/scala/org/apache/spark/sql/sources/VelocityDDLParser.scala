@@ -14,7 +14,8 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
       describeTable |
       refreshTable |
       showTables |
-      registerAllTables
+      registerAllTables |
+      registerTable
 
   protected val APPEND = Keyword("APPEND")
   protected val DROP = Keyword("DROP")
@@ -42,6 +43,24 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
       (OPTIONS ~> options).? ~ (IGNORING ~> CONFLICTS).? ^^ {
       case provider ~ opts ~ ignoreConflicts =>
         RegisterAllTablesUsing(
+          provider = provider,
+          options = opts.getOrElse(Map.empty[String, String]),
+          ignoreConflicts.isDefined
+        )
+    }
+
+  /**
+   * Resolves the REGISTER TABLE statement:
+   * REGISTER TABLE tableName USING provider.name
+   * OPTIONS(optiona "option a",optionb "option b")
+   * IGNORING CONFLICTS
+   */
+  protected lazy val registerTable: Parser[LogicalPlan] =
+    REGISTER ~> TABLE ~> ident ~ (USING ~> className) ~
+      (OPTIONS ~> options).? ~ (IGNORING ~> CONFLICTS).? ^^ {
+      case tbl ~ provider ~ opts ~ ignoreConflicts =>
+        RegisterTableUsing(
+          tableName = tbl,
           provider = provider,
           options = opts.getOrElse(Map.empty[String, String]),
           ignoreConflicts.isDefined
@@ -106,6 +125,17 @@ private[sql] case class RegisterAllTablesUsing(
                                                 options: Map[String, String],
                                                 ignoreConflicts: Boolean
                                                 ) extends LogicalPlan with Command {
+  override def output: Seq[Attribute] = Seq.empty
+
+  override def children: Seq[LogicalPlan] = Seq.empty
+}
+
+private[sql] case class RegisterTableUsing(
+                                          tableName: String,
+                                          provider: String,
+                                          options: Map[String, String],
+                                          ignoreConflict: Boolean
+                                            ) extends LogicalPlan with Command {
   override def output: Seq[Attribute] = Seq.empty
 
   override def children: Seq[LogicalPlan] = Seq.empty

@@ -8,5 +8,7 @@ trait RegisterAllTableRelations {
                             sqlContext: SQLContext,
                             options: Map[String, String]): Map[String,BaseRelation]
 
+  def getTableRelation(tableName: String,
+                       sqlContext: SQLContext,
+                       options: Map[String, String]): Option[BaseRelation]
 }
-

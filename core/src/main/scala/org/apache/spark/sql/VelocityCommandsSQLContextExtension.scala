@@ -4,6 +4,8 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.sources._
 
+import scala.collection.immutable
+
 private[sql] trait VelocityCommandsSQLContextExtension
   extends DDLParserSQLContextExtension
   with PlannerSQLContextExtension {
@@ -29,6 +31,8 @@ private[sql] trait VelocityCommandsSQLContextExtension
         ExecutedCommand(ShowDataSourceTablesRunnableCommand(provider, options)) :: Nil
       case RegisterAllTablesUsing(provider, options, ignoreConflicts) =>
         ExecutedCommand(RegisterAllTablesCommand(provider, options, ignoreConflicts)) :: Nil
+      case RegisterTableUsing(tableName, provider, options, ignoreConflicts) =>
+        ExecutedCommand(RegisterTableCommand(tableName, provider, options, ignoreConflicts)) :: Nil
       case cv@CreateViewCommand(name, query) =>
         ExecutedCommand(cv) :: Nil
       case _ => Nil

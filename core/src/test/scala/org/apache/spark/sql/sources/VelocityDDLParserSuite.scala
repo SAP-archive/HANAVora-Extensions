@@ -74,5 +74,41 @@ class VelocityDDLParserSuite extends FunSuite with TableDrivenPropertyChecks wit
         assert(convertedResult.provider == provider)
     }
   }
+
+  val registerTableCommandPermutations =
+    Table(
+      ("sql", "table", "provider", "options", "ignoreConflicts"),
+      ("REGISTER TABLE bla USING provider.name OPTIONS() IGNORING CONFLICTS",
+        "bla", "provider.name", Map.empty[String, String], true),
+      ("""REGISTER TABLE bla USING provider.name OPTIONS(optionA "option")""",
+        "bla", "provider.name", Map("optionA" -> "option"), false),
+      ("""REGISTER TABLE bla USING provider.name""",
+        "bla", "provider.name", Map.empty[String, String], false),
+      ("""REGISTER TABLE bla USING provider.name IGNORING CONFLICTS""",
+        "bla", "provider.name", Map.empty[String, String], true)
+    )
+
+  test("REGISTER TABLE command") {
+    forAll(registerTableCommandPermutations) {
+      (sql: String, table: String, provider: String, options: Map[String, String],
+       ignoreConflict: Boolean) =>
+        Given(s"provider: $provider, options: $options, ignoreConflicts: $ignoreConflict")
+        val result = ddlParser.parse(sql)
+
+        Then("the result will be a instance of RegisterAllTablesUsing")
+        assert(result.isInstanceOf[RegisterTableUsing])
+
+        val convertedResult = result.asInstanceOf[RegisterTableUsing]
+
+        Then("the table name is correct")
+        assert(convertedResult.tableName == table)
+        Then("the ignoreConflicts will be correct")
+        assert(convertedResult.ignoreConflict == ignoreConflict)
+        Then("the options will be correct")
+        assert(convertedResult.options == options)
+        Then("the provider name will be correct")
+        assert(convertedResult.provider == provider)
+    }
+  }
 }
 
