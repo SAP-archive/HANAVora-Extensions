@@ -6,8 +6,8 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.sources.{LogicalRelation, SqlLikeRelation}
 
 /**
- * Change any Qualifier in a AttributeReference to the table name to avoid bad generated queries
- * like:
+ * Fix qualifiers in the logical plan. This requires appropiate
+ * subqueries in the plan. See [[AddSubqueries]].
  *
  * Original query: SELECT name FROM table1 as t1
  * Velocity generated query: SELECT "t1"."name" FROM "table1"
@@ -45,75 +45,17 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
   // scalastyle:off cyclomatic.complexity
   // scalastyle:off method.length
   override def apply(plan: LogicalPlan): LogicalPlan = {
-    var i: Int = 1
-    val planWithSubqueries = plan transformUp {
-      case relation@LogicalRelation(baseRelation: SqlLikeRelation) =>
-        val newName = s"table$i"
-        i += 1
-        logTrace(s"Added subquery $newName to table ${baseRelation.tableName}")
-        Subquery(newName, relation)
-      case proj@Project(projectList, child) =>
-        val newName = s"table$i"
-        i += 1
-        logTrace(s"Added subquery $newName to projection")
-        Subquery(newName, proj)
-      case agg@Aggregate(_, _, child) =>
-        val newName = s"table$i"
-        i += 1
-        logTrace(s"Added subquery $newName to aggregation")
-        Subquery(newName, agg)
-      case f@Filter(_, child) =>
-        val newName = s"table$i"
-        i += 1
-        logTrace(s"Added subquery $newName to filter")
-        Subquery(newName, f)
-      /* Put Limit and OrderBy below Subqueries */
-      case l@Limit(n, s@Subquery(alias, child)) =>
-        Subquery(alias, Limit(n, child))
-      case l@Sort(so, b, Subquery(alias, child)) =>
-        Subquery(alias, Sort(so, b, child))
-      case other => other
-    }
-    val transformedPlan = planWithSubqueries transformUp {
+    val transformedPlan = plan transformUp {
       case lr: LogicalRelation => lr
-      case Subquery(name, Subquery(innerName, child)) =>
-        /* If multiple subqueries, preserve the outer one */
-        logDebug(s"Nested subqueries ($name, $innerName) -> $name")
-        Subquery(name, child)
       case lp: LogicalPlan with Product =>
-        /* TODO
-            val mo : LogicalPlan = lp match {
-              case Join(l, r, jt, c) =>
-                val newL = removeDummyPlans(l) match {
-                  // the scope of projection alias is limited to subquery
-                  // therefor we can use it outside as well.
-                  case project@Project(p, Subquery(alias, q)) =>
-                      Subquery(alias, project)
-                  case other => other
-                }
-                val newR = removeDummyPlans(r) match {
-                  // the scope of projection alias is limited to subquery
-                  // therefor we can use it outside as well.
-                  case project@Project(p, Subquery(alias, q)) =>
-                    Subquery(alias, project)
-                  case other => other
-                }
-                Join(newL, newR, jt, c)
-              case agg@Aggregate(a, b, c@DummyPlan(d:Aggregate)) =>
-                val newName = s"aggregate$i"
-                i += 1
-                Aggregate(a, b, Subquery(newName, c))
-              case agg@Aggregate(a, b, c:Aggregate) =>
-                val newName = s"aggregate$i"
-                i += 1
-                Aggregate(a, b, Subquery(newName, c))
-              case a:LogicalPlan => a
-            }
-            */
+
         val expressionMap = lp.collect {
           case subquery@Subquery(alias, _) =>
             subquery.output.map({ attr => (attr.exprId, alias) })
+          case lr@LogicalRelation(r: SqlLikeRelation) =>
+            lr.output.map({ attr => (attr.exprId, r.tableName) })
         }.reverse.flatten.toMap
+
         val prefixedAttributeReferencesPlan = lp transformExpressionsDown {
           case attr: AttributeReference if attr.qualifiers.length > 1 =>
             sys.error(s"Only 1 qualifier is supported per attribute: $attr ${attr.qualifiers}")
@@ -126,7 +68,9 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
                 )
               case None =>
                 logWarning(s"Qualifier not found for expression ID: ${attr.exprId}")
-                attr
+                attr.copy(name = PREFIX.concat(attr.name))(
+                  exprId = attr.exprId, Nil
+                )
             }
         }
         /* Now we need to delete the prefix in all the attributes. */

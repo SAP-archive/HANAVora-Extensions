@@ -1,9 +1,12 @@
 package org.apache.spark.sql.sources
 
+import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 
+import org.apache.spark.sql.catalyst.analysis.{AddSubqueries, ChangeQualifiersToTableNames}
 import org.apache.spark.sql.catalyst.expressions.Ascending
 import org.apache.spark.sql.catalyst.plans._
+import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.{analysis, expressions => expr}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{sources => src}
@@ -33,33 +36,50 @@ class SqlBuilder {
    * Builds a SELECT query with optional WHERE and GROUP BY clauses.
    *
    * @param relation Table name, join clause or subquery for the FROM clause.
-   * @param fields List of fields for projection as strings.
-   * @param filters List of filters for the WHERE clause (can be empty).
-   * @param groupByClauses List if expressions for the GROUP BY clause (can be empty).
+   * @param select List of fields for projection as strings.
+   * @param where List of filters for the WHERE clause (can be empty).
+   * @param groupBy List if expressions for the GROUP BY clause (can be empty).
    * @return A SQL string.
    */
-  protected def buildQuery(relation: String, fields: Seq[String],
-                           filters: Seq[String],
-                           groupByClauses: Seq[String],
-                           havingClause: String): String = {
-    val fieldList = fields match {
+  // scalastyle:off cyclomatic.complexity
+  protected def buildQuery(relation: String,
+                           select: Seq[String] = Nil,
+                           where: Seq[String] = Nil,
+                           groupBy: Seq[String] = Nil,
+                           having: Option[String] = None,
+                           orderBy: Seq[String] = Nil,
+                           limit: Option[String] = None,
+                           distinct: Boolean = false
+                            ): String = {
+    val selectStr = s"SELECT${if (distinct) " DISTINCT" else ""}"
+    val selectColsStr = select match {
         // The optimizer sometimes does not report any fields (since no specifc is required by
         // the query (usually a nested select), thus we add the group by clauses as fields
-      case Nil if groupByClauses.isEmpty =>  "*"
-      case Nil => groupByClauses mkString ", "
+      case Nil if groupBy.isEmpty =>  "*"
+      case Nil => groupBy mkString ", "
       case s => s mkString ", "
     }
-    val where = filters match {
+    val whereStr = where match {
       case Nil => ""
       case f => s" WHERE ${f mkString " AND "}"
     }
-    val groupBy = groupByClauses match {
+    val groupByStr = groupBy match {
       case Nil => ""
       case gb =>
-        s" GROUP BY ${groupByClauses mkString ", "}"
+        s" GROUP BY ${groupBy mkString ", "}"
     }
-    s"""SELECT $fieldList FROM $relation$where$groupBy$havingClause"""
+    val havingStr = having.map(h => s" HAVING $h").getOrElse("")
+    val orderByStr = orderBy match {
+      case Nil => ""
+      case ob => s" ORDER BY ${ob mkString ", "}"
+    }
+    val limitStr = limit match {
+      case None => ""
+      case Some(l) => s" LIMIT $l"
+    }
+    s"$selectStr $selectColsStr FROM $relation$whereStr$groupByStr$havingStr$orderByStr$limitStr"
   }
+  // scalastyle:on cyclomatic.complexity
 
   /**
    * Builds a SELECT query with optional WHERE and GROUP BY clauses.
@@ -77,8 +97,7 @@ class SqlBuilder {
       s""""$relation"""",
       fields map ev1.toSql,
       filters map ev2.toSql,
-      groupByClauses map ev3.toSql,
-      ""
+      groupByClauses map ev3.toSql
     )
   }
 
@@ -97,10 +116,18 @@ class SqlBuilder {
       s""""$relation"""",
       fields map ev1.toSql,
       filters map ev2.toSql,
-      Nil,
-      ""
+      Nil
     )
   }
+
+  /**
+   * These rules prepare a logical plan to be convertible to a SQL query.
+   * @return
+   */
+  protected def preparePlanRules: Seq[Rule[logical.LogicalPlan]] = Seq(
+    AddSubqueries,
+    ChangeQualifiersToTableNames
+  )
 
   /**
    * Translates a logical plan to a SQL query string. It does not perform
@@ -109,30 +136,67 @@ class SqlBuilder {
    * @param plan
    * @return
    */
-  def logicalPlanToSql(plan: logical.LogicalPlan): String =
-    internalLogicalPlanToSql(plan, noProject = true)
+  def logicalPlanToSql(plan: logical.LogicalPlan): String = {
+    val preparedPlan = preparePlanRules.foldLeft(plan) {
+      (processedPlan, rule) => rule(processedPlan)
+    }
+    internalLogicalPlanToSql(preparedPlan, noProject = true)
+  }
 
   // scalastyle:off cyclomatic.complexity
   // scalastyle:off method.length
-  protected def internalLogicalPlanToSql(
+  protected[sources] def internalLogicalPlanToSql(
                                           plan: logical.LogicalPlan,
                                           noProject: Boolean = true): String =
     plan match {
+
+      /*
+       * A relation is converted to a query if the context does not allow a table name.
+       * E.g. if the logical plan consists only of a relation, or as the only member inside
+       *      a subquery.
+       */
       case src.LogicalRelation(base: SqlLikeRelation) if noProject =>
-        buildQuery(s""""${base.tableName}"""", plan.output.map(expressionToSql), Nil, Nil,"")
+        buildQuery(s""""${base.tableName}"""", plan.output.map(expressionToSql))
+
       case src.LogicalRelation(base: SqlLikeRelation) => s""""${base.tableName}""""
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
+
+      case logical.Distinct(logical.Union(left, right)) =>
+        s"""(${logicalPlanToSql(left)}) UNION (${logicalPlanToSql(right)})"""
+      case logical.Union(left, right) =>
+        s"""(${logicalPlanToSql(left)}) UNION ALL (${logicalPlanToSql(right)})"""
+      case logical.Intersect(left, right) =>
+        s"""(${logicalPlanToSql(left)}) INTERSECT (${logicalPlanToSql(right)})"""
+      case logical.Except(left, right) =>
+        s"""(${logicalPlanToSql(left)}) EXCEPT (${logicalPlanToSql(right)})"""
+
+      case src.SingleQuery(select, from, where, groupBy, having, orderBy, limit, distinct)
+        if plan != from =>
+        if (!noProject) {
+          sys.error("A full query without a subquery is not allowed in this context")
+        }
+        buildQuery(
+          relation = internalLogicalPlanToSql(from, noProject = false),
+          select = select map expressionToSql,
+          where = where map expressionToSql,
+          groupBy map expressionToSql,
+          having = having map expressionToSql,
+          orderBy = orderBy map expressionToSql,
+          limit = limit map expressionToSql,
+          distinct = distinct
+        )
+
       case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) if noProject =>
-        val generatedQuery = buildQuery(
-          s""""${relation.tableName}"""",
-          plan.output.map(expressionToSql), Nil, Nil, "")
-        s"""$generatedQuery AS "$alias""""
+        sys.error(s"Subquery is not allowed in this context: $alias")
       case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) =>
         s""""${relation.tableName}" AS "$alias""""
       case logical.Subquery(alias, child) =>
         s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
+
+      case _:logical.Join if noProject =>
+        sys.error(s"Join not allowed in this context")
       case logical.Join(left, right, joinType, conditionOpt) =>
         val leftSql = internalLogicalPlanToSql(left, noProject = false)
         val rightSql = internalLogicalPlanToSql(right, noProject = false)
@@ -141,30 +205,7 @@ class SqlBuilder {
           case Some(cond) => s" ON ${expressionToSql(cond)}"
         }
         s"$leftSql ${joinTypeToSql(joinType)} $rightSql$condition"
-      case logical.Union(left, right) =>
-        s"""${logicalPlanToSql(left)} UNION ALL ${logicalPlanToSql(right)}"""
-      case logical.Intersect(left, right) =>
-        s"""${logicalPlanToSql(left)} INTERSECT ${logicalPlanToSql(right)}"""
-      case logical.Except(left, right) =>
-        s"""${logicalPlanToSql(left)} EXCEPT ${logicalPlanToSql(right)}"""
-      case GroupByOperation(aggregateExpressions, filters, groupingExpressions, child) =>
-        buildQuery(
-          relation = internalLogicalPlanToSql(child, noProject = false),
-          fields = aggregateExpressions.map(expressionToSql),
-          filters = filters.map(expressionToSql),
-          groupByClauses = groupingExpressions.map(expressionToSql),
-          ""
-        )
-      case SelectOperation(fields, filters, child) =>
-        buildQuery(
-          internalLogicalPlanToSql(child, noProject = false),
-          fields.map(expressionToSql),
-          filters.map(expressionToSql),
-          Nil,
-          ""
-        )
-      case logical.Limit(limitExpr, child) =>
-        s"${internalLogicalPlanToSql(child)} LIMIT ${expressionToSql(limitExpr)}"
+
       case _ =>
         sys.error("Unsupported logical plan: " + plan)
     }
@@ -274,15 +315,22 @@ class SqlBuilder {
     expressions.map(expressionToSql).reduceLeft((x, y) => x + delimiter + y)
   }
 
+  // scalastyle:off cyclomatic.complexity
   protected def literalToSql(value: Any): String = value match {
     case s: String => s"'$s'"
     case s: UTF8String => s"'$s'"
     case i: Int    => s"$i"
+    case l: Long    => s"$l"
+    case f: Float    => s"$f"
+    case d: Double    => s"$d"
+    case b: Boolean    => s"$b"
+    case bi: BigInteger    => s"$bi"
     case t: Timestamp => s"TO_TIMESTAMP('$t')"
     case d: Date => s"TO_DATE('$d')"
     case null => "NULL"
     case other => other.toString
   }
+  // scalastyle:on cyclomatic.complexity
 
   // scalastyle:off cyclomatic.complexity
   def typeToSql(sparkType: DataType): String =

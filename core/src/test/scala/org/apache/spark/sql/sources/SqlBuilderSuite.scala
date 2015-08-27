@@ -132,6 +132,8 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
     ))
     override def tableName: String = "t1"
   })
+  val t1c1 = t1.output.find(_.name == "c1").get
+  val t1c2 = t1.output.find(_.name == "c2").get
   val t2 = CreateLogicalRelation(new BaseRelation with SqlLikeRelation {
     override def sqlContext: SQLContext = _sqlContext
     override def schema: StructType = StructType(Seq(
@@ -140,115 +142,221 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
     ))
     override def tableName: String = "t2"
   })
+  val t2c1 = t2.output.find(_.name == "c1").get
+  val t2c2 = t2.output.find(_.name == "c2").get
 
+  testLogicalPlanInternal("""SELECT "c1", "c2" FROM "t1"""")(t1)
   testLogicalPlan("""SELECT "c1", "c2" FROM "t1"""")(t1)
-  testLogicalPlan("""SELECT * FROM "t1"""")(t1.select())
-  testLogicalPlan("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q"""")(t1.subquery('q))
-  testLogicalPlan("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q" LIMIT 100""")(
-    t1.subquery('q).limit(100))
-  testLogicalPlan("""SELECT * FROM "t1"""")(t1.select().select())
-  testLogicalPlan("""SELECT * FROM "t1"""")(t1.select(UnresolvedStar(None)))
-  testLogicalPlan("SELECT \"t1\".\"c1\" FROM \"t1\" GROUP BY \"t1\".\"c1\"")({
-    val c1 = 'c1.string.withQualifiers("t1" :: Nil)
-    val c2 = 'c2.string.withQualifiers("t1" :: Nil)
-    t1.select(c1, c2).groupBy(c1)(c1)
-  })
+
+  testLogicalPlanInternal("""SELECT * FROM "t1"""")(t1.select())
+  testLogicalPlan("""SELECT * FROM "t1" AS "__table1"""")(t1.select())
+
+  testUnsupportedLogicalPlanInternal(t1.subquery('q))
+  testLogicalPlan("""SELECT "c1", "c2" FROM "t1"""")(t1.subquery('q))
+
+  testLogicalPlanInternal("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q" LIMIT 1""")(
+    t1.subquery('q).limit(1))
   testLogicalPlan("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q" LIMIT 1""")(
     t1.subquery('q).limit(1))
 
-  testLogicalPlan("""(SELECT "c1", "c2" FROM "t1" LIMIT 1) AS "q"""")(
+  /* SelectOperation merges both projects */
+  testUnsupportedLogicalPlanInternal(t1.select().select())
+  testLogicalPlan("""SELECT * FROM (SELECT * FROM "t1" AS "__table1") AS "__subquery2"""")(
+    t1.select().select())
+
+  testLogicalPlanInternal("""SELECT * FROM "t1"""")(t1.select(UnresolvedStar(None)))
+  testLogicalPlan("""SELECT * FROM "t1" AS "__table1"""")(t1.select(UnresolvedStar(None)))
+
+  testUnsupportedLogicalPlanInternal({
+    val c1 = t1.output.find(_.name == "c1").get
+    val c2 = t1.output.find(_.name == "c2").get
+    t1.select(c1, c2).groupBy(c1)(c1)
+  })
+  testLogicalPlan(
+    """SELECT "__subquery2"."c1" FROM (SELECT "__table1"."c1", "__table1"."c2"""" +
+      """ FROM "t1" AS "__table1")""" +
+      """ AS "__subquery2" GROUP BY "__subquery2"."c1""""
+  )(t1.select(t1c1, t1c2).groupBy(t1c1)(t1c1))
+
+  testLogicalPlan("""SELECT "__table1"."c1", "__table1"."c2" FROM "t1" AS "__table1" LIMIT 1""")(
     t1.limit(1).subquery('q))
 
-  testLogicalPlan("""SELECT "t1"."c1" FROM "t1" GROUP BY "t1"."c1"""")(
-    t1.groupBy('c1.string.withQualifiers("t1" :: Nil))('c1.string.withQualifiers("t1" :: Nil))
+  testLogicalPlan("""SELECT "__table1"."c1" FROM "t1" AS "__table1" GROUP BY "__table1"."c1"""")(
+    t1.groupBy(t1c1)(t1c1)
   )
 
   testLogicalPlan(
     """
-      |SELECT "q"."c1"
-      |FROM (SELECT "t1"."c1" FROM "t1") AS "q"
-      |GROUP BY "q"."c1"
+      |SELECT "__subquery2"."c1"
+      |FROM (SELECT "q"."c1" FROM
+      | (SELECT "__table1"."c1" FROM "t1" AS "__table1") AS "q")
+      | AS "__subquery2"
+      |GROUP BY "__subquery2"."c1"
       |""".stripMargin)({
-    val c1 = 'c1.string.withQualifiers("t1" :: Nil)
-    val qc1 = 'c1.string.withQualifiers("q" :: Nil)
-    t1.select(c1).subquery('q).select(qc1).groupBy(qc1)(qc1)
+    val qc1 = t1c1.withQualifiers("q" :: Nil)
+    t1.select(t1c1).subquery('q).select(qc1).groupBy(qc1)(qc1)
   })
 
   testLogicalPlan(
-    """
-      |SELECT "q"."c1"
-      |FROM (SELECT "t1"."c1" FROM "t1" WHERE ("t1"."c1" = 'string')) AS "q"
-      |GROUP BY "q"."c1"
-      |""".stripMargin)({
-    val c1 = 'c1.string.withQualifiers("t1" :: Nil)
-    val qc1 = 'c1.string.withQualifiers("q" :: Nil)
-    t1.select(c1).where(c1 === "string").subquery('q).select(qc1).groupBy(qc1)(qc1)
+    "SELECT \"__subquery3\".\"c1\" FROM (SELECT \"q\".\"c1\" FROM (" +
+      "SELECT \"__subquery2\".\"c1\" FROM (" +
+      "SELECT \"__table1\".\"c1\" FROM \"t1\" AS \"__table1\") AS \"__subquery2\"" +
+      " WHERE (\"__subquery2\".\"c1\" = 'string')) AS \"q\") AS \"__subquery3\"" +
+      " GROUP BY \"__subquery3\".\"c1\"")({
+    val qc1 = t1c1.withQualifiers("q" :: Nil)
+    t1.select(t1c1).where(t1c1 === "string").subquery('q).select(qc1).groupBy(qc1)(qc1)
   })
 
-  testLogicalPlan("""SELECT "c1", "c2" FROM "t1" LIMIT 100""")(t1.limit(100))
+  testLogicalPlan("""SELECT "__table1"."c1", "__table1"."c2" FROM "t1" AS "__table1" LIMIT 1""")(
+    t1.limit(1))
 
   testLogicalPlan(
-    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" INNER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+    s"""SELECT "__table1"."c1", "__table2"."c2" FROM "t1" AS "__table1" """ +
+      s"""INNER JOIN "t2" AS "__table2" ON ("__table1"."c1" = "__table2"."c2")"""
   )(
     t1.join(t2, Inner,
-      Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
-    ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+      Some(
+        t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil) ===
+          t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil)
+      )
+    ).select(t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil),
+        t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil))
   )
 
   testLogicalPlan(
-    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" INNER JOIN "t2""""
+    s"""SELECT "__table1"."c1", "__table2"."c2" FROM "t1" AS "__table1" """ +
+      """INNER JOIN "t2" AS "__table2""""
   )(
-      t1.join(t2, Inner)
-        .select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+      t1.join(t2, Inner).select(t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil),
+          t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil))
     )
 
   testLogicalPlan(
-    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" FULL OUTER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+    s"""SELECT "__table1"."c1", "__table2"."c2" FROM "t1" AS "__table1" """ +
+      s"""FULL OUTER JOIN "t2" AS "__table2" ON ("__table1"."c1" = "__table2"."c2")"""
   )(
       t1.join(t2, FullOuter,
-        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
-      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+        Some(
+          t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil) ===
+            t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil)
+        )
+      ).select(t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil),
+          t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil))
     )
 
   testLogicalPlan(
-    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" RIGHT OUTER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+    s"""SELECT "__table1"."c1", "__table2"."c2" FROM "t1" AS "__table1" """ +
+      s"""RIGHT OUTER JOIN "t2" AS "__table2" ON ("__table1"."c1" = "__table2"."c2")"""
   )(
       t1.join(t2, RightOuter,
-        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
-      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+        Some(
+          t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil) ===
+            t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil)
+        )
+      ).select(t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil),
+          t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil))
     )
 
   testLogicalPlan(
-    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" LEFT OUTER JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+    s"""SELECT "__table1"."c1", "__table2"."c2" FROM "t1" AS "__table1" """ +
+      s"""LEFT OUTER JOIN "t2" AS "__table2" ON ("__table1"."c1" = "__table2"."c2")"""
   )(
       t1.join(t2, LeftOuter,
-        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
-      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+        Some(
+          t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil) ===
+            t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil)
+        )
+      ).select(t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil),
+          t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil))
     )
 
   testLogicalPlan(
-    s"""SELECT "t1"."c1", "t2"."c2" FROM "t1" LEFT SEMI JOIN "t2" ON ("t1"."c1" = "t2"."c2")"""
+    s"""SELECT "__table1"."c1", "__table2"."c2" FROM "t1" AS "__table1" """ +
+      s"""LEFT SEMI JOIN "t2" AS "__table2" ON ("__table1"."c1" = "__table2"."c2")"""
   )(
       t1.join(t2, LeftSemi,
-        Some('c1.string.withQualifiers("t1" :: Nil) === 'c2.string.withQualifiers("t2" :: Nil))
-      ).select('c1.string.withQualifiers("t1" :: Nil), 'c2.string.withQualifiers("t2" :: Nil))
+        Some(
+          t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil) ===
+            t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil)
+        )
+      ).select(t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil),
+          t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil))
     )
 
   testLogicalPlan(
-    s"""SELECT "c1", "c2" FROM "t1" WHERE ("t1"."c1" = 1)"""
-  )(t1.where('c1.string.withQualifiers("t1" :: Nil) === 1))
+    s"""SELECT "__table1"."c1", "__table1"."c2" FROM "t1" AS "__table1" """ +
+      """WHERE ("__table1"."c1" = 1)"""
+  )(t1.where(t1.output.find(_.name == "c1").get === 1))
 
   testLogicalPlan(
-    s"""SELECT "c1", "c2" FROM "t1" UNION ALL SELECT "c1", "c2" FROM "t2""""
+    s"""SELECT DISTINCT "__table1"."c1", "__table1"."c2" FROM "t1" AS "__table1""""
+  )(Distinct(t1))
+
+  val c1 = t1.output.find(_.name == "c1").get
+  testLogicalPlan(
+    s"""SELECT DISTINCT "__table1"."c1" FROM "t1" AS "__table1" GROUP BY "__table1"."c1""""
+  )(Distinct(t1.groupBy(c1)(c1)))
+
+  testLogicalPlan(
+    s"""(SELECT "c1", "c2" FROM "t1") UNION (SELECT "c1", "c2" FROM "t2")"""
+  )(Distinct(t1.unionAll(t2)))
+
+  testLogicalPlan(
+    s"""(SELECT "c1", "c2" FROM "t1") UNION ALL (SELECT "c1", "c2" FROM "t2")"""
   )(t1.unionAll(t2))
 
   testLogicalPlan(
-    s"""SELECT "c1", "c2" FROM "t1" EXCEPT SELECT "c1", "c2" FROM "t2""""
+    s"""((SELECT "c1", "c2" FROM "t1")
+        |UNION ALL
+        |(SELECT "c1", "c2" FROM "t2"))
+        |EXCEPT (SELECT "c1", "c2" FROM "t1")"""
+      .stripMargin
+  )(t1.unionAll(t2).except(t1))
+
+  testLogicalPlan(
+    s"""SELECT "__subquery3"."c1", "__subquery3"."c2" FROM
+       |((SELECT "c1", "c2" FROM "t1")
+       |UNION ALL
+       |(SELECT "c1", "c2" FROM "t2")) AS "__subquery3"
+       |ORDER BY "__subquery3"."c1" DESC"""
+      .stripMargin
+  )(t1.unionAll(t2).orderBy(c1 desc))
+
+  testLogicalPlan(
+    s"""(SELECT "c1", "c2" FROM "t1") EXCEPT (SELECT "c1", "c2" FROM "t2")"""
   )(Except(t1, t2))
 
   testLogicalPlan(
-    s"""SELECT "c1", "c2" FROM "t1" INTERSECT SELECT "c1", "c2" FROM "t2""""
+    s"""SELECT "__subquery3"."c1", "__subquery3"."c2" FROM
+       |((SELECT "c1", "c2" FROM "t1")
+       |EXCEPT
+       |(SELECT "c1", "c2" FROM "t2")) AS "__subquery3"
+       |ORDER BY "__subquery3"."c1" DESC"""
+      .stripMargin
+  )(Except(t1, t2).orderBy(c1 desc))
+
+  testLogicalPlan(
+    s"""(SELECT "c1", "c2" FROM "t1") INTERSECT (SELECT "c1", "c2" FROM "t2")"""
   )(Intersect(t1, t2))
+
+  testLogicalPlan(
+    s"""SELECT "__subquery3"."c1", "__subquery3"."c2" FROM
+       |((SELECT "c1", "c2" FROM "t1")
+       |INTERSECT
+       |(SELECT "c1", "c2" FROM "t2")) AS "__subquery3"
+       |ORDER BY "__subquery3"."c1" DESC"""
+      .stripMargin
+  )(Intersect(t1, t2).orderBy(c1 desc))
+
+  testLogicalPlan(
+    s"""
+       |  (SELECT "c1", "c2" FROM "t1")
+       |UNION
+       |  ((SELECT "c1", "c2" FROM "t2")
+       |  EXCEPT
+       |  (SELECT "c1", "c2" FROM "t1"))
+     """.stripMargin
+  )(Distinct(t1.unionAll(t2.except(t1))))
 
   case object UnsupportedLogicalPlan extends LeafNode {
     override def output: Seq[Attribute] = Seq()

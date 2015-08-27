@@ -69,52 +69,10 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   val aliasedSum2 = sum(nameAtt).as('aliasedSum2)
   val aliasedSum3 = sum(nameAtt).as('aliasedSum3)
 
-  test("Add alias to table with where clause") {
-    assertResult(
-      lr1.subquery('table1).select(nameAtt, ageAtt).subquery('table2).where(ageAtt <= 3)
-    ) {
-      ChangeQualifiersToTableNames(lr1.select(nameAtt, ageAtt).where(ageAtt <= 3))
-    }
-  }
-
-  test("Add alias to table") {
-
-    // Simple select we only have a LogicalRelation in the logical plan
-    assertResult(lr1.subquery('table1).select(nameAtt)) {
-      ChangeQualifiersToTableNames(lr1.select(nameAtt))
-    }
-
-    // Two Joins different tables
-    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table2)
-      .join(lr2.subquery('table3).select(nameAtt2).subquery('table4))) {
-      ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr2.select(nameAtt2)))
-    }
-
-    // Join same table
-    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table2)
-      .join(lr1.subquery('table3).select(nameAtt).subquery('table4))) {
-      ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
-    }
-
-    // Join of sub-queries will cause sub-queries to be aliased
-    assertResult(lr1.subquery('table1).select(nameAtt).subquery('table2)
-      .join(lr1.subquery('table3).select(nameAtt).subquery('table4))) {
-      ChangeQualifiersToTableNames(lr1.select(nameAtt).join(lr1.select(nameAtt)))
-    }
-
-  }
-
-  test("Preserve the outer subquery") {
-    val input = lr1.subquery('q1).subquery('q2)
-    val expected = lr1.subquery('q2)
-    assertResult(expected)(ChangeQualifiersToTableNames(input))
-  }
-
   test("Non-existent attribute reference does not break the rule") {
     val att = AttributeReference("blah", StringType)()
-    val input = lr1.select(att)
-    val expected = lr1.subquery('table1).select(att)
-    assertResult(expected)(ChangeQualifiersToTableNames(input))
+    val input = lr1.subquery('table1).select(att)
+    assertResult(Nil)(ChangeQualifiersToTableNames(input).output(0).qualifiers)
   }
 
   test("Fail with two qualifiers") {
@@ -126,7 +84,8 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   }
 
   test("Fix qualifiers") {
-    val input = lr1.select(nameAtt.copy()(exprId = nameAtt.exprId, qualifiers = "Boo" :: Nil))
+    val input = lr1.subquery('table1)
+      .select(nameAtt.copy()(exprId = nameAtt.exprId, qualifiers = "Boo" :: Nil))
     assertResult("table1" :: Nil)(ChangeQualifiersToTableNames(input).output(0).qualifiers)
   }
 
@@ -140,29 +99,11 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
 
   test("Fix aggregate aliases") {
     // Put subquery between two consecutive aggregates
-    assertResult(Aggregate(Nil, aliasedSum1 :: Nil,
-      Aggregate(Nil, aliasedSum2 :: Nil,
-        lr1.subquery('table1).select(nameAtt).subquery('table2)).subquery('table3))) {
-      ChangeQualifiersToTableNames(Aggregate(Nil, aliasedSum1 :: Nil,
-        Aggregate(Nil, aliasedSum2 :: Nil, lr1.select(nameAtt))))
-    }
-
-    // Put subquery between three consecutive aggregates
-    assertResult(
-      Aggregate(Nil, aliasedSum1 :: Nil,
-        Aggregate(Nil, aliasedSum2 :: Nil,
-          Aggregate(Nil, aliasedSum3 :: Nil,
-            lr1.subquery('table1)
-              .select(nameAtt).subquery('table2)
-            ).subquery('table3)
-            ).subquery('table4))
-    ) {
+    assertResult("subquery2" :: Nil) {
       ChangeQualifiersToTableNames(
-        Aggregate(Nil, aliasedSum1 :: Nil,
-          Aggregate(Nil, aliasedSum2 :: Nil,
-            Aggregate(Nil, aliasedSum3 :: Nil,
-              lr1.select(nameAtt))))
-      )
+        lr1.subquery('table1)
+          .select(nameAtt).subquery('subquery2)
+          .groupBy(aliasedSum1)(nameAtt)).output(0).qualifiers
     }
   }
 

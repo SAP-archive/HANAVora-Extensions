@@ -40,6 +40,13 @@ trait SqlBuilderSuiteBase {
     }
   }
 
+  def testLogicalPlanInternal(sql: String)(plan: LogicalPlan): Unit = {
+    val cleanSql = cleanUpSql(sql)
+    test(s"logical plan (internal): $cleanSql | with $plan") {
+      assertResult(cleanSql)(sqlBuilder.internalLogicalPlanToSql(plan, noProject = true))
+    }
+  }
+
   def testUnsupportedLogicalPlan(plan: LogicalPlan): Unit = {
     test(s"invalid logical plan: $plan") {
       intercept[RuntimeException] {
@@ -50,5 +57,13 @@ trait SqlBuilderSuiteBase {
 
   private def cleanUpSql(q: String): String =
     q.replaceAll("\\s+", " ").trim
+
+  def testUnsupportedLogicalPlanInternal(plan: LogicalPlan): Unit = {
+    test(s"invalid logical plan (internal): $plan") {
+      intercept[RuntimeException] {
+        sqlBuilder.internalLogicalPlanToSql(plan)
+      }
+    }
+  }
 
 }
