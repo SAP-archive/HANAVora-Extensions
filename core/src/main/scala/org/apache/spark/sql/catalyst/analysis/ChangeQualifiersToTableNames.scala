@@ -81,11 +81,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
             )
         })
     }
-    removeDummyPlans(transformedPlan) match {
-      /* Remove outer subquery, if any */
-      case Subquery(_, child) if !child.isInstanceOf[LogicalRelation] => child
-      case other => other
-    }
+    removeDummyPlans(transformedPlan)
   }
 
 }

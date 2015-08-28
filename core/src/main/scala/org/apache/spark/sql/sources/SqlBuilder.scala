@@ -32,6 +32,15 @@ class SqlBuilder {
     override def toSql(s: String): String = s""""$s""""
   }
 
+  protected def formatAttributeWithQualifiers(qualifiers: Seq[String], name: String): String =
+    (qualifiers :+ name).map({ s => s""""$s"""" }).mkString(".")
+
+  protected def formatTableName(namespace: Option[String], tableName: String): String =
+    formatAttributeWithQualifiers(namespace.toSeq, tableName)
+
+  protected def formatRelation(relation: SqlLikeRelation): String =
+    formatTableName(relation.nameSpace, relation.tableName)
+
   /**
    * Builds a SELECT query with optional WHERE and GROUP BY clauses.
    *
@@ -91,10 +100,10 @@ class SqlBuilder {
    * @return A SQL string.
    */
   def buildSelect[F, H, G]
-  (relation: String, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
+  (relation: SqlLikeRelation, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
   (implicit ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]): String = {
     buildQuery(
-      s""""$relation"""",
+      formatRelation(relation),
       fields map ev1.toSql,
       filters map ev2.toSql,
       groupByClauses map ev3.toSql
@@ -110,10 +119,10 @@ class SqlBuilder {
    * @return A SQL string.
    */
   def buildSelect[F, H]
-  (relation: String, fields: Seq[F], filters: Seq[H])
+  (relation: SqlLikeRelation, fields: Seq[F], filters: Seq[H])
   (implicit ev1: ToSql[F], ev2: ToSql[H]): String = {
     buildQuery(
-      s""""$relation"""",
+      formatRelation(relation),
       fields map ev1.toSql,
       filters map ev2.toSql,
       Nil
@@ -156,9 +165,8 @@ class SqlBuilder {
        *      a subquery.
        */
       case src.LogicalRelation(base: SqlLikeRelation) if noProject =>
-        buildQuery(s""""${base.tableName}"""", plan.output.map(expressionToSql))
-
-      case src.LogicalRelation(base: SqlLikeRelation) => s""""${base.tableName}""""
+        buildQuery(formatRelation(base), plan.output.map(expressionToSql))
+      case src.LogicalRelation(base: SqlLikeRelation) => formatRelation(base)
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
       case _: src.LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
@@ -189,9 +197,12 @@ class SqlBuilder {
         )
 
       case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) if noProject =>
-        sys.error(s"Subquery is not allowed in this context: $alias")
+        val generatedQuery = buildQuery(
+          formatRelation(relation),
+          plan.output.map(expressionToSql))
+        s"""$generatedQuery AS "$alias""""
       case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) =>
-        s""""${relation.tableName}" AS "$alias""""
+        s"""${formatRelation(relation)} AS "$alias""""
       case logical.Subquery(alias, child) =>
         s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
 
@@ -293,8 +304,9 @@ class SqlBuilder {
       case a@expr.Alias(child, name) =>
         s"""${expressionToSql(child)} AS "$name""""
       case a@expr.AttributeReference(name, _, _, _) =>
-        (a.qualifiers :+ name).map(x => s""""$x"""").mkString(".")
-      case analysis.UnresolvedAttribute(name) => s""""$name""""
+        formatAttributeWithQualifiers(a.qualifiers, name)
+      case analysis.UnresolvedAttribute(name) =>
+        formatAttributeWithQualifiers(name.reverse.tail.reverse, name.last)
       case a: analysis.Star => "*"
 
       case x =>

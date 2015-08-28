@@ -14,87 +14,96 @@ import org.scalatest.FunSuite
 // scalastyle:off magic.number
 // scalastyle:off multiple.string.literals
 
+case class TestSqlLikeRelation(
+                                        override val nameSpace: Option[String],
+                                        override val tableName: String)
+  extends SqlLikeRelation
+
 class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
 
   override val sqlBuilder = new SqlBuilder
   import sqlBuilder._ // scalastyle:ignore
 
-  testBuildSelect[String, String]("SELECT * FROM \"table\"")("table", Nil, Nil)
-  testBuildSelect[String, String]("SELECT \"one\" FROM \"table\"")(
-    "table", Seq("one"), Nil
+  val simpleTable = TestSqlLikeRelation(None, "t")
+  val simpleTableWithNamespace = TestSqlLikeRelation(Some("ns"), "t")
+
+  testBuildSelect[String, String]("SELECT * FROM \"t\"")(simpleTable, Nil, Nil)
+  testBuildSelect[String, String]("SELECT * FROM \"ns\".\"t\"")(simpleTableWithNamespace, Nil, Nil)
+  testBuildSelect[String, String]("SELECT \"one\" FROM \"t\"")(
+    simpleTable, Seq("one"), Nil
   )
-  testBuildSelect[String, String]("SELECT \"one\", \"two\" FROM \"table\"")(
-    "table", Seq("one", "two"), Nil
+  testBuildSelect[String, String]("SELECT \"one\", \"two\" FROM \"t\"")(
+    simpleTable, Seq("one", "two"), Nil
   )
-  testBuildSelect[String, String]("SELECT \"one\", \"two\", \"three\" FROM \"table\"")(
-    "table", Seq("one", "two", "three"), Nil
+  testBuildSelect[String, String]("SELECT \"one\", \"two\", \"three\" FROM \"t\"")(
+    simpleTable, Seq("one", "two", "three"), Nil
   )
 
-  testBuildSelect[String, sources.Filter]("SELECT * FROM \"table\" WHERE \"a\" = 'b'")(
-    "table", Nil, Seq(sources.EqualTo("a", "b"))
+  testBuildSelect[String, sources.Filter]("SELECT * FROM \"t\" WHERE \"a\" = 'b'")(
+    simpleTable, Nil, Seq(sources.EqualTo("a", "b"))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"table\" WHERE \"a\" = 'b'")(
-    "table", Seq("one"), Seq(sources.EqualTo("a", "b"))
+  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" = 'b'")(
+    simpleTable, Seq("one"), Seq(sources.EqualTo("a", "b"))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"table\" WHERE \"a\" = 1")(
-    "table", Seq("one"), Seq(sources.EqualTo("a", 1))
+  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" = 1")(
+    simpleTable, Seq("one"), Seq(sources.EqualTo("a", 1))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"table\" WHERE \"a\" < 1")(
-    "table", Seq("one"), Seq(sources.LessThan("a", 1L))
+  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" < 1")(
+    simpleTable, Seq("one"), Seq(sources.LessThan("a", 1L))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"table\" WHERE \"a\" = NULL")(
-    "table", Seq("one"), Seq(sources.EqualTo("a", null))
+  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" = NULL")(
+    simpleTable, Seq("one"), Seq(sources.EqualTo("a", null))
   )
 
   testBuildSelect[String, sources.Filter](
-    "SELECT * FROM \"table\" WHERE \"a\" = 'b' AND \"b\" IS NULL")(
-        "table", Nil, Seq(sources.EqualTo("a", "b"), sources.IsNull("b"))
+    "SELECT * FROM \"t\" WHERE \"a\" = 'b' AND \"b\" IS NULL")(
+      simpleTable, Nil, Seq(sources.EqualTo("a", "b"), sources.IsNull("b"))
   )
   testBuildSelect[String, sources.Filter](
-    "SELECT * FROM \"table\" WHERE \"a\" = 'b' AND (\"b\" IS NULL OR \"c\" IS NOT NULL)")(
-        "table", Nil, Seq(sources.EqualTo("a", "b"), sources.Or(sources.IsNull("b"),
+    "SELECT * FROM \"t\" WHERE \"a\" = 'b' AND (\"b\" IS NULL OR \"c\" IS NOT NULL)")(
+       simpleTable, Nil, Seq(sources.EqualTo("a", "b"), sources.Or(sources.IsNull("b"),
           sources.IsNotNull("c")
         ))
       )
 
   testBuildSelect[String, sources.Filter](
-    "SELECT * FROM \"table\" WHERE \"a\" IN (1,2,3,4)")(
-    "table", Nil, Seq(sources.In("a", Array(1, 2, 3, 4)))
+    "SELECT * FROM \"t\" WHERE \"a\" IN (1,2,3,4)")(
+      simpleTable, Nil, Seq(sources.In("a", Array(1, 2, 3, 4)))
   )
 
   testBuildSelect[String, sources.Filter](
-    "SELECT * FROM \"table\" WHERE NOT(\"a\" IN (1,2,3,4))")(
-      "table", Nil, Seq(sources.Not(sources.In("a", Array(1, 2, 3, 4))))
+    "SELECT * FROM \"t\" WHERE NOT(\"a\" IN (1,2,3,4))")(
+      simpleTable, Nil, Seq(sources.Not(sources.In("a", Array(1, 2, 3, 4))))
     )
 
   testBuildSelect[Expression, Expression](
-    "SELECT SUBSTRING(\"a\", 0, 1) AS \"aa\", \"b\" FROM \"table\" WHERE (\"a\" = 'a')"
+    "SELECT SUBSTRING(\"a\", 0, 1) AS \"aa\", \"b\" FROM \"t\" WHERE (\"a\" = 'a')"
   )(
-      "table",
+      simpleTable,
       Seq('a.string.substring(0, 1).as("aa"), 'b.int),
       Seq('a.string === "a")
     )
 
   testBuildSelect[Expression, Expression](
     """SELECT SUBSTRING("a", 0, 1) AS "aa", "b"
-      |FROM "table"
+      |FROM "t"
       |WHERE ("c" = SUBSTRING("a", 0, 2))"""
       .stripMargin)(
-      "table",
+      simpleTable,
       Seq('a.string.substring(0, 1).as("aa"), 'b.int),
       Seq('c.string === 'a.string.substring(0, 2))
     )
 
-  testBuildSelect[Expression, Expression]("SELECT COUNT(1) AS \"PartialCount\" FROM \"table\"")(
-    "table",
+  testBuildSelect[Expression, Expression]("SELECT COUNT(1) AS \"PartialCount\" FROM \"t\"")(
+    simpleTable,
     Seq(count(1).as("PartialCount")),
     Nil
   )
 
   testBuildSelect[Expression,Expression,Expression](
-    "SELECT \"a\", COUNT(1) FROM \"table\" GROUP BY \"a\""
+    "SELECT \"a\", COUNT(1) FROM \"t\" GROUP BY \"a\""
   )(
-      "table",
+      simpleTable,
       Seq('a.string, count(1)),
       Nil,
       Seq('a.string)
@@ -109,9 +118,9 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
    * The optimizer/Parser cannot resolve the *, and creates a plan without "fields".
    */
   testBuildSelect[Expression,Expression,Expression](
-    "SELECT \"a\" FROM \"table\" GROUP BY \"a\""
+    "SELECT \"a\" FROM \"t\" GROUP BY \"a\""
   )(
-      "table",
+      simpleTable,
       Nil,
       Nil,
       Seq('a.string)
@@ -131,6 +140,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
       StructField("c2", StringType)
     ))
     override def tableName: String = "t1"
+
   })
   val t1c1 = t1.output.find(_.name == "c1").get
   val t1c2 = t1.output.find(_.name == "c2").get
@@ -141,6 +151,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
       StructField("c2", StringType)
     ))
     override def tableName: String = "t2"
+
   })
   val t2c1 = t2.output.find(_.name == "c1").get
   val t2c2 = t2.output.find(_.name == "c2").get
@@ -151,7 +162,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   testLogicalPlanInternal("""SELECT * FROM "t1"""")(t1.select())
   testLogicalPlan("""SELECT * FROM "t1" AS "__table1"""")(t1.select())
 
-  testUnsupportedLogicalPlanInternal(t1.subquery('q))
+  testLogicalPlanInternal("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q"""")(t1.subquery('q))
   testLogicalPlan("""SELECT "c1", "c2" FROM "t1"""")(t1.subquery('q))
 
   testLogicalPlanInternal("""SELECT "q"."c1", "q"."c2" FROM "t1" AS "q" LIMIT 1""")(

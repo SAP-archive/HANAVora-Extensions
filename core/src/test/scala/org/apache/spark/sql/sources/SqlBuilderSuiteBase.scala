@@ -18,7 +18,7 @@ trait SqlBuilderSuiteBase {
   }
 
   def testBuildSelect[F: ToSql,H: ToSql]
-  (sql: String)(i1: String, i2: Seq[F], i3: Seq[H]): Unit = {
+  (sql: String)(i1: SqlLikeRelation, i2: Seq[F], i3: Seq[H]): Unit = {
     val cleanSql = cleanUpSql(sql)
     test(s"buildSelect: $cleanSql | with $i1 $i2 $i3") {
       assertResult(cleanSql)(sqlBuilder.buildSelect(i1, i2, i3))
@@ -26,7 +26,7 @@ trait SqlBuilderSuiteBase {
   }
 
   def testBuildSelect[F: ToSql,H: ToSql,G: ToSql]
-  (sql: String)(i1: String, i2: Seq[F], i3: Seq[H], i4: Seq[G]): Unit = {
+  (sql: String)(i1: SqlLikeRelation, i2: Seq[F], i3: Seq[H], i4: Seq[G]): Unit = {
     val cleanSql = cleanUpSql(sql)
     test(s"buildSelect with group by: $cleanSql | with $i1 $i2 $i3") {
       assertResult(cleanSql)(sqlBuilder.buildSelect(i1, i2, i3, i4))

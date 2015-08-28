@@ -7,6 +7,7 @@ import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Exp
  */
 trait SqlLikeRelation {
 
+  def nameSpace: Option[String] = None
   def tableName: String
 
   /**
