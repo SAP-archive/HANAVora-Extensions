@@ -7,6 +7,12 @@ import org.apache.spark.sql.catalyst.expressions.Expression
  */
 trait ExpressionSupport {
 
+  /**
+   * Checks whether a expression is supported or not by the data source.
+   *
+   * @param expr Expression to be checked
+   * @return true if supported, false otherwise.
+   */
   def supports(expr: Expression): Boolean
 
 }
