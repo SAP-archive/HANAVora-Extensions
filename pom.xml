@@ -172,6 +172,10 @@
           <configuration>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
+            <!-- activating the stdout reporter such that test results are also visible in the
+                 maven or Jenkins build. See http://www.scalatest.org/user_guide/using_the_runner for
+                 explanation of the options. -->
+            <stdout>WDT</stdout>
             <filereports>WDF TestSuite.txt</filereports>
             <!-- TODO: html report generation does not work for project thriftserver, so: defined for each sub project
                  <htmlreporters>${project.build.directory}/surefire-reports</htmlreporters>
