@@ -78,9 +78,8 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   testBuildSelect[Expression, Expression](
     """SELECT SUBSTRING("a", 0, 1) AS "aa", "b"
       |FROM "table"
-      |WHERE ("c" = SUBSTRING("a", 0, 2))""".stripMargin
-        .replace("\n", " ").replaceAll("\\s+", " ")
-  )(
+      |WHERE ("c" = SUBSTRING("a", 0, 2))"""
+      .stripMargin)(
       "table",
       Seq('a.string.substring(0, 1).as("aa"), 'b.int),
       Seq('c.string === 'a.string.substring(0, 2))
@@ -169,7 +168,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
       |SELECT "q"."c1"
       |FROM (SELECT "t1"."c1" FROM "t1") AS "q"
       |GROUP BY "q"."c1"
-      |""".stripMargin.replaceAll("(\n|\\s)+", " ").trim)({
+      |""".stripMargin)({
     val c1 = 'c1.string.withQualifiers("t1" :: Nil)
     val qc1 = 'c1.string.withQualifiers("q" :: Nil)
     t1.select(c1).subquery('q).select(qc1).groupBy(qc1)(qc1)
@@ -180,7 +179,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
       |SELECT "q"."c1"
       |FROM (SELECT "t1"."c1" FROM "t1" WHERE ("t1"."c1" = 'string')) AS "q"
       |GROUP BY "q"."c1"
-      |""".stripMargin.replaceAll("(\n|\\s)+", " ").trim)({
+      |""".stripMargin)({
     val c1 = 'c1.string.withQualifiers("t1" :: Nil)
     val qc1 = 'c1.string.withQualifiers("q" :: Nil)
     t1.select(c1).where(c1 === "string").subquery('q).select(qc1).groupBy(qc1)(qc1)

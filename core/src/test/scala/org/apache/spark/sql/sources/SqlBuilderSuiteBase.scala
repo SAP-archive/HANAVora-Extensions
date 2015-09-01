@@ -10,29 +10,33 @@ trait SqlBuilderSuiteBase {
   val sqlBuilder: SqlBuilder
   import sqlBuilder._ // scalastyle:ignore
 
-  def testExpressionToSql(result: String)(expr: Expression): Unit = {
-    test(s"expressionToSql: $result | with $expr") {
-      assertResult(result)(sqlBuilder.expressionToSql(expr))
+  def testExpressionToSql(sql: String)(expr: Expression): Unit = {
+    val cleanSql = cleanUpSql(sql)
+    test(s"expressionToSql: $cleanSql | with $expr") {
+      assertResult(cleanSql)(sqlBuilder.expressionToSql(expr))
     }
   }
 
   def testBuildSelect[F: ToSql,H: ToSql]
-  (result: String)(i1: String, i2: Seq[F], i3: Seq[H]): Unit = {
-    test(s"buildSelect: $result | with $i1 $i2 $i3") {
-      assertResult(result)(sqlBuilder.buildSelect(i1, i2, i3))
+  (sql: String)(i1: String, i2: Seq[F], i3: Seq[H]): Unit = {
+    val cleanSql = cleanUpSql(sql)
+    test(s"buildSelect: $cleanSql | with $i1 $i2 $i3") {
+      assertResult(cleanSql)(sqlBuilder.buildSelect(i1, i2, i3))
     }
   }
 
   def testBuildSelect[F: ToSql,H: ToSql,G: ToSql]
-  (result: String)(i1: String, i2: Seq[F], i3: Seq[H], i4: Seq[G]): Unit = {
-    test(s"buildSelect with group by: $result | with $i1 $i2 $i3") {
-      assertResult(result)(sqlBuilder.buildSelect(i1, i2, i3, i4))
+  (sql: String)(i1: String, i2: Seq[F], i3: Seq[H], i4: Seq[G]): Unit = {
+    val cleanSql = cleanUpSql(sql)
+    test(s"buildSelect with group by: $cleanSql | with $i1 $i2 $i3") {
+      assertResult(cleanSql)(sqlBuilder.buildSelect(i1, i2, i3, i4))
     }
   }
 
-  def testLogicalPlan(result: String)(plan: LogicalPlan): Unit = {
-    test(s"logical plan: $result | with $plan") {
-      assertResult(result)(sqlBuilder.logicalPlanToSql(plan))
+  def testLogicalPlan(sql: String)(plan: LogicalPlan): Unit = {
+    val cleanSql = cleanUpSql(sql)
+    test(s"logical plan: $cleanSql | with $plan") {
+      assertResult(cleanSql)(sqlBuilder.logicalPlanToSql(plan))
     }
   }
 
@@ -43,5 +47,8 @@ trait SqlBuilderSuiteBase {
       }
     }
   }
+
+  private def cleanUpSql(q: String): String =
+    q.replaceAll("\\s+", " ").trim
 
 }
