@@ -154,7 +154,8 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
           ParquetOperations ::
           BasicOperators ::
           CartesianProduct ::
-          BroadcastNestedLoopJoin :: Nil)
+          BroadcastNestedLoopJoin ::
+          HiveTableScans :: Nil)
 
 
       override val hiveContext = self
