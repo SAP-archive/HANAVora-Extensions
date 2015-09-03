@@ -128,8 +128,8 @@ OPTIONS (
   zkurls "a1.b.c.d.com:2181,a2.b.c.d.com:2181",
   nameNodeUrl "a5.b.c.d.com:8020"
 )"""
-    ddlParser.parse(testTable, ddlExceptionOnError = true)
-    ddlParser.parse(testTable, ddlExceptionOnError = false)
+    ddlParser.parse(testTable, exceptionOnError = true)
+    ddlParser.parse(testTable, exceptionOnError = false)
   }
 
   test("test simple CREATE TEMPORARY TABLE (Bug 90774)") {
@@ -138,8 +138,8 @@ OPTIONS (
       OPTIONS (
         tableName "blaaa"
       )"""
-    ddlParser.parse(testTable, ddlExceptionOnError = true)
-    ddlParser.parse(testTable, ddlExceptionOnError = false)
+    ddlParser.parse(testTable, exceptionOnError = true)
+    ddlParser.parse(testTable, exceptionOnError = false)
   }
 
   /* Checks that the parse error position
@@ -186,7 +186,7 @@ OPTIONS (
 
     for((query, line, col) <- wrongSyntaxQueries) {
       val vpe: VelocityParserException = intercept[VelocityParserException] {
-        ddlParser.parse(query, ddlExceptionOnError = false)
+        ddlParser.parse(query, exceptionOnError = false)
       }
       val expLine = vpe.line
       val expCol = vpe.column

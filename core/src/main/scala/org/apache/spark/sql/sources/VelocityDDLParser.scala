@@ -127,12 +127,12 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
    * failed. Now chooses the error of the parser
    * that succeeded most.
    */
-  override def parse(input: String, ddlExceptionOnError: Boolean): LogicalPlan = {
+  override def parse(input: String, exceptionOnError: Boolean): LogicalPlan = {
     try {
       parse(input)
     } catch {
       case vpeDDL: VelocityParserException =>
-        if(ddlExceptionOnError) throw vpeDDL
+        if(exceptionOnError) throw vpeDDL
         // in case ddlparser failed, try sqlparser
         try {
           parseQuery(input)
@@ -159,8 +159,19 @@ class VelocityDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(par
    *
    */
   override def parse(input: String): LogicalPlan = {
-    // Initialize the Keywords.
-    initLexical
+    // CAUTION:
+    // In the overridden method of the super class they use
+    // > initLexical
+    // to initialize the parser keywords.
+    // However, this fails to execute (NoSuchMethod) or even
+    // compile with some Spark versions (probably 1.4.0, could
+    // not narrow down the issue yet).
+    // The following line circumvents the access of the lazy value
+    // in the abstract superclass and has been taken from VelocitySQLParser.
+    // It works under Spark 1.4.0 and 1.4.1.
+    // In future Spark versions probably the original
+    // initialization call can be used again.
+    lexical.reserved ++= reservedWords
     phrase(start)(new lexical.Scanner(input)) match {
       case Success(plan, _) => plan
       case failureOrError =>
