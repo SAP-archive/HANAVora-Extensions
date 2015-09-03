@@ -1,5 +1,6 @@
 package org.apache.spark.sql.hive
 
+import org.apache.spark.sql.TemporaryFlagProxyCatalog
 import org.apache.spark.sql.catalyst.analysis.OverrideCatalog
 import org.apache.spark.sql.hive.client.ClientInterface
 
@@ -10,4 +11,4 @@ import org.apache.spark.sql.hive.client.ClientInterface
  */
 private[sql] class HiveMetastoreCatalogProxy(client: ClientInterface, hive: HiveContext)
   extends HiveMetastoreCatalog(client: ClientInterface, hive: HiveContext)
-with OverrideCatalog
+with TemporaryFlagProxyCatalog

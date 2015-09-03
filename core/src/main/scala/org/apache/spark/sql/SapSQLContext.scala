@@ -3,7 +3,7 @@ package org.apache.spark.sql
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
 import org.apache.spark.sql.execution.{EnsureRequirements, SparkPlan}
-import org.apache.spark.sql.sources.{PushDownFunctionsStrategy, CatalystSourceStrategy, PushDownAggregatesStrategy}
+import org.apache.spark.sql.sources.{CreatePersistentTableStrategy, PushDownFunctionsStrategy, CatalystSourceStrategy, PushDownAggregatesStrategy}
 
 /**
  * This context provides extended [[SQLContext]] functionality such as hierarchies, enhanced data
@@ -16,6 +16,7 @@ class SapSQLContext(@transient override val sparkContext: SparkContext)
   with HierarchiesSQLContextExtension
   with CatalystSourceSQLContextExtension
   with SapCommandsSQLContextExtension
+  with NonTemporaryTableSQLContextExtension
 
 private[sql] trait CatalystSourceSQLContextExtension extends PlannerSQLContextExtension {
 
@@ -36,6 +37,11 @@ private[sql] trait PushDownFunctionsSQLContextExtension extends PlannerSQLContex
   override def strategies(planner: ExtendedPlanner): List[Strategy] =
     PushDownFunctionsStrategy :: super.strategies(planner)
 
+}
+
+private[sql] trait NonTemporaryTableSQLContextExtension extends PlannerSQLContextExtension {
+  override def strategies(planner: ExtendedPlanner): List[Strategy] =
+    CreatePersistentTableStrategy :: super.strategies(planner)
 }
 
 // class VelocitySQLContext is kept for a short time in order to avoid
