@@ -72,7 +72,7 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
   @transient
   override protected[sql] lazy val analyzer: Analyzer = {
 
-    new Analyzer(catalog, functionRegistry, conf) with VelocityCheckAnalysis {
+    new Analyzer(catalog, functionRegistry, conf) with CheckAnalysis {
       val parentRules =
         catalog.ParquetConversions ::
         catalog.CreateTables ::
