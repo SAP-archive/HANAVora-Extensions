@@ -300,7 +300,10 @@ class SqlBuilder {
       case expr.Substring(str, pos, len) =>
         s"SUBSTRING(${expressionToSql(str)}, $pos, $len)"
       case expr.Average(child) => s"AVG(${expressionToSql(child)})"
-
+      case expr.In(value, list) =>
+        s"${expressionToSql(value)} IN (${list.map(expressionToSql).mkString(", ")})"
+      case expr.InSet(value, hset) =>
+        s"${expressionToSql(value)} IN (${hset.map(literalToSql).mkString(", ")})"
       case a@expr.Alias(child, name) =>
         s"""${expressionToSql(child)} AS "$name""""
       case a@expr.AttributeReference(name, _, _, _) =>

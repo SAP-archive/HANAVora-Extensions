@@ -131,6 +131,9 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   testExpressionToSql("COUNT(1) AS \"PartialCount\"")(count(1) as "PartialCount")
   testExpressionToSql("MAX(1) AS \"PartialMax\"")(max(1) as "PartialMax")
   testExpressionToSql("MIN(1) AS \"PartialMin\"")(min(1) as "PartialMin")
+  testExpressionToSql("1 IN ()")(Literal(1).in()) /* XXX: Should we allow this case */
+  testExpressionToSql("1 IN (\"a\", \"b\", 2, MAX(1))")(Literal(1).in('a, 'b, 2, max(1)))
+  testExpressionToSql("1 IN (1, 2, 3)")(InSet(1, Set[Any](1, 2, 3)))
 
   val _sqlContext = Mockito.mock(classOf[SQLContext])
   val t1 = CreateLogicalRelation(new BaseRelation with SqlLikeRelation {
