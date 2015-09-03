@@ -284,11 +284,13 @@ class SqlBuilder {
     case other => other.toString
   }
 
+  // scalastyle:off cyclomatic.complexity
   def typeToSql(sparkType: DataType): String =
     sparkType match {
       case `StringType` => "VARCHAR(*)"
       case `IntegerType` => "INTEGER"
       case `LongType` => "BIGINT"
+      case `FloatType` => "FLOAT"
       case `DoubleType` => "DOUBLE"
       case DecimalType.Fixed(precision, scale) => s"DECIMAL($precision,$scale)"
       case `DateType` => "DATE"
@@ -297,7 +299,7 @@ class SqlBuilder {
       case _ =>
         throw new IllegalArgumentException(s"Type $sparkType cannot be converted to SQL type")
     }
-
+  // scalastyle:on cyclomatic.complexity
 
   protected def flagToSql(flag: expr.Expression): String = {
     flag.toString
