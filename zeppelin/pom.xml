@@ -23,13 +23,13 @@
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-interpreter</artifactId>
-      <version>0.5.1-incubating-SNAPSHOT</version>
+      <version>0.5.0-incubating</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-spark</artifactId>
-      <version>0.5.1-incubating-SNAPSHOT</version>
+      <version>0.5.0-incubating-sap-01</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -149,17 +149,19 @@
       <version>1.10.19</version>
       <scope>test</scope>
     </dependency>
-
+<!--
+    TODO: we commented this out because of some incompatibility between asm versions
     <dependency>
-      <groupId>org.pegdown</groupId>  <!-- required to create hmtl test results output -->
+      <groupId>org.pegdown</groupId>  &lt;!&ndash; required to create hmtl test results output &ndash;&gt;
       <artifactId>pegdown</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>asm</groupId>          <!-- required by pegdown -->
+      <groupId>asm</groupId>          &lt;!&ndash; required by pegdown &ndash;&gt;
       <artifactId>asm</artifactId>
       <scope>test</scope>
     </dependency>
+-->
 
   </dependencies>
   <build>
@@ -167,9 +169,11 @@
       <plugin>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest-maven-plugin</artifactId>
+        <!-- TODO: we commented this out because of some incompatibility between asm versions
         <configuration>
           <htmlreporters>${project.build.directory}/surefire-reports</htmlreporters>
         </configuration>
+        -->
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
