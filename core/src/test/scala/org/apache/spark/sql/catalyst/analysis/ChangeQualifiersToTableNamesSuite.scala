@@ -107,6 +107,24 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     }
   }
 
+  test("Hierarchy aliases handling") {
+    val result =  ChangeQualifiersToTableNames(
+      Hierarchy(
+        relation = lr1.subquery('u),
+        childAlias = "v",
+        parenthoodExpression = nameAtt === AttributeReference("pred", StringType)(),
+        searchBy = Nil,
+        startWhere = nameAtt.isNull,
+        nodeAttribute = 'node
+      )).asInstanceOf[Hierarchy]
+    assertResult("u" :: Nil)(
+      result.parenthoodExpression
+      .children.head.asInstanceOf[AttributeReference].qualifiers)
+    assertResult("v" :: Nil)(
+      result.parenthoodExpression
+        .children(1).asInstanceOf[AttributeReference].qualifiers)
+  }
+
   test("Regression test: Bug 90478") {
     val input = lr1.where(nameAtt === "STRING").select(nameAtt).join(lr2)
     ChangeQualifiersToTableNames(input)

@@ -54,6 +54,13 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
             subquery.output.map({ attr => (attr.exprId, alias) })
           case lr@LogicalRelation(r: SqlLikeRelation) =>
             lr.output.map({ attr => (attr.exprId, r.tableName) })
+          case h: Hierarchy =>
+            h.parenthoodExpression.references flatMap {
+              case a: Attribute if h.child.output.exists(_.exprId == a.exprId) =>
+                None
+              case a =>
+                Some(a.exprId -> h.childAlias)
+            }
         }.reverse.flatten.toMap
 
         val prefixedAttributeReferencesPlan = lp transformExpressionsDown {

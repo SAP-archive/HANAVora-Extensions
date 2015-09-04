@@ -64,6 +64,11 @@ object AddSubqueries extends Rule[LogicalPlan] {
       case distinct@Distinct(_: Union) =>
         distinct
 
+      case hierarchy: Hierarchy =>
+        val alias = newQueryName
+        logTrace(s"Added subquery $alias to $hierarchy")
+        hierarchy.withNewChildren(Subquery(alias, hierarchy.child) :: Nil)
+
       case other if other.children.exists(isSetOperation) =>
         val newChildren = other.children map { child =>
           val alias = newQueryName
