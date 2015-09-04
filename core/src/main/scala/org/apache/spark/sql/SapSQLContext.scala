@@ -18,6 +18,10 @@ class SapSQLContext(@transient override val sparkContext: SparkContext)
   with SapCommandsSQLContextExtension
   with NonTemporaryTableSQLContextExtension
 
+object SapSQLContext {
+  val PROPERTY_IGNORE_USE_STATEMENTS = "spark.sql.ignore_use_statements"
+}
+
 private[sql] trait CatalystSourceSQLContextExtension extends PlannerSQLContextExtension {
 
   override def strategies(planner: ExtendedPlanner): List[Strategy] =

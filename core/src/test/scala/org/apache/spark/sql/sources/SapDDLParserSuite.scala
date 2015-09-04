@@ -194,5 +194,25 @@ OPTIONS (
       assert(expCol == col)
     }
   }
+
+  test("Parse any USE xyz statements") {
+    // Every valid "USE xyz" statement should produce a
+    // UseStatementCommand.
+    assert(ddlParser.parse("USE abc").isInstanceOf[UseStatementCommand])
+    assert(ddlParser.parse("USE abc abc").isInstanceOf[UseStatementCommand])
+    assert(ddlParser.parse("use abc abc").isInstanceOf[UseStatementCommand])
+    assert(ddlParser.parse("USE ..... ...").isInstanceOf[UseStatementCommand])
+    assert(ddlParser.parse("USE abc").isInstanceOf[UseStatementCommand])
+    assert(ddlParser.parse("USE").isInstanceOf[UseStatementCommand])
+    intercept[SapParserException] {
+      ddlParser.parse("CREATE TABLE use (a int) using x.y.z")
+    }
+    intercept[SapParserException] {
+      ddlParser.parse("USER")
+    }
+    intercept[SapParserException] {
+      ddlParser.parse("USING")
+    }
+  }
 }
 

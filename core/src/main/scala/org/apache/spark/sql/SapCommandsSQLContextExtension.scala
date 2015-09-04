@@ -35,6 +35,8 @@ private[sql] trait SapCommandsSQLContextExtension
         ExecutedCommand(RegisterTableCommand(tableName, provider, options, ignoreConflicts)) :: Nil
       case cv@CreateViewCommand(name, query) =>
         ExecutedCommand(cv) :: Nil
+      case cmd@UseStatementCommand(input) =>
+        ExecutedCommand(cmd) :: Nil
       case _ => Nil
     }).headOption.toSeq
   }

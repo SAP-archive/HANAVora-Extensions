@@ -1,9 +1,10 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.SapParserException
+import org.apache.spark.sql.{SapSQLContext, SQLContext, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
+import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.types.{MetadataBuilder, StringType}
 import scala.util.parsing.input.Position
 
@@ -18,7 +19,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
       refreshTable |
       showTables |
       registerAllTables |
-      registerTable
+      registerTable |
+      useStatement
 
   protected val APPEND = Keyword("APPEND")
   protected val DROP = Keyword("DROP")
@@ -31,6 +33,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
   protected val TABLES = Keyword("TABLES")
   protected val IGNORING = Keyword("IGNORING")
   protected val CONFLICTS = Keyword("CONFLICTS")
+  protected val USE = Keyword("USE")
 
   /**
    * Resolves the REGISTER ALL TABLES statements:
@@ -119,6 +122,17 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
       case classId ~ opts =>
         val options = opts.getOrElse(Map.empty[String, String])
         ShowDatasourceTablesCommand(classId, options)
+    }
+
+  /**
+   * Resolves the USE [XYZ ...] statements.
+   *
+   * A RunnableCommand logging "Statement ignored"
+   * is created for each of such statements.
+   */
+  protected lazy val useStatement: Parser[LogicalPlan] =
+    USE ~ rep(".*".r) ^^ {
+      case l ~ r => UseStatementCommand(l + " " + r.mkString(" "))
     }
 
   /*
@@ -240,3 +254,26 @@ private[sql] case class ShowDatasourceTablesCommand(classIdentifier: String,
 
   override def children: Seq[LogicalPlan] = Seq.empty
 }
+
+
+/**
+ * Returned for "USE xyz" statements.
+ *
+ * Currently used to ignore any such statements
+ * if "sql.ignore_use_statments=true",
+ * else, an exception is thrown.
+ *
+ * @param input The "USE xyz" input statement
+ */
+private[sql] case class UseStatementCommand(input: String)
+  extends RunnableCommand {
+
+  override def run(sqlContext: SQLContext): Seq[Row] = {
+    sqlContext.getConf(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "false") match {
+      case "true" => log.info(s"Ignoring statement:\n$input")
+      case _ => throw new SapParserException(input, 1, 1, "USE statement is not supported")
+    }
+    Nil
+  }
+}
+
