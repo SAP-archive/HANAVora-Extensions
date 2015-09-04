@@ -10,7 +10,7 @@ function usage {
   pattern+="\|Script includes all the libraries in the lib folder and starts a spark shell\n"
   pattern+="\|The SPARK_HOME environment variable has to be set!\n"
   pattern+="\|NOTE: you can add additional parameters for spark as well\n"
-  partern+="\|Parameters for this script\n"
+  pattern+="\|Parameters for this script\n"
   pattern+="\|=======\n"
   pattern+="\|--help : Prints out this text\n"
   echo -e $pattern
