@@ -93,26 +93,45 @@
       <plugin>
         <!-- this creates your *.tar.gz -->
         <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-assembly-plugin</artifactId>
+        <artifactId>maven-assembly-plugin</artifactId>
         <version>2.5.5</version>
-          <executions>
-            <execution>
-              <id>Create final ZIP package</id>
-              <phase>package</phase>
-              <goals>
-                <goal>single</goal>
-              </goals>
-              <configuration>
-                <appendAssemblyId>false</appendAssemblyId>
-                <tarLongFileMode>posix</tarLongFileMode>
-                <descriptors>
-                  <descriptor>platform-assembly.xml</descriptor>
-                </descriptors>
-                <finalName>spark-sap-extensions-${project.version}-dist</finalName>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
+        <executions>
+          <execution>
+            <id>Create final ZIP package</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <appendAssemblyId>false</appendAssemblyId>
+              <descriptors>
+                <descriptor>platform-assembly.xml</descriptor>
+              </descriptors>
+              <finalName>spark-sap-extensions-${project.version}-dist</finalName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <configuration>
+              <executable>./run-tests</executable>
+              <workingDirectory>src/main/resources/python</workingDirectory>
+              <environmentVariables>
+                <PYTHONPATH>../../main/python:$PYTHONPATH</PYTHONPATH>
+              </environmentVariables>
+            </configuration>
+            <id>python-test</id>
+            <phase>test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
         </plugins>
       </build>
 </project>

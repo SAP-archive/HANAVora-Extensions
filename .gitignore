@@ -9,3 +9,4 @@ scalastyle-output.xml
 .settings
 .cache
 metastore_db
+*.pyc

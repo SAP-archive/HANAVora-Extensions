@@ -21,5 +21,13 @@
                 <include>*.sh</include>
             </includes>
         </fileSet>
+        <!-- python bindings -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/resources/python</directory>
+            <outputDirectory>/python</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
     </fileSets>
 </assembly>
