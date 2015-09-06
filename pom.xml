@@ -20,19 +20,19 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.sap.spark.velocity</groupId>
-  <artifactId>spark-velocity-parent</artifactId>
-  <version>0.0.7-SNAPSHOT</version>
+  <groupId>com.sap.spark</groupId>
+  <artifactId>spark-sap-parent</artifactId>
+  <version>0.0.8-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>Spark Velocity Extensions Project</name>
+  <name>Spark SAP Extensions Project</name>
   <modules>
     <module>core</module>
     <module>zeppelin</module>
-    <module>sparkvelocity-thriftserver</module>
+    <module>sap-thriftserver</module>
     <module>dist</module>
   </modules>
   <properties>
-    <velocity.core.version>0.0.7-SNAPSHOT</velocity.core.version>
+    <sapextension.core.version>0.0.8-SNAPSHOT</sapextension.core.version>
     <mockito.version>1.10.19</mockito.version>
     <scala.version>2.10.4</scala.version>
     <scala.binary.version>2.10</scala.binary.version>
@@ -112,14 +112,14 @@
         <version>${scalaz.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.sap.spark.velocity</groupId>
+        <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>${velocity.core.version}</version>
+        <version>${sapextension.core.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.sap.spark.velocity</groupId>
+        <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>${velocity.core.version}</version>
+        <version>${sapextension.core.version}</version>
         <type>test-jar</type>
       </dependency>
       <dependency>

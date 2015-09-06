@@ -10,7 +10,7 @@ import org.apache.spark.sql.sources.{LogicalRelation, SqlLikeRelation}
  * subqueries in the plan. See [[AddSubqueries]].
  *
  * Original query: SELECT name FROM table1 as t1
- * Velocity generated query: SELECT "t1"."name" FROM "table1"
+ * Vora generated query: SELECT "t1"."name" FROM "table1"
  *
  */
 object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {

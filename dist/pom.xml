@@ -3,9 +3,9 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
-    <artifactId>spark-velocity-parent</artifactId>
-    <groupId>com.sap.spark.velocity</groupId>
-    <version>0.0.7-SNAPSHOT</version>
+    <artifactId>spark-sap-parent</artifactId>
+    <groupId>com.sap.spark</groupId>
+    <version>0.0.8-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -16,17 +16,17 @@
   </properties>
   <dependencies>
     <dependency>
-      <groupId>com.sap.spark.velocity</groupId>
+      <groupId>com.sap.spark</groupId>
       <artifactId>core</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.sap.spark.velocity</groupId>
-      <artifactId>sparkvelocity-thriftserver</artifactId>
+      <groupId>com.sap.spark</groupId>
+      <artifactId>sap-thriftserver</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.sap.spark.velocity</groupId>
+      <groupId>com.sap.spark</groupId>
       <artifactId>zeppelin</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -108,7 +108,7 @@
                 <descriptors>
                   <descriptor>platform-assembly.xml</descriptor>
                 </descriptors>
-                <finalName>spark-velocity-extensions-${project.version}-dist</finalName>
+                <finalName>spark-sap-extensions-${project.version}-dist</finalName>
               </configuration>
             </execution>
           </executions>

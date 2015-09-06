@@ -13,7 +13,7 @@ class ExtractSQLParserSuite extends FunSuite with PlanTest with Logging {
   // scalastyle:off magic.number
 
   val t1 = UnresolvedRelation("T1" :: Nil)
-  val parser = new VelocitySqlParser
+  val parser = new SapSqlParser
 
   test("Parse EXTRACT in SELECT") {
     val result = parser.parse("SELECT a, EXTRACT(YEAR FROM a) FROM T1")

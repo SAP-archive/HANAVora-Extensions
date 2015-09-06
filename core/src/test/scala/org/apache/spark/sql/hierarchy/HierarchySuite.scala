@@ -15,7 +15,7 @@ case class ComponentRow(extraField: String, name : String, pred: Long, succ : Lo
 // scalastyle:off file.size.limit
 class HierarchySuite extends FunSuite
   with HierarchyTestUtils
-  with GlobalVelocitySQLContext
+  with GlobalSapSQLContext
   with Logging {
 
   implicit class Crossable[X](xs: Traversable[X]) {

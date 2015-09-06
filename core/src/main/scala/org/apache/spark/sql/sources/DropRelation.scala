@@ -6,7 +6,7 @@ package org.apache.spark.sql.sources
 trait DropRelation {
 
   /**
-   * Drop the table from the catalog and Velocity.
+   * Drop the table from the catalog and HANA Vora
    */
   def dropTable(): Unit
 }

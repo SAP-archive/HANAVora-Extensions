@@ -9,7 +9,7 @@ import scala.util.Random
 // scalastyle:off file.size.limit
 class HierarchyUDFsSuite
   extends FunSuite
-  with GlobalVelocitySQLContext
+  with GlobalSapSQLContext
   with HierarchyTestUtils
   with Logging {
 

@@ -2,12 +2,12 @@ package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.commons.math3.util.FastMath
 import org.apache.spark.Logging
-import org.apache.spark.sql.GlobalVelocitySQLContext
+import org.apache.spark.sql.{GlobalSapSQLContext, GlobalSapSQLContext$}
 import org.scalatest.FunSuite
 
 class MathsSuite
   extends FunSuite
-  with GlobalVelocitySQLContext
+  with GlobalSapSQLContext
   with Logging {
 
   // scalastyle:off magic.number

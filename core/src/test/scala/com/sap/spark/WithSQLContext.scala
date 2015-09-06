@@ -38,3 +38,5 @@ trait WithSQLContext extends BeforeAndAfterEach {
     _sqlContext = null
 
 }
+
+
