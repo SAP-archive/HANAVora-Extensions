@@ -14,20 +14,20 @@ object NodeType extends UserDefinedType[Node] {
   ))
 
   override def serialize(obj: Any): Any = obj match {
-    case node : Node => Row(node.path, node.preRank, node.postRank, node.isLeaf)
+    case node: Node => Row(node.path, node.preRank, node.postRank, node.isLeaf)
     case _ => throw new UnsupportedOperationException(s"Cannot serialize ${obj.getClass}")
   }
 
   override def deserialize(datum: Any): Node = datum match {
-    case row : Row =>
+    case row: Row =>
       Node(
         row.getList[Any](0).toSeq,
         if (row.isNullAt(1)) null else row.getInt(1),
         if (row.isNullAt(2)) null else row.getInt(2),
         if (row.isNullAt(3)) null else row.getBoolean(3)
       )
-    case seq : Seq[Any] => Node(seq)
-    case node : Node => node
+    case seq: Seq[Any] => Node(seq)
+    case node: Node => node
     case _ => throw new UnsupportedOperationException(s"Cannot deserialize ${datum.getClass}")
   }
 
@@ -36,10 +36,10 @@ object NodeType extends UserDefinedType[Node] {
 
 case class Node(
 
-                 path : Seq[Any],
-                 preRank : java.lang.Integer = null,
-                 postRank : java.lang.Integer = null,
-                 isLeaf : java.lang.Boolean = null
+                 path: Seq[Any],
+                 preRank: java.lang.Integer = null,
+                 postRank: java.lang.Integer = null,
+                 isLeaf: java.lang.Boolean = null
                  ) {
 
   /* XXX: No-arg constructor is provided to allow Kryo serialization */

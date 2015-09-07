@@ -37,20 +37,20 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
     ))
   }
 
-  def t1 : LogicalPlan = new LocalRelation(output = Seq(
+  def t1: LogicalPlan = new LocalRelation(output = Seq(
     new AttributeReference("pred", StringType, nullable = true, metadata = Metadata.empty)(),
     new AttributeReference("succ", StringType, nullable = false, metadata = Metadata.empty)(),
     new AttributeReference("ord", StringType, nullable = false, metadata = Metadata.empty)()
   ).map(_.toAttribute)
   )
 
-  def catalog : Catalog = {
+  def catalog: Catalog = {
     val catalog = new SimpleCatalog(SimpleCatalystConf(true))
     catalog.registerTable(Seq("T1"), t1)
     catalog
   }
 
-  def analyzer : Analyzer = new Analyzer(catalog, EmptyFunctionRegistry, SimpleCatalystConf(true))
+  def analyzer: Analyzer = new Analyzer(catalog, EmptyFunctionRegistry, SimpleCatalystConf(true))
 
   val lr1 = LogicalRelation(br1)
   val lr2 = LogicalRelation(br2)

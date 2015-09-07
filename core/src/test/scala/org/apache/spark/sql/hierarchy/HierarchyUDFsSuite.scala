@@ -14,11 +14,11 @@ class HierarchyUDFsSuite
   with Logging {
 
   implicit class Crossable[X](xs: Traversable[X]) {
-    def cross[Y](ys: Traversable[Y]) : Traversable[(X,Y)] =
+    def cross[Y](ys: Traversable[Y]): Traversable[(X,Y)] =
       for { x <- xs; y <- ys } yield (x, y)
   }
 
-  def testBinaryUdf(udf: String, expected: Set[Row], buildStrategy : String): Unit = {
+  def testBinaryUdf(udf: String, expected: Set[Row], buildStrategy: String): Unit = {
     val rdd = sc.parallelize(animalsHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     sc.conf.set("hierarchy.always", buildStrategy)
@@ -48,7 +48,7 @@ class HierarchyUDFsSuite
     }
   }
 
-  def testUnaryUdf(udf: String, expected: Set[Row], buildStrategy : String): Unit = {
+  def testUnaryUdf(udf: String, expected: Set[Row], buildStrategy: String): Unit = {
     val rdd = sc.parallelize(animalsHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     sc.conf.set("hierarchy.always", buildStrategy)

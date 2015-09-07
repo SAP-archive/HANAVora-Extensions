@@ -77,7 +77,7 @@ public class SapSqlInterpreter extends Interpreter {
     }
 
     private SparkInterpreter getSparkInterpreter() {
-        for (Interpreter intp : getInterpreterGroup()) {
+        for (Interpreter intp: getInterpreterGroup()) {
             if (intp.getClassName().equals(SparkInterpreter.class.getName())) {
                 Interpreter p = intp;
                 while (p instanceof WrappedInterpreter) {
@@ -176,7 +176,7 @@ public class SapSqlInterpreter extends Interpreter {
                 // NullType, NumericType, ShortType, StringType, StructType
 
                 if (viewType == 0) {
-                    for (Attribute col : columns) {
+                    for (Attribute col: columns) {
                         if (msg == null) {
                             msg = col.name();
                         } else {
@@ -204,7 +204,7 @@ public class SapSqlInterpreter extends Interpreter {
                     }
                 } else {
                     msg = convertDataToTree(rows, columns, idColumn, predColumn, nameColumn);
-                    logger.info("msg length: {}", (msg != null ? msg.length() : null));
+                    logger.info("msg length: {}", (msg != null ? msg.length(): null));
                     msg = fillTreeviewScriptWithData(msg);
                 }
             } catch (NoSuchMethodException | SecurityException | IllegalAccessException
@@ -281,7 +281,7 @@ public class SapSqlInterpreter extends Interpreter {
 
             Set<Tuple2<Object, Object>> keys =
                     JavaConverters.asJavaSetConverter(stageIdData.keySet()).asJava();
-            for (Tuple2<Object, Object> k : keys) {
+            for (Tuple2<Object, Object> k: keys) {
                 if (stage.id() == (int) k._1()) {
                     Object uiData = stageIdData.get(k).get();
                     completedTasks += (int) numCompletedTasks.invoke(uiData);
@@ -293,7 +293,7 @@ public class SapSqlInterpreter extends Interpreter {
 
         List<Stage> parents = JavaConversions.asJavaList(stage.parents());
         if (parents != null) {
-            for (Stage s : parents) {
+            for (Stage s: parents) {
                 int[] p = getProgressFromStage_1_1x(sparkListener, s);
                 numTasks += p[0];
                 completedTasks += p[1];
@@ -315,7 +315,7 @@ public class SapSqlInterpreter extends Interpreter {
             // It's because of scheduler is not created yet, and scheduler is created by this function.
             // Therefore, we can still use getSparkInterpreter() here, but it's better and safe
             // to getSparkInterpreter without opening it.
-            for (Interpreter intp : getInterpreterGroup()) {
+            for (Interpreter intp: getInterpreterGroup()) {
                 if (intp.getClassName().equals(SparkInterpreter.class.getName())) {
                     Interpreter p = intp;
                     return p.getScheduler();
@@ -399,7 +399,7 @@ public class SapSqlInterpreter extends Interpreter {
         try {
             IOUtils.copy(in, out);
             script = new String(out.toByteArray());
-            logger.info("script length: "+(script!=null? script.length() : null) );
+            logger.info("script length: "+(script!=null? script.length(): null) );
             script = script.replaceAll("TREEID", UUID.randomUUID().toString());
             script = script.replaceFirst("TREEDATA", data);
         } catch (IOException e) {

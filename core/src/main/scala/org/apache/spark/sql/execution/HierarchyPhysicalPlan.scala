@@ -9,7 +9,7 @@ case class HierarchyPhysicalPlan(childAlias: String,
                                  parenthoodExpression: Expression,
                                  searchBy: Seq[SortOrder],
                                  startWhere: Expression,
-                                 nodeAttribute : Attribute,
+                                 nodeAttribute: Attribute,
                                  child: SparkPlan) extends UnaryNode {
 
   override def doExecute(): RDD[Row] = HierarchyStrategy(

@@ -22,13 +22,13 @@ private[hierarchy] class Tree[T](
 }
 
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
-(pred : I => C,
- succ : I => C,
+(pred: I => C,
+ succ: I => C,
  startWhere: I => Boolean,
  ord: I => C,
- transformRowFunction : (I, Node) => O) extends HierarchyBuilder[I, O] {
+ transformRowFunction: (I, Node) => O) extends HierarchyBuilder[I, O] {
 
-  def buildTree(t : Tree[C], list : Array[((C, C), (C,C))]) : Unit = {
+  def buildTree(t: Tree[C], list: Array[((C, C), (C,C))]): Unit = {
     if (t.children.isEmpty) {
       t.children = Some(
         list
@@ -47,7 +47,7 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     }
   }
 
-  def getTreePrefix(tree: Tree[C], id : C) : Seq[C] =
+  def getTreePrefix(tree: Tree[C], id: C): Seq[C] =
   /* TODO (YH), enhance by having a hashtable of references and creating references to parents. */
     tree match {
       case t if t.root == id => Seq(t.root)
@@ -61,7 +61,7 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
         }
     }
 
-  def getPrefix(f: Seq[Tree[C]], id : C) : Seq[C] =
+  def getPrefix(f: Seq[Tree[C]], id: C): Seq[C] =
     f.map(getTreePrefix(_, id)).find(_.nonEmpty) match {
       case None =>
         throw new IllegalStateException("Unexpected, was not able to find prefix!")
@@ -91,12 +91,12 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
 }
 
 object HierarchyRowBroadcastBuilder {
-  def apply(attributes : Seq[Attribute],
-            parenthoodExpression : Expression,
-            startWhere : Expression,
-            searchBy : Seq[SortOrder]) : HierarchyBuilder[Row,Row] = {
+  def apply(attributes: Seq[Attribute],
+            parenthoodExpression: Expression,
+            startWhere: Expression,
+            searchBy: Seq[SortOrder]): HierarchyBuilder[Row,Row] = {
 
-    val predSuccIndexes : (Int, Int) = parenthoodExpression match {
+    val predSuccIndexes: (Int, Int) = parenthoodExpression match {
       case EqualTo(
       left @ AttributeReference(ln, ldt, _, _),
       right @ AttributeReference(rn, rdt, _, _)) if ldt == rdt =>
@@ -129,9 +129,9 @@ object HierarchyRowBroadcastBuilder {
     new HierarchyBroadcastBuilder[Row,Row,Any, Node](
       pred, succ, startsWhere, ord, HierarchyRowFunctions.rowAppend
     ) {
-      override def buildFromAdjacencyList(rdd : RDD[Row]) : RDD[Row] = {
+      override def buildFromAdjacencyList(rdd: RDD[Row]): RDD[Row] = {
         /* FIXME: Hack to prevent wrong join results between Long and MutableLong? */
-        val cleanRdd = rdd.map(row => Row(row.toSeq : _*))
+        val cleanRdd = rdd.map(row => Row(row.toSeq: _*))
         super.buildFromAdjacencyList(cleanRdd)
       }
     }

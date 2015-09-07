@@ -9,7 +9,7 @@ import org.scalatest.FunSuite
 
 class NodeSuite extends FunSuite {
 
-  def isSerializable(input: Any) : Boolean = {
+  def isSerializable(input: Any): Boolean = {
     val byteArray = new ByteArrayOutputStream()
     val oos = new ObjectOutputStream(byteArray)
     oos.writeObject(input)

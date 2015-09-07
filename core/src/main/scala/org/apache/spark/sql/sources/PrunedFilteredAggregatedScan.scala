@@ -13,6 +13,6 @@ trait PrunedFilteredAggregatedScan
   def buildScanAggregate(
                           requiredColumns: Array[String],
                           filters: Array[Filter],
-                          ge : Seq[Expression],
-                          pc : Seq[NamedExpression]): RDD[Row]
+                          ge: Seq[Expression],
+                          pc: Seq[NamedExpression]): RDD[Row]
 }
