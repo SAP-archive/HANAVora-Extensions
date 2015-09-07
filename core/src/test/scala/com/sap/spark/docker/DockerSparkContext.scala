@@ -61,7 +61,7 @@ private[spark] trait DockerSparkContext
 
   val userHome = System.getProperty("user.home")
 
-  @transient private var timingResults: Seq[String] = Seq()
+  protected var timingResults: Seq[String] = Seq()
 
   override def sparkConf: SparkConf = {
     super.sparkConf
