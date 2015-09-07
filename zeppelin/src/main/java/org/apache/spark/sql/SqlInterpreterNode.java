@@ -4,7 +4,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * This class is used by Velocity sql interpreter
+ * This class is used by SAP sql interpreter
  * to build a tree
  */
 public class SqlInterpreterNode {

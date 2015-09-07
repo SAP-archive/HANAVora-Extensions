@@ -22,7 +22,7 @@ trait SqlLikeRelation {
   (Seq[NamedExpression], Seq[Expression]) = {
     /*
      * For references to attributes we have to omit the expression id to reference the correct
-     * column in velocity, thus we remove it here (set it to null
+     * column in HANA Vora, thus we remove it here (set it to null
      */
     (
       aggregationExpressions.map({
@@ -51,7 +51,7 @@ trait SqlLikeRelation {
           val alias = aggregationExpressions.find(ne => ne.isInstanceOf[Alias] &&
             ne.asInstanceOf[Alias].child.equals(e)).getOrElse(
               throw new RuntimeException("Cannot resolve Alias for " + e + "! UDFs in " +
-                "GROUP BY clauses are not supported by Velocity")).asInstanceOf[Alias]
+                "GROUP BY clauses are not supported by HANA Vora")).asInstanceOf[Alias]
           AttributeReference(alias.name + "EID" + alias.exprId.id, e.dataType)(exprId =
             alias.exprId)
       })

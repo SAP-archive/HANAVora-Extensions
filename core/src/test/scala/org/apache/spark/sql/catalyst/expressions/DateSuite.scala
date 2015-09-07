@@ -4,12 +4,12 @@ import java.sql
 import java.util.{Calendar, Locale, TimeZone}
 import com.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
-import org.apache.spark.sql.{GlobalVelocitySQLContext, VelocitySQLContext}
+import org.apache.spark.sql.{GlobalSapSQLContext, GlobalSapSQLContext$, SapSQLContext}
 import org.scalatest.FunSuite
 
 class DateSuite
   extends FunSuite
-  with GlobalVelocitySQLContext
+  with GlobalSapSQLContext
   with Logging {
 
   // scalastyle:off magic.number

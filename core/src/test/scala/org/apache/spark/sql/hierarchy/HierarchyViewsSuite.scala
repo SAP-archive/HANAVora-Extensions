@@ -1,7 +1,7 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.{Row, GlobalVelocitySQLContext}
+import org.apache.spark.sql.{GlobalSapSQLContext, Row, GlobalSapSQLContext$}
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import scala.util.Random
@@ -14,7 +14,7 @@ import scala.util.Random
 class HierarchyViewsSuite
   extends FunSuite
   with BeforeAndAfter
-  with GlobalVelocitySQLContext
+  with GlobalSapSQLContext
   with HierarchyTestUtils
   with Logging {
 
