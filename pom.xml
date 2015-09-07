@@ -333,6 +333,17 @@
 
   <profiles>
     <profile>
+      <id>release.build</id>
+      <activation>
+        <property>
+          <name>ldi.releaseBuild</name>
+        </property>
+      </activation>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+    </profile>
+    <profile>
       <id>integration-test</id>
       <build>
         <pluginManagement>
