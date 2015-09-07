@@ -1,15 +1,16 @@
 package org.apache.spark.sql
 
+import com.sap.spark.PlanTest
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.CreateViewCommand
 import org.apache.spark.sql.types.{Metadata, StringType}
 import org.scalatest.FunSuite
 
-class SapSqlParserSuite extends FunSuite with Logging {
+class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
 
   def t1: LogicalPlan = new LocalRelation(output = Seq(
     new AttributeReference("pred", StringType, nullable = true, metadata = Metadata.empty)(),
@@ -136,5 +137,28 @@ class SapSqlParserSuite extends FunSuite with Logging {
         nodeAttribute = UnresolvedAttribute("Node")
       ))))
     assertResult(expected)(result)
+  }
+
+  test("parse IF statement") {
+    val sapParser = new SapSqlParser
+
+    val sql = "SELECT IF(column > 1, 1, NULL) FROM T1"
+
+    val result = sapParser.parse(sql)
+    val expected = Project(
+      Alias(
+        FixedIf(
+          GreaterThan(
+            UnresolvedAttribute("column"),
+            Literal(1)
+          ),
+          Literal(1),
+          Literal(null)
+        ), "c0"
+      )() :: Nil,
+      UnresolvedRelation("T1" :: Nil, None)
+    )
+
+    comparePlans(expected, result)
   }
 }

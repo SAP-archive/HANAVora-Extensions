@@ -102,15 +102,15 @@ class SapSqlParser extends SqlParser {
       | UPPER ~ "(" ~> expression <~ ")" ^^ { case exp => Upper(exp) }
       | LOWER ~ "(" ~> expression <~ ")" ^^ { case exp => Lower(exp) }
       | IF ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
-      { case c ~ t ~ f => If(c, t, f) }
-      | CASE ~> expression.? ~ (WHEN ~> expression ~ (THEN ~> expression)).* ~
+      { case c ~ t ~ f => FixedIf(c, t, f) }
+      | CASE ~> expression.? ~ rep1(WHEN ~> expression ~ (THEN ~> expression)) ~
       (ELSE ~> expression).? <~ END ^^ {
-        case casePart ~ altPart ~ elsePart =>
-          val altExprs = altPart.flatMap { case whenExpr ~ thenExpr =>
-            Seq(casePart.fold(whenExpr)(EqualTo(_, whenExpr)), thenExpr)
-          }
-          CaseWhen(altExprs ++ elsePart.toList)
-      }
+      case casePart ~ altPart ~ elsePart =>
+        val branches = altPart.flatMap { case whenExpr ~ thenExpr =>
+          Seq(whenExpr, thenExpr)
+        } ++ elsePart
+        casePart.map(CaseKeyWhen(_, branches)).getOrElse(CaseWhen(branches))
+    }
       | (SUBSTR | SUBSTRING) ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
       { case s ~ p => Substring(s, p, Literal(Integer.MAX_VALUE)) }
       | (SUBSTR | SUBSTRING) ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
@@ -118,7 +118,6 @@ class SapSqlParser extends SqlParser {
       | COALESCE ~ "(" ~> repsep(expression, ",") <~ ")" ^^ { case exprs => Coalesce(exprs) }
       | SQRT  ~ "(" ~> expression <~ ")" ^^ { case exp => Sqrt(exp) }
       | ABS   ~ "(" ~> expression <~ ")" ^^ { case exp => Abs(exp) }
-
       | ident ~ ("(" ~> repsep(expression, ",")) <~ ")" ^^
       { case udfName ~ exprs => UnresolvedFunction(udfName, exprs) }
       )
