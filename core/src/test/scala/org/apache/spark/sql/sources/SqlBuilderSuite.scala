@@ -239,7 +239,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
 
   testLogicalPlan(
     s"""SELECT "__table1"."c1", "__table2"."c2" FROM "t1" AS "__table1" """ +
-      """INNER JOIN "t2" AS "__table2""""
+      """CROSS JOIN "t2" AS "__table2""""
   )(
       t1.join(t2, Inner).select(t1.output.find(_.name == "c1").get.withQualifiers("t1" :: Nil),
           t2.output.find(_.name == "c2").get.withQualifiers("t2" :: Nil))

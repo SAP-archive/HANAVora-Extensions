@@ -208,14 +208,14 @@ class SqlBuilder {
 
       case _:logical.Join if noProject =>
         sys.error(s"Join not allowed in this context")
-      case logical.Join(left, right, joinType, conditionOpt) =>
+      case join@logical.Join(left, right, joinType, conditionOpt) =>
         val leftSql = internalLogicalPlanToSql(left, noProject = false)
         val rightSql = internalLogicalPlanToSql(right, noProject = false)
         val condition = conditionOpt match {
           case None => ""
           case Some(cond) => s" ON ${expressionToSql(cond)}"
         }
-        s"$leftSql ${joinTypeToSql(joinType)} $rightSql$condition"
+        s"$leftSql ${joinTypeToSql(join)} $rightSql$condition"
 
       case _ =>
         sys.error("Unsupported logical plan: " + plan)
@@ -223,13 +223,14 @@ class SqlBuilder {
   // scalastyle:on method.length
   // scalastyle:on cyclomatic.complexity
 
-  protected def joinTypeToSql(joinType: JoinType): String = joinType match {
-    case `Inner` => "INNER JOIN"
-    case `LeftOuter` => "LEFT OUTER JOIN"
-    case `RightOuter` => "RIGHT OUTER JOIN"
-    case `FullOuter` => "FULL OUTER JOIN"
-    case `LeftSemi` => "LEFT SEMI JOIN"
-    case _ => sys.error(s"Unsupported join type: $joinType")
+  protected def joinTypeToSql(join: logical.Join): String = join match {
+    case logical.Join(_, _, Inner, None) => "CROSS JOIN"
+    case logical.Join(_, _, Inner, _) => "INNER JOIN"
+    case logical.Join(_, _, LeftOuter, _) => "LEFT OUTER JOIN"
+    case logical.Join(_, _, RightOuter, _) => "RIGHT OUTER JOIN"
+    case logical.Join(_, _, FullOuter, _) => "FULL OUTER JOIN"
+    case logical.Join(_, _, LeftSemi, _) => "LEFT SEMI JOIN"
+    case _ => sys.error(s"Unsupported join type: ${join.joinType}")
   }
 
   // scalastyle:off cyclomatic.complexity
