@@ -10,18 +10,17 @@ import org.apache.spark.sql.execution.{CreateTableUsingTemporaryAwareCommand, Ex
 private[sql] object CreatePersistentTableStrategy extends Strategy {
 
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    // Instantiates a create table command taking the temporary flag into account
-    case CreateTableUsing(tableName,userSpecifiedSchema,provider,temporary,options,_,_) => {
-      // here we are only handling cases where the ds actually supports temporary/persistent
-      // tables
+    // Currently we only handle cases where the user wants to instantiate a
+    // persistent relation any other cases has to be handled by the datasource itself
+    case CreateTableUsing(tableName,userSpecifiedSchema,provider,false,options,_,_) => {
       SAPResolvedDataSource.lookupDataSource(provider).newInstance() match {
         case _ : TemporaryAndPersistentRelationProvider =>
           ExecutedCommand(CreateTableUsingTemporaryAwareCommand(tableName,
-                                                          userSpecifiedSchema,
-                                                          Array.empty[String],
-                                                          provider,
-                                                          options,
-                                                          temporary)) :: Nil
+            userSpecifiedSchema,
+            Array.empty[String],
+            provider,
+            options,
+            false)) :: Nil
         case _ => Nil
       }
     }
