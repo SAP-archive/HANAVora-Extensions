@@ -39,7 +39,7 @@ class ValidatingPropertyMap[K, V](val m: Map[K, V]) {
     }
   }
 
-  def getInt(key : K, default: => Int): Int = {
+  def getInt(key: K, default: => Int): Int = {
     m.get(key) match {
       case Some(value: String) => Integer.parseInt(value)
       case Some(value: Int) => value

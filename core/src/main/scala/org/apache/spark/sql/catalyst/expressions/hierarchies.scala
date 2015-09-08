@@ -5,9 +5,9 @@ import org.apache.spark.sql.types._
 abstract class UnaryNodeExpression extends UnaryExpression {
   self: Product =>
 
-  override def nullable : Boolean = child.nullable
-  protected def name : String
-  override def toString() : String = s"$name($child)"
+  override def nullable: Boolean = child.nullable
+  protected def name: String
+  override def toString(): String = s"$name($child)"
 
   protected def check() {
     if (child.resolved && !child.dataType.sameType(NodeType)) {
@@ -34,7 +34,7 @@ abstract class NodePredicate extends BinaryComparison {
 
 case class Level(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = java.lang.Integer
-  override def dataType : DataType = IntegerType
+  override def dataType: DataType = IntegerType
   override protected def name = "LEVEL"
   override def nullable: Boolean = true
   override def eval(input: Row): EvaluatedType = {
@@ -51,7 +51,7 @@ case class Level(child: Expression) extends UnaryNodeExpression {
 
 case class PreRank(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = java.lang.Integer
-  override def dataType : DataType = IntegerType
+  override def dataType: DataType = IntegerType
   override def nullable: Boolean = true
   override protected def name = "PRERANK"
 
@@ -65,7 +65,7 @@ case class PreRank(child: Expression) extends UnaryNodeExpression {
 
 case class PostRank(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = java.lang.Integer
-  override def dataType : DataType = IntegerType
+  override def dataType: DataType = IntegerType
   override def nullable: Boolean = true
   override protected def name = "POSTRANK"
 
@@ -79,7 +79,7 @@ case class PostRank(child: Expression) extends UnaryNodeExpression {
 
 case class IsRoot(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = java.lang.Boolean
-  override def dataType : DataType = BooleanType
+  override def dataType: DataType = BooleanType
   override protected def name = "IS_ROOT"
   override def nullable: Boolean = true
   override def eval(input: Row): EvaluatedType = {
@@ -101,7 +101,7 @@ case class IsRoot(child: Expression) extends UnaryNodeExpression {
  */
 case class IsLeaf(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = Any
-  override def dataType : DataType = BooleanType
+  override def dataType: DataType = BooleanType
   override def nullable: Boolean = true
   override protected def name = "IS_LEAF"
 

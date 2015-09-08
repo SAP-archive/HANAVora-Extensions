@@ -168,10 +168,15 @@
  <check level="warning" class="org.scalastyle.scalariform.LowercasePatternMatchChecker" enabled="false"/>
  <check level="warning" class="org.scalastyle.scalariform.MultipleStringLiteralsChecker" enabled="false">
   <!-- This is too verbose and with too many false positives -->
- <parameters>
-  <parameter name="allowed">2</parameter>
-  <parameter name="ignoreRegex">^""$</parameter>
- </parameters>
-</check>
-<check level="error" class="org.scalastyle.scalariform.ImportGroupingChecker" enabled="true"/>
+  <parameters>
+   <parameter name="allowed">2</parameter>
+   <parameter name="ignoreRegex">^""$</parameter>
+  </parameters>
+ </check>
+ <check level="error" class="org.scalastyle.scalariform.ImportGroupingChecker" enabled="true"/>
+ <check level="error" class="org.scalastyle.scalariform.DisallowSpaceBeforeTokenChecker" enabled="true">
+  <parameters>
+   <parameter name="tokens">COLON</parameter>
+  </parameters>
+ </check>
 </scalastyle>

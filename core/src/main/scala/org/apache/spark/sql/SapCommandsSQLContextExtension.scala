@@ -16,7 +16,7 @@ private[sql] trait SapCommandsSQLContextExtension
   override def strategies(planner: ExtendedPlanner): List[Strategy] =
     SapDDLStrategy(planner) :: super.strategies(planner)
 
-  private[sql] case class SapDDLStrategy(planner : ExtendedPlanner) extends Strategy {
+  private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strategy {
 
     override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan.flatMap({
       case AppendCommand(table, options) =>

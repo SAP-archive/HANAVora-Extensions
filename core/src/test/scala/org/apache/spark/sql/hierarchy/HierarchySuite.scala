@@ -9,7 +9,7 @@ import org.scalatest.FunSuite
 
 import scala.util.Random
 
-case class ComponentRow(extraField: String, name : String, pred: Long, succ : Long, ord : Long)
+case class ComponentRow(extraField: String, name: String, pred: Long, succ: Long, ord: Long)
 
 // scalastyle:off magic.number
 // scalastyle:off file.size.limit
@@ -19,7 +19,7 @@ class HierarchySuite extends FunSuite
   with Logging {
 
   implicit class Crossable[X](xs: Traversable[X]) {
-    def cross[Y](ys: Traversable[Y]) : Traversable[(X,Y)] =
+    def cross[Y](ys: Traversable[Y]): Traversable[(X,Y)] =
       for { x <- xs; y <- ys } yield (x, y)
   }
 
@@ -63,7 +63,7 @@ class HierarchySuite extends FunSuite
 
   test("use numerical startWhere predicate") {
 
-    def parts : Seq[ComponentRow] = Seq(
+    def parts: Seq[ComponentRow] = Seq(
       ComponentRow("bla", "mat-for-stuff",0L,1L,1L),
       ComponentRow("bla", "item-a-gen",1L,2L,2L),
       ComponentRow("bla", "item-o-piece",2L,3L,3L),
@@ -138,10 +138,10 @@ class HierarchySuite extends FunSuite
       Row("Minion 3", "Senior Developer", true, true, true)
     )
     val names = organizationHierarchy map (_.name)
-    val allPairNames : Set[(String, String)] = (names cross names) toSet
-    val positivePairNames : Set[(String, String)] =
+    val allPairNames: Set[(String, String)] = (names cross names) toSet
+    val positivePairNames: Set[(String, String)] =
       expectedPositives.map(r => r.getString(0) -> r.getString(1))
-    val expectedNonPositives : Set[Row] = (allPairNames -- positivePairNames) map {
+    val expectedNonPositives: Set[Row] = (allPairNames -- positivePairNames) map {
       case (left, right) if left == right => Row(left, right, false, true, false)
       case (left, right) => Row(left, right, false, false, false)
     }
@@ -276,7 +276,7 @@ class HierarchySuite extends FunSuite
     Seq()
   ))
 
-  def integrationStartWithExpression(builder : HierarchyBuilder[Row, Row]): Unit = {
+  def integrationStartWithExpression(builder: HierarchyBuilder[Row, Row]): Unit = {
     test("integration: execute hierarchy from expressions using " +
       builder.getClass.getName.split("\\$").head.split("\\.").last){
       val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
@@ -313,11 +313,11 @@ class HierarchySuite extends FunSuite
     succ = (myRow: EmployeeRow) => myRow.succ,
     startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
     ord = (myRow: EmployeeRow) => myRow.ord,
-    transformRowFunction = (r : EmployeeRow, node : Node) =>
+    transformRowFunction = (r: EmployeeRow, node: Node) =>
       PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
   ))
 
-  def buildFromAdjacencyListTest(builder : HierarchyBuilder[EmployeeRow, PartialResult]) {
+  def buildFromAdjacencyListTest(builder: HierarchyBuilder[EmployeeRow, PartialResult]) {
     test("unitary: testing method buildFromAdjacencyList of class " +
       builder.getClass.getSimpleName){
       val rdd = sc.parallelize(organizationHierarchy)
@@ -326,7 +326,7 @@ class HierarchySuite extends FunSuite
         succ = (myRow: EmployeeRow) => myRow.succ,
         startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
         ord = (myRow: EmployeeRow) => myRow.ord,
-        transformRowFunction = (r : EmployeeRow, node : Node) =>
+        transformRowFunction = (r: EmployeeRow, node: Node) =>
           PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
       )
       val hierarchy = builder.buildFromAdjacencyList(rdd)

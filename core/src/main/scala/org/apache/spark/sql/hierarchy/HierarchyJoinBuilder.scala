@@ -8,16 +8,16 @@ import org.apache.spark.storage.StorageLevel
 
 import scala.reflect.ClassTag
 
-case class HierarchyJoinBuilder[T : ClassTag, O : ClassTag, K : ClassTag]
+case class HierarchyJoinBuilder[T: ClassTag, O: ClassTag, K: ClassTag]
 (
   startWhere: T => Boolean,
-  pk : T => K, pred : T => K,
-  init : T => O,
-  modify : (O, T) => O
+  pk: T => K, pred: T => K,
+  init: T => O,
+  modify: (O, T) => O
   )
   extends HierarchyBuilder[T,O] {
 
-  override def buildFromAdjacencyList(rdd : RDD[T]) : RDD[O] = {
+  override def buildFromAdjacencyList(rdd: RDD[T]): RDD[O] = {
     val left0 = (rdd filter startWhere) keyBy pk mapValues init persist()
     val right = (rdd keyBy pred) persist()
     val result = foldRdd(left0, right, pk, modify) map (_._2) persist()
@@ -26,11 +26,11 @@ case class HierarchyJoinBuilder[T : ClassTag, O : ClassTag, K : ClassTag]
     result
   }
 
-  private[hierarchy] def foldRdd(left0 : RDD[(K,O)],
-                                 right : RDD[(K,T)],
-                                 pk : T => K,
-                                 modify : (O, T) => O) : RDD[(K,O)] = {
-    var last : Option[RDD[(K,O)]] = None
+  private[hierarchy] def foldRdd(left0: RDD[(K,O)],
+                                 right: RDD[(K,T)],
+                                 pk: T => K,
+                                 modify: (O, T) => O): RDD[(K,O)] = {
+    var last: Option[RDD[(K,O)]] = None
     val result = Stream.iterate[Option[RDD[(K,O)]]](Some(left0))({
       case None => None
       case Some(left) if left.isEmpty() => None
@@ -55,12 +55,12 @@ case class HierarchyJoinBuilder[T : ClassTag, O : ClassTag, K : ClassTag]
 
 object HierarchyRowJoinBuilder {
   def apply(
-             attributes : Seq[Attribute],
-             parenthoodExpression : Expression,
-             startWhere : Expression, searchBy : Seq[SortOrder]
-             ) : HierarchyBuilder[Row,Row] = {
+             attributes: Seq[Attribute],
+             parenthoodExpression: Expression,
+             startWhere: Expression, searchBy: Seq[SortOrder]
+             ): HierarchyBuilder[Row,Row] = {
 
-    val predSuccIndexes : (Int, Int) = parenthoodExpression match {
+    val predSuccIndexes: (Int, Int) = parenthoodExpression match {
       case EqualTo(
       left @ AttributeReference(ln, ldt, _, _),
       right @ AttributeReference(rn, rdt, _, _)
@@ -85,9 +85,9 @@ object HierarchyRowJoinBuilder {
     val modify = HierarchyRowFunctions.rowModify(pk)
 
     new HierarchyJoinBuilder[Row,Row,Any](startsWhere, pk, pred, init, modify) {
-      override def buildFromAdjacencyList(rdd : RDD[Row]) : RDD[Row] = {
+      override def buildFromAdjacencyList(rdd: RDD[Row]): RDD[Row] = {
         /* FIXME: Hack to prevent wrong join results between Long and MutableLong? */
-        val cleanRdd = rdd.map(row => Row(row.toSeq : _*))
+        val cleanRdd = rdd.map(row => Row(row.toSeq: _*))
         super.buildFromAdjacencyList(cleanRdd)
       }
     }
@@ -96,24 +96,24 @@ object HierarchyRowJoinBuilder {
 
 private[hierarchy] object HierarchyRowFunctions {
 
-  private[hierarchy] def rowGet[K](i : Int) : Row => K = (row : Row) => row.getAs[K](i)
+  private[hierarchy] def rowGet[K](i: Int): Row => K = (row: Row) => row.getAs[K](i)
 
-  private[hierarchy] def rowInit[K](pk : Row => K) : Row => Row = { row =>
-    Row(row.toSeq ++ Seq(Node(List(pk(row)))) : _*)
+  private[hierarchy] def rowInit[K](pk: Row => K): Row => Row = { row =>
+    Row(row.toSeq ++ Seq(Node(List(pk(row)))): _*)
   }
 
-  private[hierarchy] def rowModify[K](pk : Row => K) : (Row, Row) => Row = { (left, right) =>
-    val pathComponent : K = pk(right)
-    val path : Seq[Any] = left.getAs[Node](left.length - 1).path ++ List(pathComponent)
-    val node : Node = Node(path)
-    Row(right.toSeq :+ node : _*)
+  private[hierarchy] def rowModify[K](pk: Row => K): (Row, Row) => Row = { (left, right) =>
+    val pathComponent: K = pk(right)
+    val path: Seq[Any] = left.getAs[Node](left.length - 1).path ++ List(pathComponent)
+    val node: Node = Node(path)
+    Row(right.toSeq :+ node: _*)
   }
 
-  private[hierarchy] def rowAppend[K](row : Row, node : Node) : Row = {
-    Row(row.toSeq :+ node : _*)
+  private[hierarchy] def rowAppend[K](row: Row, node: Node): Row = {
+    Row(row.toSeq :+ node: _*)
   }
 
-  private[hierarchy] def rowStartWhere[K](exp : Expression) : Row => Boolean = { row =>
+  private[hierarchy] def rowStartWhere[K](exp: Expression): Row => Boolean = { row =>
     exp.eval(row).asInstanceOf[Boolean]
   }
 

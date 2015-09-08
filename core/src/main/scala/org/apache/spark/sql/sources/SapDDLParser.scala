@@ -230,7 +230,7 @@ private[sql] case class DropCommand(table: LogicalPlan) extends LogicalPlan with
 /**
  * Returned for the "SHOW DATASOURCETABLES" command.
  */
-private[sql] case class ShowDatasourceTablesCommand(classIdentifier : String,
+private[sql] case class ShowDatasourceTablesCommand(classIdentifier: String,
                                                     options: Map[String, String])
   extends LogicalPlan with Command {
 

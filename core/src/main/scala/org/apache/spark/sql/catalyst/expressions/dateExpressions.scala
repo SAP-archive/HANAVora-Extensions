@@ -75,19 +75,19 @@ case class AddDays(ed: Expression, en: Expression) extends Expression {
     if (d == null) {
       null
     } else {
-      val n : Long = en.eval(input) match {
+      val n: Long = en.eval(input) match {
         case null => 0
-        case d : Double => d.toLong * (24*3600*1000)
-        case l : Long   => l * (24*3600*1000)
-        case i : Integer=> i * (24*3600*1000)
-        case f : Float  => f.toLong * (24*3600*1000)
+        case d: Double => d.toLong * (24*3600*1000)
+        case l: Long   => l * (24*3600*1000)
+        case i: Integer=> i * (24*3600*1000)
+        case f: Float  => f.toLong * (24*3600*1000)
         case other =>
           sys.error(s"Type $other does not support date operations")
       }
       new sql.Date((d match {
         case ts: Timestamp => ts.getTime
-        case i : Integer => i.toLong * (24*3600*1000)
-        case l : Long => l
+        case i: Integer => i.toLong * (24*3600*1000)
+        case l: Long => l
         case dt: Date => dt.getTime
         case other =>
           sys.error(s"Type ${other.getClass} does not support date operations")
@@ -130,11 +130,11 @@ case class AddMonths(ed: Expression, en: Expression) extends Expression {
       }
       val n = en.eval(input)
       if (n!= null) {
-        val count : Integer = n match {
-          case d : Double => d.toInt
-          case l : Long   => l.toInt
-          case i : Integer=> i
-          case f : Float  => f.toInt
+        val count: Integer = n match {
+          case d: Double => d.toInt
+          case l: Long   => l.toInt
+          case i: Integer=> i
+          case f: Float  => f.toInt
           case other =>
             sys.error(s"Type ${other.getClass} does not support date operations")
         }
@@ -179,11 +179,11 @@ case class AddYears(ed: Expression, en: Expression) extends Expression {
       }
       val n = en.eval(input)
       if (n!= null) {
-        val count : Integer = n match {
-          case d : Double => d.toInt
-          case l : Long   => l.toInt
-          case i : Integer=> i
-          case f : Float  => f.toInt
+        val count: Integer = n match {
+          case d: Double => d.toInt
+          case l: Long   => l.toInt
+          case i: Integer=> i
+          case f: Float  => f.toInt
           case other =>
             sys.error(s"Type ${other.getClass} does not support date operations")
         }

@@ -7,7 +7,7 @@ import FunctionBuilders._
 
 private[sql] object RegisterHierarchyFunctions {
 
-  def apply(functionRegistry: FunctionRegistry) : Unit = {
+  def apply(functionRegistry: FunctionRegistry): Unit = {
     val r = (name: String, builder: ExpressionBuilder) =>
       functionRegistry.registerFunction(name, builder)
     r("level", unaryExpression[Level])

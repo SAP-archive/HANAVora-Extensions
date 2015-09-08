@@ -249,8 +249,8 @@ class SqlBuilder {
       case x => sys.error(s"Failed to parse filter: $x")
     }
 
-  def toUnderscoreUpper( str : String ): String = {
-    var result : String = str(0).toUpper.toString
+  def toUnderscoreUpper( str: String ): String = {
+    var result: String = str(0).toUpper.toString
     for( i <- 1 until str.length) {
       if( str(i-1).isLower && str(i).isUpper ) {
         result += '_'
@@ -260,7 +260,7 @@ class SqlBuilder {
     result
   }
 
-  def generalExpressionToSql( expression : expr.Expression): String = {
+  def generalExpressionToSql( expression: expr.Expression): String = {
     val name = expression.getClass.getSimpleName
     val children = expression.children
     val childStr = children.map(expressionToSql).mkString(", ")

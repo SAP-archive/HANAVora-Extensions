@@ -52,16 +52,16 @@ case class Hierarchy(
   private def referencesInParenthoodExpressionSet: AttributeSet =
     AttributeSet(parenthoodExpression.collect({ case a: Attribute => a }))
 
-  private def candidateAttributesForParenthoodExpression() : Seq[Attribute] =
+  private def candidateAttributesForParenthoodExpression(): Seq[Attribute] =
     relation.output ++ relation.output.map({
       case attr => Alias(attr, attr.name)(qualifiers = childAlias :: Nil).toAttribute
     })
 
   private[sql] def resolveParenthoodExpression(nameParts: Seq[String], resolver: Resolver)
-  : Option[NamedExpression] =
+    : Option[NamedExpression] =
     resolve(nameParts, candidateAttributesForParenthoodExpression(), resolver, true)
 
-  private[sql] def resolveNodeAttribute() : Option[Attribute] =
+  private[sql] def resolveNodeAttribute(): Option[Attribute] =
     relation.resolved && parenthoodExpression.resolved match {
       case _ if nodeAttribute.resolved => Some(nodeAttribute)
       case false => None

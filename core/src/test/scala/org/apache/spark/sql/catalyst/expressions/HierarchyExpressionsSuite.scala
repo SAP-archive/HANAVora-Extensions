@@ -11,7 +11,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
 
   property("single node properties") {
     forAll(node, minSuccessful(100), maxDiscarded(1000), maxSize(20)) {
-      (node : Node) => {
+      (node: Node) => {
         val ref = BoundReference(0, NodeType, nullable = false)
         val row = Row(node)
         val level = Level(ref).eval(row)
@@ -115,7 +115,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
 
   property("pair properties") {
     forAll(unequalNodePair, minSuccessful(100), maxDiscarded(1000), maxSize(20)) {
-      (nodePair : (Node, Node)) => {
+      (nodePair: (Node, Node)) => {
         val leftRef = BoundReference(0, NodeType, nullable = false)
         val rightRef = BoundReference(1, NodeType, nullable = false)
         val row = Row(nodePair._1, nodePair._2)

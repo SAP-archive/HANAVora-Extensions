@@ -8,7 +8,7 @@ import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrd
 case class HierarchyStrategy(attributes: Seq[Attribute], parenthoodExpression: Expression,
                              startWhere: Expression, searchBy: Seq[SortOrder]) {
 
-  private def parseConfig(sc : SparkContext) : (String, Long) = {
+  private def parseConfig(sc: SparkContext): (String, Long) = {
     val impName = sc.conf.get("hierarchy.always", "undefined")
     val actualThreshold = sc.conf.get("hierarchy.threshold",
                                       HierarchyStrategy.THRESHOLD.toString).toLong
@@ -19,7 +19,7 @@ case class HierarchyStrategy(attributes: Seq[Attribute], parenthoodExpression: E
     }
   }
 
-  private def useBroadcastHierarchy(conf : (String, Long), count: => Long) : Boolean = {
+  private def useBroadcastHierarchy(conf: (String, Long), count: => Long): Boolean = {
     /* TODO (YH) delay the calculation of rows until it is very necessary */
     lazy val cnt = count
     conf match {
