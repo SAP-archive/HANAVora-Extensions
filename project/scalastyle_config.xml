@@ -179,4 +179,14 @@
    <parameter name="tokens">COLON</parameter>
   </parameters>
  </check>
+ <check level="warning" class="org.scalastyle.scalariform.EnsureSingleSpaceBeforeTokenChecker" enabled="true">
+  <parameters>
+   <parameter name="tokens">ARROW</parameter>
+  </parameters>
+ </check>
+ <check level="warning" class="org.scalastyle.scalariform.EnsureSingleSpaceAfterTokenChecker" enabled="true">
+  <parameters>
+   <parameter name="tokens">ARROW</parameter>
+  </parameters>
+ </check>
 </scalastyle>

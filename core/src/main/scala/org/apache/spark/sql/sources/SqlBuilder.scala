@@ -64,7 +64,7 @@ class SqlBuilder {
     val selectColsStr = select match {
         // The optimizer sometimes does not report any fields (since no specifc is required by
         // the query (usually a nested select), thus we add the group by clauses as fields
-      case Nil if groupBy.isEmpty =>  "*"
+      case Nil if groupBy.isEmpty => "*"
       case Nil => groupBy mkString ", "
       case s => s mkString ", "
     }
