@@ -443,8 +443,10 @@ class HierarchySuite extends FunSuite
     startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
     pk = (myRow: EmployeeRow) => myRow.succ,
     pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
-    init = (myRow: EmployeeRow) => PartialResult(pk = myRow.succ, path = Seq(myRow.succ)),
-    modify = (pr: PartialResult, myRow: EmployeeRow) =>
+    init = (myRow: EmployeeRow, ordKey: Option[Long]) =>
+      PartialResult(pk = myRow.succ, path = Seq(myRow.succ)),
+    ord = (myRow: EmployeeRow) => myRow.ord,
+    modify = (pr: PartialResult, myRow: EmployeeRow, ord) =>
       PartialResult(path = pr.path ++ Seq(myRow.succ), pk = myRow.succ)
   ))
 

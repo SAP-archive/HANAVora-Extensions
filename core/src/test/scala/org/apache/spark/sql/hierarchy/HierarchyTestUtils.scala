@@ -20,7 +20,6 @@ trait HierarchyTestUtils {
     AnimalRow("Oviparous", Some(1L), 3L, 2L)
   )
 
-
   /*  --------------------------------------------
       - The hierarchy with correct sibling order -
       --------------------------------------------

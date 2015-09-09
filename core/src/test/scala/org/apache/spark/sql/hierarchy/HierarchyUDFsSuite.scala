@@ -39,17 +39,12 @@ class HierarchyUDFsSuite
     assertResult(expected)(result)
   }
 
-  /* TODO(Weidner): test_join argument will be removed asap prerank is set correctly with join buil
-  der */
-  def testBinaryUdfWithBuilders(udf: String, expected: Set[Row],
-                                test_join: Boolean = true): Unit = {
+  def testBinaryUdfWithBuilders(udf: String, expected: Set[Row]): Unit = {
     test(s"test ${udf} using broadcast builder") {
       testBinaryUdf(udf, expected, "broadcast")
     }
-    if(test_join) {
-      test(s"test ${udf} using join builder") {
-        testBinaryUdf(udf, expected, "join")
-      }
+    test(s"test ${udf} using join builder") {
+      testBinaryUdf(udf, expected, "join")
     }
   }
 
@@ -168,7 +163,7 @@ class HierarchyUDFsSuite
     Row("Mammal", "Oviparous", false),
     Row("Oviparous", "Animal", false),
     Row("Oviparous", "Mammal", true),
-    Row("Oviparous", "Oviparous", false)), false)
+    Row("Oviparous", "Oviparous", false)))
 
   testBinaryUdfWithBuilders("IS_PRECEDING", Set(
     Row("Animal", "Animal", false),
@@ -179,7 +174,7 @@ class HierarchyUDFsSuite
     Row("Mammal", "Oviparous", true),
     Row("Oviparous", "Animal", false),
     Row("Oviparous", "Mammal", false),
-    Row("Oviparous", "Oviparous", false)), false)
+    Row("Oviparous", "Oviparous", false)))
 
   testUnaryUdfWithBuilders("IS_ROOT", Set(
     Row("Animal", true),
