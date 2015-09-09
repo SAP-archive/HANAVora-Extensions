@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import com.sap.spark.dstest.DummyRelationWithoutTempFlag
 import org.scalatest.FunSuite
 
 class SapSQLContextSuite extends FunSuite {
@@ -65,4 +66,24 @@ class SapSQLContextSuite extends FunSuite {
       }
     }
   }
+
+  test("Auto-registering Feature ON") {
+    val relationName = "TestRelation"
+    com.sap.spark.dstest.DefaultSource.addRelation(relationName)
+    val sapSqlContext =
+      SapSQLContextEnv.getContext(Map
+        (SapSQLContext.PROPERTY_AUTO_REGISTER_TABLES -> "com.sap.spark.dstest"))
+
+    val tables = sapSqlContext.tableNames()
+    assert(tables.contains(relationName))
+  }
+
+  test("Auto-registering Feature OFF") {
+    val sapSqlContext =
+      SapSQLContextEnv.getContext()
+    val tables = sapSqlContext.tableNames()
+    assert(tables.length == 0)
+  }
+
+
 }
