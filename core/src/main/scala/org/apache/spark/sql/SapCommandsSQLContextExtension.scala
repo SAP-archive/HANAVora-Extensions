@@ -23,10 +23,10 @@ private[sql] trait SapCommandsSQLContextExtension
         val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
         val appendRelation = logicalRelation.relation.asInstanceOf[AppendRelation]
         ExecutedCommand(AppendRunnableCommand(appendRelation, options)) :: Nil
-      case DropCommand(table) =>
+      case DropCommand(table, cascade) =>
         val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
         val dropRelation = logicalRelation.relation.asInstanceOf[DropRelation]
-        ExecutedCommand(DropRunnableCommand(dropRelation)) :: Nil
+        ExecutedCommand(DropRunnableCommand(dropRelation, cascade)) :: Nil
       case ShowDatasourceTablesCommand(provider, options) =>
         ExecutedCommand(ShowDataSourceTablesRunnableCommand(provider, options)) :: Nil
       case RegisterAllTablesUsing(provider, options, ignoreConflicts) =>

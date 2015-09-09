@@ -24,6 +24,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
 
   protected val APPEND = Keyword("APPEND")
   protected val DROP = Keyword("DROP")
+  protected val CASCADE = Keyword("CASCADE")
   // queries the datasource catalog to get all the tables and return them
   // only possible if the appropriate trait is inherited
   protected val SHOW = Keyword("SHOW")
@@ -101,15 +102,15 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
    * `DROP TABLE tableName`
    */
   protected lazy val dropTable: Parser[LogicalPlan] =
-    DROP ~> TABLE ~> (ident <~ ".").? ~ ident ^^ {
-      case db ~ tbl =>
+    DROP ~> TABLE ~> (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
+      case db ~ tbl ~ cascade =>
         val tblIdentifier = db match {
           case Some(dbName) =>
             Seq(dbName, tbl)
           case None =>
             Seq(tbl)
         }
-        DropCommand(UnresolvedRelation(tblIdentifier, None))
+        DropCommand(UnresolvedRelation(tblIdentifier, None), cascade.isDefined)
     }
 
   /**
@@ -234,7 +235,8 @@ private[sql] case class AppendCommand(table: LogicalPlan,
  * Returned for the "DROP TABLE [dbName.]tableName" command.
  * @param table The table to be dropped
  */
-private[sql] case class DropCommand(table: LogicalPlan) extends LogicalPlan with Command {
+private[sql] case class DropCommand(table: LogicalPlan, cascade: Boolean)
+  extends LogicalPlan with Command {
 
   override def output: Seq[Attribute] = Seq.empty
 
