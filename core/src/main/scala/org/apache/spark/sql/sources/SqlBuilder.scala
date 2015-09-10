@@ -8,6 +8,7 @@ import org.apache.spark.sql.catalyst.expressions.Ascending
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.{analysis, expressions => expr}
+import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{sources => src}
 
@@ -15,22 +16,6 @@ import org.apache.spark.sql.{sources => src}
  * SQL builder class.
  */
 class SqlBuilder {
-
-  implicit object ExpressionToSql extends ToSql[expr.Expression] {
-    override def toSql(e: expr.Expression): String = expressionToSql(e)
-  }
-
-  implicit object NamedExpressionToSql extends ToSql[expr.NamedExpression] {
-    override def toSql(e: expr.NamedExpression): String = expressionToSql(e)
-  }
-
-  implicit object FilterToSql extends ToSql[src.Filter] {
-    override def toSql(f: src.Filter): String = filterToSql(f)
-  }
-
-  implicit object StringToSql extends ToSql[String] {
-    override def toSql(s: String): String = s""""$s""""
-  }
 
   protected def formatAttributeWithQualifiers(qualifiers: Seq[String], name: String): String =
     (qualifiers :+ name).map({ s => s""""$s"""" }).mkString(".")
@@ -91,43 +76,19 @@ class SqlBuilder {
   // scalastyle:on cyclomatic.complexity
 
   /**
-   * Builds a SELECT query with optional WHERE and GROUP BY clauses.
-   *
-   * @param relation Table name, join clause or subquery for the FROM clause.
-   * @param fields List of fields for projection as NamedExpression.
-   * @param filters List of filters for the WHERE clause (can be empty).
-   * @param groupByClauses List if expressions for the GROUP BY clause (can be empty).
-   * @return A SQL string.
-   */
-  def buildSelect[F, H, G]
-  (relation: SqlLikeRelation, fields: Seq[F], filters: Seq[H], groupByClauses: Seq[G])
-  (implicit ev1: ToSql[F], ev2: ToSql[H], ev3: ToSql[G]): String = {
-    buildQuery(
-      formatRelation(relation),
-      fields map ev1.toSql,
-      filters map ev2.toSql,
-      groupByClauses map ev3.toSql
-    )
-  }
-
-  /**
-   * Builds a SELECT query with optional WHERE clause.
+   * Builds a SELECT query with optional WHERE.
    *
    * @param relation Table name, join clause or subquery for the FROM clause.
    * @param fields List of fields for projection as NamedExpression.
    * @param filters List of filters for the WHERE clause (can be empty).
    * @return A SQL string.
    */
-  def buildSelect[F, H]
-  (relation: SqlLikeRelation, fields: Seq[F], filters: Seq[H])
-  (implicit ev1: ToSql[F], ev2: ToSql[H]): String = {
+  def buildSelect(relation: SqlLikeRelation, fields: Seq[String], filters: Seq[Filter]): String =
     buildQuery(
       formatRelation(relation),
-      fields map ev1.toSql,
-      filters map ev2.toSql,
-      Nil
+      fields map (formatAttributeWithQualifiers(Nil, _)),
+      filters map filterToSql
     )
-  }
 
   /**
    * These rules prepare a logical plan to be convertible to a SQL query.
@@ -368,8 +329,4 @@ class SqlBuilder {
     flag.toString
   }
 
-}
-
-trait ToSql[T] {
-  def toSql(t: T): String
 }

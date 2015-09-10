@@ -27,103 +27,53 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   val simpleTable = TestSqlLikeRelation(None, "t")
   val simpleTableWithNamespace = TestSqlLikeRelation(Some("ns"), "t")
 
-  testBuildSelect[String, String]("SELECT * FROM \"t\"")(simpleTable, Nil, Nil)
-  testBuildSelect[String, String]("SELECT * FROM \"ns\".\"t\"")(simpleTableWithNamespace, Nil, Nil)
-  testBuildSelect[String, String]("SELECT \"one\" FROM \"t\"")(
+  testBuildSelect("SELECT * FROM \"t\"")(simpleTable, Nil, Nil)
+  testBuildSelect("SELECT * FROM \"ns\".\"t\"")(simpleTableWithNamespace, Nil, Nil)
+  testBuildSelect("SELECT \"one\" FROM \"t\"")(
     simpleTable, Seq("one"), Nil
   )
-  testBuildSelect[String, String]("SELECT \"one\", \"two\" FROM \"t\"")(
+  testBuildSelect("SELECT \"one\", \"two\" FROM \"t\"")(
     simpleTable, Seq("one", "two"), Nil
   )
-  testBuildSelect[String, String]("SELECT \"one\", \"two\", \"three\" FROM \"t\"")(
+  testBuildSelect("SELECT \"one\", \"two\", \"three\" FROM \"t\"")(
     simpleTable, Seq("one", "two", "three"), Nil
   )
 
-  testBuildSelect[String, sources.Filter]("SELECT * FROM \"t\" WHERE \"a\" = 'b'")(
+  testBuildSelect("SELECT * FROM \"t\" WHERE \"a\" = 'b'")(
     simpleTable, Nil, Seq(sources.EqualTo("a", "b"))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" = 'b'")(
+  testBuildSelect("SELECT \"one\" FROM \"t\" WHERE \"a\" = 'b'")(
     simpleTable, Seq("one"), Seq(sources.EqualTo("a", "b"))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" = 1")(
+  testBuildSelect("SELECT \"one\" FROM \"t\" WHERE \"a\" = 1")(
     simpleTable, Seq("one"), Seq(sources.EqualTo("a", 1))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" < 1")(
+  testBuildSelect("SELECT \"one\" FROM \"t\" WHERE \"a\" < 1")(
     simpleTable, Seq("one"), Seq(sources.LessThan("a", 1L))
   )
-  testBuildSelect[String, sources.Filter]("SELECT \"one\" FROM \"t\" WHERE \"a\" = NULL")(
+  testBuildSelect("SELECT \"one\" FROM \"t\" WHERE \"a\" = NULL")(
     simpleTable, Seq("one"), Seq(sources.EqualTo("a", null))
   )
 
-  testBuildSelect[String, sources.Filter](
+  testBuildSelect(
     "SELECT * FROM \"t\" WHERE \"a\" = 'b' AND \"b\" IS NULL")(
       simpleTable, Nil, Seq(sources.EqualTo("a", "b"), sources.IsNull("b"))
   )
-  testBuildSelect[String, sources.Filter](
+  testBuildSelect(
     "SELECT * FROM \"t\" WHERE \"a\" = 'b' AND (\"b\" IS NULL OR \"c\" IS NOT NULL)")(
        simpleTable, Nil, Seq(sources.EqualTo("a", "b"), sources.Or(sources.IsNull("b"),
           sources.IsNotNull("c")
         ))
       )
 
-  testBuildSelect[String, sources.Filter](
+  testBuildSelect(
     "SELECT * FROM \"t\" WHERE \"a\" IN (1,2,3,4)")(
       simpleTable, Nil, Seq(sources.In("a", Array(1, 2, 3, 4)))
   )
 
-  testBuildSelect[String, sources.Filter](
+  testBuildSelect(
     "SELECT * FROM \"t\" WHERE NOT(\"a\" IN (1,2,3,4))")(
       simpleTable, Nil, Seq(sources.Not(sources.In("a", Array(1, 2, 3, 4))))
-    )
-
-  testBuildSelect[Expression, Expression](
-    "SELECT SUBSTRING(\"a\", 0, 1) AS \"aa\", \"b\" FROM \"t\" WHERE (\"a\" = 'a')"
-  )(
-      simpleTable,
-      Seq('a.string.substring(0, 1).as("aa"), 'b.int),
-      Seq('a.string === "a")
-    )
-
-  testBuildSelect[Expression, Expression](
-    """SELECT SUBSTRING("a", 0, 1) AS "aa", "b"
-      |FROM "t"
-      |WHERE ("c" = SUBSTRING("a", 0, 2))"""
-      .stripMargin)(
-      simpleTable,
-      Seq('a.string.substring(0, 1).as("aa"), 'b.int),
-      Seq('c.string === 'a.string.substring(0, 2))
-    )
-
-  testBuildSelect[Expression, Expression]("SELECT COUNT(1) AS \"PartialCount\" FROM \"t\"")(
-    simpleTable,
-    Seq(count(1).as("PartialCount")),
-    Nil
-  )
-
-  testBuildSelect[Expression,Expression,Expression](
-    "SELECT \"a\", COUNT(1) FROM \"t\" GROUP BY \"a\""
-  )(
-      simpleTable,
-      Seq('a.string, count(1)),
-      Nil,
-      Seq('a.string)
-    )
-
-  /**
-   * this tests a corner case: no field list but a group by, so we have to choose the group by
-   * fields as field list. This is necessary for nested selects that go with a *:
-   *
-   * SELECT COUNT(*) from (SELECT a FROM table GROUP BY a)
-   *
-   * The optimizer/Parser cannot resolve the *, and creates a plan without "fields".
-   */
-  testBuildSelect[Expression,Expression,Expression](
-    "SELECT \"a\" FROM \"t\" GROUP BY \"a\""
-  )(
-      simpleTable,
-      Nil,
-      Nil,
-      Seq('a.string)
     )
 
   testExpressionToSql("AVG(1) AS \"PartialAvg\"")(avg(1) as "PartialAvg")
