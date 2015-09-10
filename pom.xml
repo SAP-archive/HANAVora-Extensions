@@ -161,6 +161,9 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>versions-maven-plugin</artifactId>
           <version>2.1</version>
+          <configuration>
+            <includeProperties>sapextension.core.version</includeProperties>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
