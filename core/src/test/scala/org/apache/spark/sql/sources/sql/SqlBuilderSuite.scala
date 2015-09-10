@@ -1,4 +1,4 @@
-package org.apache.spark.sql.sources
+package org.apache.spark.sql.sources.sql
 
 import org.apache.spark.sql.catalyst.analysis.UnresolvedStar
 import org.apache.spark.sql.catalyst.dsl.expressions._
@@ -6,6 +6,7 @@ import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{CreateLogicalRelation, SQLContext, sources}
 import org.mockito.Mockito

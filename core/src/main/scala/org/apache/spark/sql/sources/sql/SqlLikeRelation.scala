@@ -1,4 +1,4 @@
-package org.apache.spark.sql.sources
+package org.apache.spark.sql.sources.sql
 
 import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Expression, NamedExpression}
 

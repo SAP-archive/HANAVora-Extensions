@@ -1,4 +1,4 @@
-package org.apache.spark.sql.sources
+package org.apache.spark.sql.sources.sql
 
 import java.math.BigInteger
 import java.sql.{Date, Timestamp}
@@ -141,7 +141,7 @@ class SqlBuilder {
       case logical.Except(left, right) =>
         s"""(${logicalPlanToSql(left)}) EXCEPT (${logicalPlanToSql(right)})"""
 
-      case src.SingleQuery(select, from, where, groupBy, having, orderBy, limit, distinct)
+      case SingleQuery(select, from, where, groupBy, having, orderBy, limit, distinct)
         if plan != from =>
         if (!noProject) {
           sys.error("A full query without a subquery is not allowed in this context")

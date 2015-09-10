@@ -1,4 +1,4 @@
-package org.apache.spark.sql.sources
+package org.apache.spark.sql.sources.sql
 
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -8,8 +8,7 @@ import org.scalatest.FunSuite
 trait SqlBuilderSuiteBase {
   self: FunSuite =>
 
-  val sqlBuilder: SqlBuilder
-  import sqlBuilder._ // scalastyle:ignore
+  val sqlBuilder: SqlBuilder // scalastyle:ignore
 
   def testExpressionToSql(sql: String)(expr: Expression): Unit = {
     val cleanSql = cleanUpSql(sql)

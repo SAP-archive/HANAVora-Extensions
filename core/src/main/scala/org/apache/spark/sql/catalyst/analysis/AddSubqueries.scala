@@ -2,7 +2,8 @@ package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.sources.{LogicalRelation, SqlLikeRelation}
+import org.apache.spark.sql.sources.LogicalRelation
+import org.apache.spark.sql.sources.sql.SqlLikeRelation
 
 /**
  * Adds subqueries where needed for SQL generation.
