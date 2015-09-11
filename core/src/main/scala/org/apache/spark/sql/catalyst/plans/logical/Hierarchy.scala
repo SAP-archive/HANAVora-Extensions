@@ -9,7 +9,7 @@ case class Hierarchy(
                       childAlias: String,
                       parenthoodExpression: Expression,
                       searchBy: Seq[SortOrder],
-                      startWhere: Expression,
+                      startWhere: Option[Expression],
                       nodeAttribute: Attribute)
   extends UnaryNode {
 
@@ -34,7 +34,7 @@ case class Hierarchy(
   override lazy val resolved: Boolean = !expressions.exists(!_.resolved) &&
     childrenResolved &&
     parenthoodExpression.resolved &&
-    startWhere.resolved &&
+    (startWhere.isEmpty || startWhere.get.resolved)
     searchBy.map(_.resolved).forall(_ == true) &&
     nodeAttribute.resolved
 

@@ -6,7 +6,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
 
 case class HierarchyStrategy(attributes: Seq[Attribute], parenthoodExpression: Expression,
-                             startWhere: Expression, searchBy: Seq[SortOrder]) {
+                             startWhere: Option[Expression], searchBy: Seq[SortOrder]) {
 
   private def parseConfig(sc: SparkContext): (String, Long) = {
     val impName = sc.conf.get("hierarchy.always", "undefined")
@@ -32,11 +32,17 @@ case class HierarchyStrategy(attributes: Seq[Attribute], parenthoodExpression: E
   }
 
   def execute(rdd: RDD[Row]): RDD[Row] = {
-    useBroadcastHierarchy(parseConfig(rdd.sparkContext), rdd count) match {
-      case true => HierarchyRowBroadcastBuilder(attributes, parenthoodExpression, startWhere,
-                                                searchBy).buildFromAdjacencyList(rdd)
-      case false => HierarchyRowJoinBuilder(attributes, parenthoodExpression, startWhere, searchBy)
-        .buildFromAdjacencyList(rdd)
+    startWhere match {
+      case Some(_) => HierarchyRowBroadcastBuilder(attributes, parenthoodExpression, startWhere,
+        searchBy).buildFromAdjacencyList(rdd)
+      case None =>
+        useBroadcastHierarchy(parseConfig(rdd.sparkContext), rdd count) match {
+        case true => HierarchyRowBroadcastBuilder(attributes, parenthoodExpression, startWhere,
+          searchBy).buildFromAdjacencyList(rdd)
+        case false => HierarchyRowJoinBuilder(
+          attributes, parenthoodExpression, startWhere.get, searchBy)
+          .buildFromAdjacencyList(rdd)
+      }
     }
   }
 }

@@ -19,6 +19,9 @@ case class HierarchyJoinBuilder[T: ClassTag, O: ClassTag, K: ClassTag]
 
   override def buildFromAdjacencyList(rdd: RDD[T]): RDD[O] = {
     val left0 = (rdd filter startWhere) keyBy pk mapValues init persist()
+    if(left0.isEmpty) {
+      sys.error("The hierarchy does not have any roots.")
+    }
     val right = (rdd keyBy pred) persist()
     val result = foldRdd(left0, right, pk, modify) map (_._2) persist()
     right unpersist (blocking = true)

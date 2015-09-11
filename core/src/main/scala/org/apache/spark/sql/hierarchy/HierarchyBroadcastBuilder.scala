@@ -24,7 +24,7 @@ private[hierarchy] class Tree[T](
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
 (pred: I => C,
  succ: I => C,
- startWhere: I => Boolean,
+ startWhere: Option[I => Boolean],
  ord: I => C,
  transformRowFunction: (I, Node) => O) extends HierarchyBuilder[I, O] {
 
@@ -76,8 +76,17 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     }
     val adjacency = rdd keyBy pred mapValues succ
     val rank_list: RDD[(C, C)] = rdd keyBy pred mapValues ord_f
-    val list_with_order = adjacency zip rank_list collect
-    val roots = rdd filter startWhere map succ collect
+    val list_with_order = adjacency zip rank_list collect()
+
+    val roots = rdd filter startWhere.getOrElse({
+      val sucessors = rdd.map(succ).collect()
+      in => !sucessors.contains(pred(in))
+    }) map succ collect()
+
+    if(roots.isEmpty) {
+      sys.error("The hierarchy does not have any roots.")
+    }
+
     val forest = {
       val obj = roots map (root => new Tree(root, None))
       obj foreach(buildTree(_, list_with_order))
@@ -93,7 +102,7 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
 object HierarchyRowBroadcastBuilder {
   def apply(attributes: Seq[Attribute],
             parenthoodExpression: Expression,
-            startWhere: Expression,
+            startWhere: Option[Expression],
             searchBy: Seq[SortOrder]): HierarchyBuilder[Row,Row] = {
 
     val predSuccIndexes: (Int, Int) = parenthoodExpression match {
@@ -114,8 +123,10 @@ object HierarchyRowBroadcastBuilder {
     val succ = HierarchyRowFunctions.rowGet[java.lang.Long](succIdx)
     val pred = HierarchyRowFunctions.rowGet[java.lang.Long](predIdx)
 
-    val startsWhere = HierarchyRowFunctions.rowStartWhere(
-      HierarchyRowFunctions.bindExpression(startWhere, attributes))
+    val startsWhere = startWhere map {
+      case s => HierarchyRowFunctions.rowStartWhere(
+        HierarchyRowFunctions.bindExpression(s, attributes))
+    }
 
     // Todo(Weidner): currently, only first ordering rule is applied:
     val ord = searchBy.isEmpty match{

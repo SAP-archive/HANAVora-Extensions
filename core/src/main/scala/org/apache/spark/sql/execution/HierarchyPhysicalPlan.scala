@@ -8,7 +8,7 @@ import org.apache.spark.sql.hierarchy.HierarchyStrategy
 case class HierarchyPhysicalPlan(childAlias: String,
                                  parenthoodExpression: Expression,
                                  searchBy: Seq[SortOrder],
-                                 startWhere: Expression,
+                                 startWhere: Option[Expression],
                                  nodeAttribute: Attribute,
                                  child: SparkPlan) extends UnaryNode {
 

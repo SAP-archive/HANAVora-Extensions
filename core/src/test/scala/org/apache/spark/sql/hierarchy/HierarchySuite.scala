@@ -97,6 +97,52 @@ class HierarchySuite extends FunSuite
     assertResult(expected)(result.toSet)
   }
 
+  test("trying to create a hierarchy without root throws") {
+    val thrown = intercept[RuntimeException] {
+      val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
+      val hSrc = sqlContext.createDataFrame(rdd).cache()
+      hSrc.registerTempTable("h_src")
+
+      val queryString = """
+    SELECT name, node FROM HIERARCHY (
+      USING h_src AS v
+        JOIN PARENT u ON v.pred = u.succ
+        SEARCH BY ord ASC
+      START WHERE pred = 10000
+      SET node
+      ) AS H
+    """
+
+      sqlc.sql(queryString).collect()
+    }
+    assert(thrown.getMessage.contains("The hierarchy does not have any roots"))
+  }
+
+  test("create hierarchy without start where and search by clause") {
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
+    hSrc.registerTempTable("h_src")
+    val queryString = """
+      | SELECT name, LEVEL(node), IS_ROOT(node) FROM HIERARCHY (
+      |   USING h_src AS v
+      |     JOIN PARENT u ON v.pred = u.succ
+      |   SET node
+      |   ) AS H""".stripMargin
+
+    val result = sqlContext.sql(queryString).collect()
+    val expected = Set(
+      Row("THE BOSS", 1, true),
+      Row("The Other Middle Manager", 2, false),
+      Row("The Middle Manager", 2, false),
+      Row("Senior Developer", 3, false),
+      Row("Minion 1", 3, false),
+      Row("Minion 2", 4, false),
+      Row("Minion 3", 4, false)
+    )
+    assertResult(expected)(result.toSet)
+  }
+
   test("use join predicates") {
     val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
@@ -272,7 +318,7 @@ class HierarchySuite extends FunSuite
       AttributeReference("pred", LongType, nullable = true)(),
       AttributeReference("succ", LongType, nullable = false)()
     ),
-    IsNull(AttributeReference("pred", LongType, nullable = true)()),
+    Some(IsNull(AttributeReference("pred", LongType, nullable = true)())),
     Seq()
   ))
 
@@ -311,7 +357,7 @@ class HierarchySuite extends FunSuite
   buildFromAdjacencyListTest(HierarchyBroadcastBuilder(
     pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
     succ = (myRow: EmployeeRow) => myRow.succ,
-    startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
+    startWhere = Some((myRow: EmployeeRow) => myRow.pred.isEmpty),
     ord = (myRow: EmployeeRow) => myRow.ord,
     transformRowFunction = (r: EmployeeRow, node: Node) =>
       PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
@@ -324,7 +370,7 @@ class HierarchySuite extends FunSuite
       val hBuilder = HierarchyBroadcastBuilder(
         pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
         succ = (myRow: EmployeeRow) => myRow.succ,
-        startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
+        startWhere = Some((myRow: EmployeeRow) => myRow.pred.isEmpty),
         ord = (myRow: EmployeeRow) => myRow.ord,
         transformRowFunction = (r: EmployeeRow, node: Node) =>
           PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)

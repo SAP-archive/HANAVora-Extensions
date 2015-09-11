@@ -128,7 +128,7 @@ class SapSqlParser extends SqlParser {
         (USING ~> relationFactor) ~
         (JOIN ~> PARENT ~> ident) ~ (ON ~> expression) ~
         (SEARCH ~> BY ~> ordering).? ~
-        (START ~> WHERE ~> expression) ~
+        (START ~> WHERE ~> expression).? ~
         (SET ~> ident <~ ")") ~
         (AS ~> ident) ^^ {
       case rel ~ ca ~ pexpr ~ sba ~ sw ~ nc ~ alias =>

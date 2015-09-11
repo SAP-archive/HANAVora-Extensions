@@ -62,7 +62,8 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
 
   val h = Hierarchy(lr1,
     "u", 'pred==='succ, SortOrder('name, Ascending) :: Nil,
-    new AttributeReference("blah", StringType, nullable = true, metadata = Metadata.empty)().expr,
+    Some(new AttributeReference("blah", StringType, nullable = true,
+      metadata = Metadata.empty)().expr),
     new AttributeReference("bleh", StringType, nullable = true, metadata = Metadata.empty)())
 
   val aliasedSum1 = sum(nameAtt).as('aliasedSum1)
@@ -114,7 +115,7 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
         childAlias = "v",
         parenthoodExpression = nameAtt === AttributeReference("pred", StringType)(),
         searchBy = Nil,
-        startWhere = nameAtt.isNull,
+        startWhere = Some(nameAtt.isNull),
         nodeAttribute = 'node
       )).asInstanceOf[Hierarchy]
     assertResult("u" :: Nil)(

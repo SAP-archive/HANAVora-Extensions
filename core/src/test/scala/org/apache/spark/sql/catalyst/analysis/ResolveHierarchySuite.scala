@@ -34,7 +34,7 @@ class ResolveHierarchySuite extends FunSuite with MockitoSugar {
       UnresolvedAttribute("u" :: "id" :: Nil) ===
         UnresolvedAttribute("v" :: "id" :: Nil),
       Nil,
-      'id.isNull,
+      Some('id.isNull),
       'node
     )
 
