@@ -15,7 +15,7 @@ class SapSQLContext(@transient override val sparkContext: SparkContext)
   with NonTemporaryTableSQLContextExtension
 
 object SapSQLContext {
-  val PROPERTY_IGNORE_USE_STATEMENTS = "spark.sql.ignore_use_statements"
+  val PROPERTY_IGNORE_USE_STATEMENTS = "spark.vora.ignore_use_statements"
 }
 
 private[sql] trait CatalystSourceSQLContextExtension extends PlannerSQLContextExtension {

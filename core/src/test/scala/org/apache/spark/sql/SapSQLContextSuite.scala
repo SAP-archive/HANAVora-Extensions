@@ -2,16 +2,13 @@ package org.apache.spark.sql
 
 import org.scalatest.FunSuite
 
-
-class SapSQLContextSuite extends FunSuite
-  with GlobalVelocitySQLContext {
+class SapSQLContextSuite extends FunSuite {
 
   test("Ignore USE keyword") {
-    // Every valid "USE xyz" statement should produce a
-    // UseStatementCommand. However, if the
-    // "ignore_use_statement" flag is missing
-    // or false, a SapParseError is thrown
-    // by the command on execution time.
+    // Behaviour:
+    // Every syntactically correct "USE [xyz...]" statement produces a UseStatementCommand.
+    // If the spark "ignore_use_statement" property is missing or false
+    // a SapParseError is thrown, else, the statement is ignored.
 
     val valid_use_statements = List(
       "USE DATABASE dude",
@@ -22,43 +19,49 @@ class SapSQLContextSuite extends FunSuite
 
     val invalid_use_statements = List(
       "asdsd USE    ",
-      "CREATE TABLE USE tab001" // USE is now a keyword
+      "CREATE TABLE USE tab001" // fails since USE is now a keyword
     )
 
-    // should fail if "ignore_use_statements" flag is missing
+    // should fail if "spark.vora.ignore_use_statements" prop is missing
+    var sapSQLContext = SapSQLContextEnv.getContext()
+
     valid_use_statements.foreach { stmt =>
       intercept[SapParserException] {
-        sqlContext.sql(stmt)
+        sapSQLContext.sql(stmt)
       }
     }
     invalid_use_statements.foreach { stmt =>
       intercept[SapParserException] {
-        sqlContext.sql(stmt)
+        sapSQLContext.sql(stmt)
       }
     }
 
-    // should fail if "ignore_use_statements" flag is false
-    sqlContext.setConf(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "false")
+    // should fail if "spark.vora.ignore_use_statements" prop is "false"
+    sapSQLContext = SapSQLContextEnv.getContext(Map(
+      SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS -> "false"
+    ))
     valid_use_statements.foreach { stmt =>
       intercept[SapParserException] {
-        sqlContext.sql(stmt)
+        sapSQLContext.sql(stmt)
       }
     }
     invalid_use_statements.foreach { stmt =>
       intercept[SapParserException] {
-        sqlContext.sql(stmt)
+        sapSQLContext.sql(stmt)
       }
     }
 
-    // should pass if "ignore_use_statements" flag is true
-    sqlContext.setConf(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "true")
+    // should fail if "spark.vora.ignore_use_statements" prop is "true"
+    sapSQLContext = SapSQLContextEnv.getContext(Map(
+      SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS -> "true"
+    ))
     valid_use_statements.foreach { stmt =>
-      sqlContext.sql(stmt)
+      sapSQLContext.sql(stmt)
     }
-    // these should still fail even if "ignore_use_statements" flag is true
+    // these should still fail even if "spark.vora.ignore_use_statements" prop is "true"
     invalid_use_statements.foreach { stmt =>
       intercept[SapParserException] {
-        sqlContext.sql(stmt)
+        sapSQLContext.sql(stmt)
       }
     }
   }

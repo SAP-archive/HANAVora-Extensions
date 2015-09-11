@@ -271,9 +271,12 @@ private[sql] case class UseStatementCommand(input: String)
   extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    sqlContext.getConf(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "false") match {
-      case "true" => log.info(s"Ignoring statement:\n$input")
-      case _ => throw new SapParserException(input, 1, 1, "USE statement is not supported")
+    if(sqlContext.sparkContext.getConf.getBoolean(
+      SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, false)) {
+      log.info(s"Ignoring statement:\n$input")
+    }
+    else {
+      throw new SapParserException(input, 1, 1, "USE statement is not supported")
     }
     Nil
   }
