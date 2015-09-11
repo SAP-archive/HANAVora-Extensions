@@ -51,7 +51,7 @@ public class SapSqlInterpreter extends Interpreter {
 
     static {
         Interpreter.register(
-                "velo",
+                "vora",
                 "spark",
                 SapSqlInterpreter.class.getName(),
                 new InterpreterPropertyBuilder()
