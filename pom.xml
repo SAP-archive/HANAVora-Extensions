@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sap.spark</groupId>
   <artifactId>spark-sap-parent</artifactId>
-  <version>0.0.8-SNAPSHOT</version>
+  <version>0.3.4</version>
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
@@ -32,7 +32,6 @@
     <module>dist</module>
   </modules>
   <properties>
-    <sapextension.core.version>0.0.8-SNAPSHOT</sapextension.core.version>
     <mockito.version>1.10.19</mockito.version>
     <scala.version>2.10.4</scala.version>
     <scala.binary.version>2.10</scala.binary.version>
@@ -114,12 +113,12 @@
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>${sapextension.core.version}</version>
+        <version>0.3.4</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>${sapextension.core.version}</version>
+        <version>0.3.4</version>
         <type>test-jar</type>
       </dependency>
       <dependency>
@@ -161,9 +160,6 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>versions-maven-plugin</artifactId>
           <version>2.1</version>
-          <configuration>
-            <includeProperties>sapextension.core.version</includeProperties>
-          </configuration>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -354,7 +350,7 @@
         </property>
       </activation>
       <properties>
-        <maven.test.skip>true</maven.test.skip>
+        <skipTests>true</skipTests>
       </properties>
     </profile>
     <profile>

@@ -5,7 +5,7 @@
   <parent>
     <artifactId>spark-sap-parent</artifactId>
     <groupId>com.sap.spark</groupId>
-    <version>0.0.8-SNAPSHOT</version>
+    <version>0.3.4</version>
   </parent>
 
   <modelVersion>4.0.0</modelVersion>
@@ -175,7 +175,7 @@
           <!-- TODO: we commented this out because of some incompatibility between asm versions
           <htmlreporters>${project.build.directory}/surefire-reports</htmlreporters>
           -->
-      </configuration>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
