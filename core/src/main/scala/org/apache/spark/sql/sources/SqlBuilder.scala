@@ -351,6 +351,7 @@ class SqlBuilder {
     sparkType match {
       case `StringType` => "VARCHAR(*)"
       case `IntegerType` => "INTEGER"
+      case `ShortType` => "SMALLINT"
       case `LongType` => "BIGINT"
       case `FloatType` => "FLOAT"
       case `DoubleType` => "DOUBLE"
