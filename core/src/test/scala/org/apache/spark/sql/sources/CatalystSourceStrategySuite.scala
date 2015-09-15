@@ -102,6 +102,14 @@ class CatalystSourceStrategySuite
     assert(physicals.isEmpty)
   }
 
+  test("Unsupported plan reject") {
+    catalystRelation.isMultiplePartitionExecutionFunc = x => true
+    catalystRelation.supportsLogicalPlanFunc = x => false
+    val plan: LogicalPlan = lcr
+    val physicals = CatalystSourceStrategy(plan)
+    assert(physicals.isEmpty)
+  }
+
   test("Partitioned push down") {
     catalystRelation.isMultiplePartitionExecutionFunc = x => true
     catalystRelation.supportsLogicalPlanFunc = x => true

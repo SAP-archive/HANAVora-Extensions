@@ -106,6 +106,8 @@ private[sql] object CatalystSourceStrategy extends Strategy {
       case _
         if isSupported(plan) =>
         toRDD(plan) :: Nil
+      case _ =>
+        Nil
     }
   }
 
