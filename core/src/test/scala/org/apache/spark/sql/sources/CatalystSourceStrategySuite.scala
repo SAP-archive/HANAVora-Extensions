@@ -142,6 +142,11 @@ class CatalystSourceStrategySuite
         count(lcrCInt).as('PartialCount), sum(lcrCInt).as('PartialSum)),
       getLogicalPlans(physicals.head.execute()).head
     )
+
+    plan = lcr.groupBy(lcrCInt)(avg(lcrCInt).as('c_avg), lcrCInt)
+      .groupBy(lcrCInt)(lcrCInt)
+    physicals = CatalystSourceStrategy(plan)
+    assert(physicals.isEmpty)
   }
 
 }

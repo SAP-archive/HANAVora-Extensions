@@ -41,41 +41,41 @@ private[sql] object CatalystSourceStrategy extends Strategy {
   // scalastyle:off
   private def planPartitioned(cs: CatalystSource, plan: LogicalPlan): Seq[SparkPlan] = {
 
-    @inline def isSupported(p: LogicalPlan): Boolean =
-      !containsGlobalOperators(p) && cs.supportsLogicalPlan(p)
+    @inline def isSupported(p: LogicalPlan, nonGlobal: LogicalPlan): Boolean =
+      !containsGlobalOperators(nonGlobal) && cs.supportsLogicalPlan(p)
 
     @inline def toRDD(p: LogicalPlan): SparkPlan =
       execution.PhysicalRDD(p.output, cs.logicalPlanToRDD(p))
 
     plan match {
-      case logical.Limit(IntegerLiteral(limit), logical.Distinct(logical.Sort(order, true, _)))
-        if isSupported(plan) =>
+      case logical.Limit(IntegerLiteral(limit), logical.Distinct(logical.Sort(order, globalSort, child)))
+        if isSupported(plan, child) =>
         execution.Limit(limit,
           execution.Distinct(partial = false,
-            execution.Sort(order, global = true,
+            execution.Sort(order, global = globalSort,
               toRDD(plan)))) :: Nil
-      case logical.Limit(IntegerLiteral(limit), logical.Sort(order, true, logical.Distinct(_)))
-        if isSupported(plan) =>
+      case logical.Limit(IntegerLiteral(limit), logical.Sort(order, globalSort, logical.Distinct(child)))
+        if isSupported(plan, child) =>
         execution.Limit(limit,
-          execution.Sort(order, global = true,
+          execution.Sort(order, global = globalSort,
             execution.Distinct(partial = false,
               toRDD(plan)))) :: Nil
-      case logical.Limit(IntegerLiteral(limit), logical.Sort(order, true, _))
-        if isSupported(plan) =>
+      case logical.Limit(IntegerLiteral(limit), logical.Sort(order, globalSort, child))
+        if isSupported(plan, child) =>
         execution.Limit(limit,
-          execution.Sort(order, global = true,
+          execution.Sort(order, global = globalSort,
             toRDD(plan))) :: Nil
-      case logical.Limit(IntegerLiteral(limit), logical.Distinct(_))
-        if isSupported(plan) =>
+      case logical.Limit(IntegerLiteral(limit), logical.Distinct(child))
+        if isSupported(plan, child) =>
         execution.Limit(limit,
           execution.Distinct(partial = false,
             toRDD(plan))) :: Nil
-      case logical.Limit(IntegerLiteral(limit), _)
-        if isSupported(plan) =>
+      case logical.Limit(IntegerLiteral(limit), child)
+        if isSupported(plan, child) =>
         execution.Limit(limit,
           toRDD(plan)) :: Nil
-      case logical.Distinct(_)
-        if isSupported(plan) =>
+      case logical.Distinct(child)
+        if isSupported(plan, child) =>
         execution.Distinct(partial = false,
           toRDD(plan)) :: Nil
 
@@ -90,7 +90,7 @@ private[sql] object CatalystSourceStrategy extends Strategy {
           partialGroupingExpressions,
           partialAggregateExpressions,
           child)
-        if (isSupported(pushDownPlan)) {
+        if (isSupported(pushDownPlan, child)) {
           execution.Aggregate(
             partial = false,
             finalGroupingAttributes,
@@ -104,7 +104,7 @@ private[sql] object CatalystSourceStrategy extends Strategy {
       case _: logical.Aggregate =>
         Nil
       case _
-        if isSupported(plan) =>
+        if isSupported(plan, plan) =>
         toRDD(plan) :: Nil
       case _ =>
         Nil
@@ -114,7 +114,7 @@ private[sql] object CatalystSourceStrategy extends Strategy {
   private def containsGlobalOperators(plan: LogicalPlan): Boolean =
     plan
       .collect { case op => isGlobalOperation(op) }
-      .forall { isGlobal => isGlobal }
+      .exists { isGlobal => isGlobal }
 
   private def isGlobalOperation(op: LogicalPlan): Boolean =
     op match {
