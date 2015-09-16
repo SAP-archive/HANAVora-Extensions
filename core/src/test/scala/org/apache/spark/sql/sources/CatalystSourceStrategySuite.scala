@@ -5,7 +5,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
-import org.apache.spark.sql.catalyst.expressions.{Expression, Attribute, Row}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
@@ -137,9 +137,16 @@ class CatalystSourceStrategySuite
     plan = lcr.groupBy(lcrCInt)(avg(lcrCInt).as('c_avg))
     physicals = CatalystSourceStrategy(plan)
     assert(physicals.nonEmpty)
+    val lp = getLogicalPlans(physicals.head.execute()).head
+    val allAliases = lp
+      .collect({ case p => p.expressions }).flatten
+      .filter(_.isInstanceOf[Alias]).map(_.asInstanceOf[Alias])
+    val partialCountId = allAliases.find(_.name startsWith "PartialCount").get.exprId.id
+    val partialSumId = allAliases.find(_.name startsWith "PartialSum").get.exprId.id
     comparePlans(lcr
       .groupBy(lcrCInt)(lcrCInt,
-        count(lcrCInt).as('PartialCount), sum(lcrCInt).as('PartialSum)),
+        count(lcrCInt).as(Symbol(s"PartialCount$partialCountId")),
+        sum(lcrCInt).as(Symbol(s"PartialSum$partialSumId"))),
       getLogicalPlans(physicals.head.execute()).head
     )
 

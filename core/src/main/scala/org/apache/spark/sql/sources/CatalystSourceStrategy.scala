@@ -80,21 +80,32 @@ private[sql] object CatalystSourceStrategy extends Strategy {
           toRDD(plan)) :: Nil
 
       case partialAgg@PartialAggregation(
-        finalGroupingAttributes,
-        finalAggregateExpressions,
-        partialGroupingExpressions,
-        partialAggregateExpressions,
+        finalGroupings,
+        finalAggregates,
+        partialGroupings,
+        partialAggregates,
         child) =>
 
+        /* Avoid duplicate aliases */
+        val fixedPartialAggregates = partialAggregates map {
+          case a@Alias(c, name) =>
+            Alias(c, name + a.exprId.id)(
+              exprId = a.exprId,
+              qualifiers = a.qualifiers,
+              explicitMetadata = a.explicitMetadata
+            )
+          case other => other
+        }
+
         val pushDownPlan = logical.Aggregate(
-          partialGroupingExpressions,
-          partialAggregateExpressions,
+          partialGroupings,
+          fixedPartialAggregates,
           child)
         if (isSupported(pushDownPlan, child)) {
           execution.Aggregate(
             partial = false,
-            finalGroupingAttributes,
-            finalAggregateExpressions,
+            finalGroupings,
+            finalAggregates,
             toRDD(pushDownPlan)
           ) :: Nil
         } else {
