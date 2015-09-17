@@ -20,6 +20,18 @@ trait HierarchyTestUtils {
     AnimalRow("Oviparous", Some(1L), 3L, 2L)
   )
 
+
+  /*  --------------------------------------------
+      - The hierarchy with correct sibling order -
+      --------------------------------------------
+                          The Boss(prerank: 1)
+                             /          \
+                           MM(2)       OMM(7)
+                          /     \
+                  SeniorDev(3)  Minion1(6)
+                  /           \
+            Minion2(4)        Minion3(5)
+   */
   protected def organizationHierarchy: Seq[EmployeeRow] = Seq(
     EmployeeRow("THE BOSS", None, 1L, 1),
     EmployeeRow("The Middle Manager", Some(1L), 2L, 1),
