@@ -87,13 +87,7 @@ object HierarchyRowJoinBuilder {
     val init = HierarchyRowFunctions.rowInit(pk)
     val modify = HierarchyRowFunctions.rowModify(pk)
 
-    new HierarchyJoinBuilder[Row,Row,Any](startsWhere, pk, pred, init, modify) {
-      override def buildFromAdjacencyList(rdd: RDD[Row]): RDD[Row] = {
-        /* FIXME: Hack to prevent wrong join results between Long and MutableLong? */
-        val cleanRdd = rdd.map(row => Row(row.toSeq: _*))
-        super.buildFromAdjacencyList(cleanRdd)
-      }
-    }
+    new HierarchyJoinBuilder[Row,Row,Any](startsWhere, pk, pred, init, modify)
   }
 }
 

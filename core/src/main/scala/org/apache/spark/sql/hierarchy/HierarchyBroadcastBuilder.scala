@@ -1,183 +1,144 @@
 package org.apache.spark.sql.hierarchy
 
+import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.Node
 
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
+private[hierarchy] class Forest[T](
+                                    val refs: mutable.Map[T,Tree[T]],
+                                    val trees: Seq[Tree[T]]
+                                    ) extends Serializable {
 
-/* TODO (YH, SM) enhance this type, currently it is mutable. */
-private[hierarchy] class Tree[T](
-                                  val root: T,
-                                  var children: Option[Seq[Tree[T]]],
-                                  var preRank: java.lang.Integer = null,
-                                  var postRank: java.lang.Integer = null,
-                                  var siblingRank: java.lang.Long = null)
-  extends Serializable {
-
-  override def toString: String = {
-    children.foldLeft(root.toString)((s, r) => (s + "-> " + r.toString()))
-  }
+  def findTree(id: T): Option[Tree[T]] = refs.get(id)
 
 }
 
-case class PrePostRank(var preRank: java.lang.Integer,
-                       var postRank: java.lang.Integer)
+private[hierarchy] class Tree[T](
+                                  val parent: Option[Tree[T]],
+                                  val root: T,
+                                  var preRank: Int = 0,
+                                  var isLeaf: Boolean = false)
+  extends Serializable {
+
+  override def toString: String =
+    s"Tree(root=$root)"
+
+  def prefix: Seq[T] =
+    parent match {
+      case None => root :: Nil
+      case Some(p) => p.prefix :+ root
+    }
+
+}
 
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
 (pred: I => C,
  succ: I => C,
  startWhere: Option[I => Boolean],
  ord: I => C,
- transformRowFunction: (I, Node) => O) extends HierarchyBuilder[I, O] {
+ transformRowFunction: (I, Node) => O) extends HierarchyBuilder[I, O] with Logging {
 
-  def buildTree(t: Tree[C], list: Array[((C, C), (C,C))]): Unit = {
-    if (t.children.isEmpty) {
-      t.children = Some(
-        list
-          filter (p => p._1._1 == t.root)
-          map (i => new Tree(i._1._2, None, siblingRank =
-        {i._2._2 match {
-          case l: Long => l
-          case myi: Int => myi.toLong
-          case _ => -1L
-        }}
-        ))
-      sortWith({(lhs,rhs) => lhs.siblingRank < rhs.siblingRank})
-      )
-    }
-    if (t.children.isDefined) {
-      t.children.get foreach (buildTree(_, list))
-    }
-  }
+  def buildTree(refs: mutable.Map[C,Tree[C]],
+                t: Tree[C],
+                candidateMap: Map[C, Array[HRow[C]]],
+                prevPreRank: Int): Int = {
+    refs.put(t.root, t)
 
-  def getTreePrefix(tree: Tree[C], id: C): Seq[C] =
-  /* TODO (YH), enhance by having a hashtable of references and creating references to parents. */
-    tree match {
-      case t if t.root == id => Seq(t.root)
-      case t if t.children.isEmpty => Nil
-      case t =>
-        t.children.get
-          .map(getTreePrefix(_, id))
-          .find(_.nonEmpty) match {
-          case None => Nil
-          case Some(result) => Seq(t.root) ++ result
-        }
-    }
-
-  def getPrefix(f: Seq[Tree[C]], id: C): Seq[C] =
-    f.map(getTreePrefix(_, id)).find(_.nonEmpty) match {
-      case None =>
-        throw new IllegalStateException("Unexpected, was not able to find prefix!")
-      case Some(result) => result
-    }
-
-  /**
-   * Sets the pre/post-order DFS ranks of tree-root and works recursively on children
-   * @param tree (sub-)tree to iterate
-   * @param ranks last assigned-ranks of the caller
-   * @return {pre-rank of the most right leaf, self-assigned post-rank}
-   */
-  private def setPrePostRank(tree: Tree[C], ranks: PrePostRank)
-  : PrePostRank =
-  /** returns last-assigned prerank */ {
-    // we are in java, so let's take a copy - nobody will complain:
-    var local_rank = PrePostRank(ranks.preRank + 1, ranks.postRank + 1)
-    tree.preRank = local_rank.preRank
-    tree.children match {
-      case Some(child) => {
-        child.foreach(subtree =>
-          local_rank = setPrePostRank(subtree, local_rank))
-      }
-      case None =>
-    }
-    tree.postRank = local_rank.postRank
-    local_rank.postRank += 1
-    local_rank
-  }
-
-  /**
-   * Extract the pre-/post-rank information for a given node from the tree
-   * @param tree searched structure
-   * @param id searched node
-   * @return {pre-rank, post-rank} of searched node
-   */
-  private def getTreePreRank(tree: Tree[C], id: C): java.lang.Integer = {
-    var return_pre_rank: java.lang.Integer = null
-    if (tree.root == id) {
-      return_pre_rank = tree.preRank
-    } else {
-      tree.children match {
-        case Some(child) => child.foreach(subtree => {
-          val loc_pre_rank: java.lang.Integer = getTreePreRank(subtree, id)
-          if (loc_pre_rank != null) {
-            return_pre_rank = loc_pre_rank
-          }
+    val children =
+      candidateMap.getOrElse(t.root, Array[HRow[C]]())
+        .sortWith({ (lhs, rhs) => lhs.ord < rhs.ord })
+        .map({ childRow =>
+          new Tree(parent = Some(t), root = childRow.succ)
         })
-        case None =>
-      }
+
+    t.isLeaf = children.isEmpty
+    t.preRank = prevPreRank + 1
+    var childPrevPreRank = t.preRank
+    children foreach { child =>
+      childPrevPreRank = buildTree(refs, child, candidateMap - t.root, childPrevPreRank)
     }
-    return_pre_rank
+    childPrevPreRank
   }
 
   /**
-   * Wrapper to extract the pre/post rank for given node
-   * @param f forest
-   * @param id tree-node to search for
+   * Providing sibling-order is optional: use succ as fallback for now.
+   * @param row
    * @return
    */
-  private def getPreRank(f: Seq[Tree[C]], id: C): java.lang.Integer = {
-    var return_pre_rank: java.lang.Integer = null
-    f.foreach(t => {
-      val local_pre_rank = getTreePreRank(t, id)
-      if (local_pre_rank != null) {
-        return_pre_rank = local_pre_rank
-      }
-    })
-    return_pre_rank
+  private def orderFunc(row: I): Long = {
+    val v = ord match {
+      case null => succ(row)
+      case _ => ord(row)
+    }
+    v match {
+      case l: Long => l
+      case i: Int => i.toLong
+      case _ => -1L
+    }
   }
 
   override def buildFromAdjacencyList(rdd: RDD[I]): RDD[O] = {
-    // providing sibling-order is optional: use succ as fallback for now:
-    val ord_f = ord match {
-      case null => succ
-      case _ => ord
+    logDebug(s"Collecting data to build hierarchy")
+    val data = rdd mapPartitions { iter =>
+      iter map { row =>
+        HRow[C](
+          pred = pred(row),
+          succ = succ(row),
+          ord = orderFunc(row),
+          isRoot = startWhere.map({ sw => sw(row) })
+        )
+      }
+    } collect()
+    logDebug(s"Finished collecting data to build hierarchy")
+
+    lazy val successors = data.map(_.succ).toSet
+
+    logTrace(s"Partitioning roots / non-roots")
+    val (roots, nonRoots) = data partition { hrow =>
+      hrow.isRoot match {
+          case Some(ir) => ir
+          case None => !successors.contains(hrow.pred)
+        }
     }
-    val adjacency = rdd keyBy pred mapValues succ
-    val rank_list: RDD[(C, C)] = rdd keyBy pred mapValues ord_f
-    val list_with_order = adjacency zip rank_list collect()
 
-    val roots = rdd filter startWhere.getOrElse({
-      val sucessors = rdd.map(succ).collect()
-      in => !sucessors.contains(pred(in))
-    }) map succ collect()
-
-    if(roots.isEmpty) {
+    if (roots.isEmpty) {
       sys.error("The hierarchy does not have any roots.")
     }
 
+    logTrace(s"Grouping candidates")
+    val candidateMap = nonRoots.groupBy(_.pred)
+
+    logDebug(s"Building hierarchy")
     val forest = {
-      val obj = roots map (root => new Tree(root, None))
-      obj foreach(buildTree(_, list_with_order))
-      obj
+      val trees = roots map { hrow => new Tree[C](None, hrow.succ, preRank = 1) }
+      val refs = mutable.Map[C,Tree[C]]()
+      trees map(buildTree(refs, _, candidateMap, 0))
+      new Forest(refs, trees)
     }
 
-    /* Init pre-/post-rank for each tree node */
-    var prev_rank = PrePostRank(0,0)
-    forest.foreach( f => {
-      prev_rank = setPrePostRank(f, prev_rank)
-      // prepare for next tree in forest:
-      prev_rank.preRank += 1
-      prev_rank.postRank += 1
-    })
-
+    logDebug(s"Broadcasted hierarchy")
     val forestBroadcast = rdd.sparkContext.broadcast(forest)
-    /* TODO (YH) define extra attributes for Node */
-    rdd map (x =>
-      transformRowFunction (x, Node(getPrefix(forestBroadcast.value, succ(x)),
-      getPreRank(forestBroadcast.value, succ(x)))))
+    logDebug(s"Broadcasted hierarchy as: ${forestBroadcast.id}")
+
+    rdd mapPartitions { iter =>
+      iter flatMap { x =>
+        val id = succ(x)
+        val forest = forestBroadcast.value
+        val subtreeOpt = forest.findTree(id)
+        subtreeOpt map { subtree =>
+          transformRowFunction(x, Node(
+            path = subtree.prefix,
+            preRank = subtree.preRank,
+            isLeaf = subtree.isLeaf
+          ))
+        }
+      }
+    }
   }
 
 }
@@ -222,12 +183,8 @@ object HierarchyRowBroadcastBuilder {
 
     new HierarchyBroadcastBuilder[Row,Row,Any, Node](
       pred, succ, startsWhere, ord, HierarchyRowFunctions.rowAppend
-    ) {
-      override def buildFromAdjacencyList(rdd: RDD[Row]): RDD[Row] = {
-        /* FIXME: Hack to prevent wrong join results between Long and MutableLong? */
-        val cleanRdd = rdd.map(row => Row(row.toSeq: _*))
-        super.buildFromAdjacencyList(cleanRdd)
-      }
-    }
+    )
   }
 }
+
+private case class HRow[C](pred: C, succ: C, ord: Long, isRoot: Option[Boolean])

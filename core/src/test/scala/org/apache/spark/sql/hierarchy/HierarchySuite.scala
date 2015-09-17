@@ -1,6 +1,5 @@
 package org.apache.spark.sql.hierarchy
 
-import org.apache.ivy.core.search.OrganisationEntry
 import org.apache.spark.Logging
 import org.apache.spark.sql.{Row, _}
 import org.apache.spark.sql.catalyst.expressions._
@@ -21,6 +20,21 @@ class HierarchySuite extends FunSuite
   implicit class Crossable[X](xs: Traversable[X]) {
     def cross[Y](ys: Traversable[Y]): Traversable[(X,Y)] =
       for { x <- xs; y <- ys } yield (x, y)
+  }
+
+  private def assertSetEqual[E](expected: Set[E])(actual: Set[E]): Unit = {
+    val unexpectedElements = actual -- expected
+    val missingElements = expected -- actual
+    if (unexpectedElements.nonEmpty || missingElements.nonEmpty) {
+      fail(
+        s"""
+           |Failed set comparison:
+           |  Unexpected elements:
+           |    $unexpectedElements
+           |  Missing elements:
+           |    $missingElements
+         """.stripMargin)
+    }
   }
 
   test("test hierarchy self join on hierarchy-UDF using repeated derivation") {
@@ -120,7 +134,7 @@ class HierarchySuite extends FunSuite
 
   test("create hierarchy without start where and search by clause") {
     val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    val hSrc = sqlContext.createDataFrame(rdd)
     log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
     hSrc.registerTempTable("h_src")
     val queryString = """
@@ -197,7 +211,7 @@ class HierarchySuite extends FunSuite
       log.error(s"Missing: ${expected -- resultCollect}")
       log.error(s"Unexpected: ${resultCollect -- expected}")
     }
-    assertResult(expected)(resultCollect)
+    assertSetEqual(expected)(resultCollect)
   }
 
   test("integration: build join hierarchy from SQL using RDD[Row] with UDFs") {
@@ -227,7 +241,7 @@ class HierarchySuite extends FunSuite
       Row("Minion 3", 4, false)
     )
 
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
   }
 
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
@@ -248,16 +262,16 @@ class HierarchySuite extends FunSuite
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4)),
-      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true)),
+      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, isLeaf = true))
     )
 
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
   }
 
   test("integration: build broadcast hierarchy top to bottom using SQL and RDD[Row]") {
@@ -281,15 +295,83 @@ class HierarchySuite extends FunSuite
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true))
     )
 
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
+  }
+
+  test("integration: build broadcast hierarchy with orphan cycle") {
+    val cyclingNodes =
+      EmployeeRow("Cycler 1", Some(10L), 8L, 1) ::
+        EmployeeRow("Cycler 2", Some(8L), 9L, 1) ::
+        EmployeeRow("Cycler 3", Some(9L), 10L, 1) ::
+      Nil
+
+    val rdd = sc.parallelize(
+      organizationHierarchy
+        .take(organizationHierarchy.length - 1)
+        .sortBy(x => Random.nextDouble()) ++ cyclingNodes
+    )
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("h_src")
+    val queryString = """
+    SELECT * FROM HIERARCHY (
+      USING h_src AS v
+        JOIN PARENT u ON v.pred = u.succ
+        SEARCH BY ord ASC
+      START WHERE pred IS NULL
+      SET node
+      ) AS H
+                      """
+
+    val result = sqlContext.sql(queryString).collect()
+
+    val expected = Set(
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true))
+    )
+
+    assertSetEqual(expected)(result.toSet)
+  }
+
+  test("integration: build broadcast hierarchy with cycle") {
+    val cycleHierarchy = Seq(
+      EmployeeRow("Parent", Some(3L), 1L, 1),
+      EmployeeRow("Child", Some(1L), 2L, 1),
+      EmployeeRow("Cycler", Some(2L), 3L, 1)
+    )
+    val rdd = sc.parallelize(cycleHierarchy)
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("h_src")
+    val queryString = """
+    SELECT * FROM HIERARCHY (
+      USING h_src AS v
+        JOIN PARENT u ON v.pred = u.succ
+        SEARCH BY ord ASC
+      START WHERE succ = 1
+      SET node
+      ) AS H
+                      """
+
+    val result = sqlContext.sql(queryString).collect().toSet
+
+    val expected = Set(
+      Row("Parent", 3L, 1L, 1, Node(List(1L), 1, isLeaf = false)),
+      Row("Child", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
+      Row("Cycler", 2L, 3L, 1, Node(List(1L, 2L, 3L), 3, isLeaf = true))
+    )
+
+    assertSetEqual(expected)(result.toSet)
   }
 
   integrationStartWithExpression(HierarchyRowJoinBuilder(
@@ -332,8 +414,7 @@ class HierarchySuite extends FunSuite
       val result = builder.buildFromAdjacencyList(hSrc.rdd)
 
       // TODO(Weidner): workaround, implement prerank for join builder!
-      val is_join = builder.getClass.getName.split("\\$")
-        .head.split("\\.").last.contains("RowJoinBuilder")
+      val is_join = builder.getClass.getName.contains("JoinBuilder")
       val expected = if(is_join == true) {
         Set(
           Row("THE BOSS", null, 1L, 1, Node(List(1L))),
@@ -345,16 +426,16 @@ class HierarchySuite extends FunSuite
           Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L))))
       } else {
         Set(
-          Row("THE BOSS", null, 1L, 1, Node(List(1L), 1)),
-          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7)),
-          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2)),
-          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3)),
-          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6)),
-          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4)),
-          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5)))
+          Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
+          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, isLeaf = true)),
+          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
+          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
+          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, isLeaf = true)),
+          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true)),
+          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, isLeaf = true)))
       }
 
-      assertResult(expected)(result.collect().toSet)
+      assertSetEqual(expected)(result.collect().toSet)
     }
   }
 
@@ -449,7 +530,7 @@ class HierarchySuite extends FunSuite
       Row("Senior Developer", "Near-Acceptable Street", 3),
       Row("Minion 3", "The Street", 4)
     )
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
   }
 
   test("integration: I can left outer join hierarchy with table") {
@@ -484,7 +565,7 @@ class HierarchySuite extends FunSuite
       Row("Minion 2", null, 4),
       Row("Minion 3", "The Street", 4)
     )
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
    }
 
   test("integration: I can right outer join hierarchy with table") {
@@ -519,7 +600,7 @@ class HierarchySuite extends FunSuite
       Row("Minion 3", "The Street", 4),
       Row("Darth Vader", "Death Star", null)
     )
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
   }
 
   test("integration: I can full outer join hierarchy with table") {
@@ -557,7 +638,7 @@ class HierarchySuite extends FunSuite
       Row("Minion 3", "The Street", 4),
       Row(null, "Death Star", null)
     )
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
   }
 
   test("integration: I can use star with full outer join hierarchy with table and unary UDFs") {
@@ -595,6 +676,6 @@ class HierarchySuite extends FunSuite
       Row("Minion 3", "The Street", 4, false),
       Row(null, "Death Star", null, null)
     )
-    assertResult(expected)(result.toSet)
+    assertSetEqual(expected)(result.toSet)
   }
 }

@@ -10,14 +10,14 @@ class HierarchyStrategySuite extends FunSuite
   with MockitoSparkContext {
 
   test("unit: test hierarchy strategy with default context configuration") {
-    val strategy = new HierarchyStrategy(Nil, null, null, Nil)
+    val strategy = new HierarchyStrategy(null, Nil, null, null, Nil)
     val parseConfigMethod = PrivateMethod[SparkContext]('parseConfig)
     val expected = ("undefined", HierarchyStrategy.THRESHOLD)
     assertResult(expected)(strategy invokePrivate parseConfigMethod(sc))
   }
 
   test("unit: test hierarchy strategy with valid context configuration") {
-    val strategy = new HierarchyStrategy(Nil, null, null, Nil)
+    val strategy = new HierarchyStrategy(null, Nil, null, null, Nil)
     val parseConfigMethod = PrivateMethod[SparkContext]('parseConfig)
     sc.conf.set("hierarchy.always", "broadcast")
     var expected = ("broadcast", HierarchyStrategy.THRESHOLD)
@@ -32,7 +32,7 @@ class HierarchyStrategySuite extends FunSuite
   }
 
   test("unit: setting invalid context configuration for hierarchy strategy throws") {
-    val strategy = new HierarchyStrategy(Nil, null, null, Nil)
+    val strategy = new HierarchyStrategy(null, Nil, null, null, Nil)
     val parseConfigMethod = PrivateMethod[SparkContext]('parseConfig)
     sc.conf.set("hierarchy.threshold", "-100")
     intercept[IllegalArgumentException]{
@@ -46,14 +46,14 @@ class HierarchyStrategySuite extends FunSuite
   }
 
   test("unit: below threshold show use broadcast hierarchy") {
-    val strategy = new HierarchyStrategy(Nil, null, null, Nil)
+    val strategy = new HierarchyStrategy(null, Nil, null, null, Nil)
     val getBuilderMethod = PrivateMethod[Boolean]('useBroadcastHierarchy)
     val actual = strategy invokePrivate getBuilderMethod(("undefined", 10L),  () => 9L)
     assertResult(true)(actual)
   }
 
   test("unit: above or equal threshold show use join hierarchy") {
-    val strategy = new HierarchyStrategy(Nil, null, null, Nil)
+    val strategy = new HierarchyStrategy(null, Nil, null, null, Nil)
     val getBuilderMethod = PrivateMethod[Boolean]('useBroadcastHierarchy)
     var actual = strategy invokePrivate getBuilderMethod(("undefined", 10L),  () => 11L)
     assertResult(false)(actual)
@@ -62,7 +62,7 @@ class HierarchyStrategySuite extends FunSuite
   }
 
   test("unit: explicit implementation in config should override threshold") {
-    val strategy = new HierarchyStrategy(Nil, null, null, Nil)
+    val strategy = new HierarchyStrategy(null, Nil, null, null, Nil)
     val getBuilderMethod = PrivateMethod[Boolean]('useBroadcastHierarchy)
     var actual = strategy invokePrivate getBuilderMethod(("broadcast", 10L),  () => 11L)
     assertResult(true)(actual)

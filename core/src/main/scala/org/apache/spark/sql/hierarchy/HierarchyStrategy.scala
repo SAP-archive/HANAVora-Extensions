@@ -3,9 +3,13 @@ package org.apache.spark.sql.hierarchy
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
+import org.apache.spark.sql.catalyst.CatalystTypeConverters
+import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.types.{Node, NodeType, StructField, StructType}
 
-case class HierarchyStrategy(attributes: Seq[Attribute], parenthoodExpression: Expression,
+case class HierarchyStrategy(child: SparkPlan,
+                             attributes: Seq[Attribute], parenthoodExpression: Expression,
                              startWhere: Option[Expression], searchBy: Seq[SortOrder]) {
 
   private def parseConfig(sc: SparkContext): (String, Long) = {
@@ -32,18 +36,39 @@ case class HierarchyStrategy(attributes: Seq[Attribute], parenthoodExpression: E
   }
 
   def execute(rdd: RDD[Row]): RDD[Row] = {
-    startWhere match {
+    /* XXX: Copied from DataFrame. See SPARK-4775 (weird duplicated rows). */
+    val childSchema = child.schema
+    val cachedRdd = rdd.mapPartitions({ iter =>
+      val converter = CatalystTypeConverters.createToScalaConverter(childSchema)
+      iter.map(converter(_).asInstanceOf[Row])
+    }).cache()
+    val resultRdd = startWhere match {
       case Some(_) => HierarchyRowBroadcastBuilder(attributes, parenthoodExpression, startWhere,
-        searchBy).buildFromAdjacencyList(rdd)
+        searchBy).buildFromAdjacencyList(cachedRdd)
       case None =>
-        useBroadcastHierarchy(parseConfig(rdd.sparkContext), rdd count) match {
+        val count = cachedRdd.count()
+        useBroadcastHierarchy(parseConfig(cachedRdd.sparkContext), count) match {
         case true => HierarchyRowBroadcastBuilder(attributes, parenthoodExpression, startWhere,
-          searchBy).buildFromAdjacencyList(rdd)
+          searchBy).buildFromAdjacencyList(cachedRdd)
         case false => HierarchyRowJoinBuilder(
           attributes, parenthoodExpression, startWhere.get, searchBy)
-          .buildFromAdjacencyList(rdd)
+          .buildFromAdjacencyList(cachedRdd)
       }
     }
+    val cachedResultRdd = resultRdd
+      .mapPartitions({ iter =>
+        val schemaWithNode =
+          StructType(childSchema.fields ++ Seq(StructField("", NodeType, nullable = false)))
+        val converter = CatalystTypeConverters.createToCatalystConverter(schemaWithNode)
+        iter.map({ row =>
+          val node = row.getAs[Node](row.length - 1)
+          val rowWithoutNode = Row(row.toSeq.take(row.length - 1): _*)
+          val convertedRowWithoutNode = converter(rowWithoutNode).asInstanceOf[Row]
+          Row.fromSeq(convertedRowWithoutNode.toSeq :+ node)
+        })
+      }).cache()
+    cachedRdd.unpersist(blocking = false)
+    cachedResultRdd
   }
 }
 

@@ -13,6 +13,7 @@ case class HierarchyPhysicalPlan(childAlias: String,
                                  child: SparkPlan) extends UnaryNode {
 
   override def doExecute(): RDD[Row] = HierarchyStrategy(
+    child,
     child.output,
     parenthoodExpression,
     startWhere,
@@ -20,4 +21,7 @@ case class HierarchyPhysicalPlan(childAlias: String,
   ).execute(child.execute())
 
   override def output: Seq[Attribute] = child.output :+ nodeAttribute
+
+
+
 }
