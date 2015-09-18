@@ -485,16 +485,16 @@ class HierarchySuite
 
       val in_order = hierarchy.collect().toVector
       assertResult(1)(  // should follow in order
-        in_order.indexOf( PartialResult(List(1, 3),3)) -
-          in_order.indexOf( PartialResult(List(1, 2),2))
+        in_order.indexOf(PartialResult(List(1, 3),3)) -
+          in_order.indexOf(PartialResult(List(1, 2),2))
       )
       assertResult(1)(  // should follow in order
-        in_order.indexOf( PartialResult(List(1, 2, 5),5) ) -
-          in_order.indexOf( PartialResult(List(1, 2, 4),4) )
+        in_order.indexOf(PartialResult(List(1, 2, 5),5)) -
+          in_order.indexOf(PartialResult(List(1, 2, 4),4))
       )
       assertResult(1)(  // should follow in order
-        in_order.indexOf( PartialResult(List(1, 2, 4, 7),7) ) -
-          in_order.indexOf( PartialResult(List(1, 2, 4, 6),6) )
+        in_order.indexOf(PartialResult(List(1, 2, 4, 7),7)) -
+          in_order.indexOf(PartialResult(List(1, 2, 4, 6),6))
       )
     }
   }

@@ -175,7 +175,7 @@ object HierarchyRowBroadcastBuilder {
       case false =>
         HierarchyRowFunctions.rowGet[java.lang.Long](
           attributes.indexWhere(_.name ==
-            searchBy.head.child.asInstanceOf[AttributeReference].name ))
+            searchBy.head.child.asInstanceOf[AttributeReference].name))
     }
 
     new HierarchyBroadcastBuilder[Row,Row,Any, Node](

@@ -36,13 +36,13 @@ class SapSQLContext(@transient override val sparkContext: SparkContext)
     var input: InputStream = null
     try {
       input = getClass.getResourceAsStream("/project.properties")
-      prop.load( input)
-      logInfo( s"SapSQLContext [version: ${prop.getProperty("datasourcedist.version")}] created")
+      prop.load(input)
+      logInfo(s"SapSQLContext [version: ${prop.getProperty("datasourcedist.version")}] created")
     }
     catch {
-      case e: Exception => logDebug( "project.properties file does not exist")
+      case e: Exception => logDebug("project.properties file does not exist")
     }
-    if( input != null ) {
+    if(input != null) {
       try {
         input.close()
       }

@@ -84,7 +84,7 @@ class SapSqlParser extends SqlParser {
   // scalastyle:off
   /* TODO SparkSQL parser functions code copied */
   protected lazy val sparkFunctions: Parser[Expression] =
-    ( SUM   ~> "(" ~> expression             <~ ")" ^^ { case exp => Sum(exp) }
+    (SUM   ~> "(" ~> expression             <~ ")" ^^ { case exp => Sum(exp) }
       | SUM   ~> "(" ~> DISTINCT ~> expression <~ ")" ^^ { case exp => SumDistinct(exp) }
       | COUNT ~  "(" ~> "*"                    <~ ")" ^^ { case _ => Count(Literal(1)) }
       | COUNT ~  "(" ~> expression             <~ ")" ^^ { case exp => Count(exp) }
@@ -246,7 +246,7 @@ class SapSqlParser extends SqlParser {
     }
 
   override protected lazy val comparisonExpression: Parser[Expression] =
-    ( termExpression ~ ("="  ~> termExpression) ^^ { case e1 ~ e2 => EqualTo(e1, e2) }
+    (termExpression ~ ("="  ~> termExpression) ^^ { case e1 ~ e2 => EqualTo(e1, e2) }
       | termExpression ~ ("<"  ~> termExpression) ^^ { case e1 ~ e2 => LessThan(e1, e2) }
       | termExpression ~ ("<=" ~> termExpression) ^^ { case e1 ~ e2 => LessThanOrEqual(e1, e2) }
       | termExpression ~ (">"  ~> termExpression) ^^ { case e1 ~ e2 => GreaterThan(e1, e2) }

@@ -88,7 +88,7 @@ class SapThriftBinaryServerSuite extends SapThriftJdbcTest2 with Logging {
   test("JDBC query execution") {
     withJdbcStatement { statement =>
       assertResult(4, "Row count mismatch") {
-        val resultSet = statement.executeQuery( s"""SELECT COUNT(*) FROM $tableName""")
+        val resultSet = statement.executeQuery(s"""SELECT COUNT(*) FROM $tableName""")
         resultSet.next()
         resultSet.getInt(1)
       }
@@ -98,7 +98,7 @@ class SapThriftBinaryServerSuite extends SapThriftJdbcTest2 with Logging {
   // scalastyle:off magic.number
   test("Simple select query no params") {
     withJdbcStatement { statement =>
-      val resultSet = statement.executeQuery( s"""SELECT * FROM $tableName""")
+      val resultSet = statement.executeQuery(s"""SELECT * FROM $tableName""")
 
       // Checking result size: 4
       val results = resultSetTolist(resultSet)

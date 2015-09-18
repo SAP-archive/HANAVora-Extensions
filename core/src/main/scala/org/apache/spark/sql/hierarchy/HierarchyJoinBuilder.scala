@@ -71,8 +71,8 @@ case class HierarchyJoinBuilder[T: ClassTag, O: ClassTag, K: ClassTag]
       }
       val myRet =
       result
-        .sortBy( extractNodeFromRow(_) )
-        .zipWithIndex().map( x => {
+        .sortBy(extractNodeFromRow(_))
+        .zipWithIndex().map(x => {
         x._1 match {
           case e: Row => e.get (e.length - 1)
             .asInstanceOf[Node].preRank = x._2.toInt + 1
@@ -145,7 +145,7 @@ object HierarchyRowJoinBuilder {
       case false =>
         HierarchyRowFunctions.rowGet[java.lang.Long](
           attributes.indexWhere(_.name ==
-            searchBy.head.child.asInstanceOf[AttributeReference].name ))
+            searchBy.head.child.asInstanceOf[AttributeReference].name))
     }
     val init = HierarchyRowFunctions.rowInit(pk)
     val modify = HierarchyRowFunctions.rowModifyAndOrder(pk)
@@ -174,7 +174,7 @@ private[hierarchy] object HierarchyRowFunctions {
       val myNode: Node = /* & */left.getAs[Node](left.length - 1)
       val path: Seq[Any] = myNode.path ++ List(pathComponent)
 
-      var node: Node = null  // Node( path, ordPath = myOrdPath)
+      var node: Node = null  // Node(path, ordPath = myOrdPath)
       myord match {
         case Some(ord) => {
           val parentOrdPath = {
