@@ -3,7 +3,7 @@ package org.apache.spark.sql.sources.sql
 import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 
-import org.apache.spark.sql.catalyst.analysis.{AddSubqueries, ChangeQualifiersToTableNames}
+import org.apache.spark.sql.catalyst.analysis.{DropUnneededAliases, AddSubqueries, ChangeQualifiersToTableNames}
 import org.apache.spark.sql.catalyst.expressions.Ascending
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.rules.Rule
@@ -96,7 +96,8 @@ class SqlBuilder {
    */
   protected def preparePlanRules: Seq[Rule[logical.LogicalPlan]] = Seq(
     AddSubqueries,
-    ChangeQualifiersToTableNames
+    ChangeQualifiersToTableNames,
+    DropUnneededAliases
   )
 
   /**
