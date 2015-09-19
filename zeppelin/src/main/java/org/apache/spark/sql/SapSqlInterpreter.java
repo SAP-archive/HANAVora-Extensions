@@ -33,11 +33,16 @@ import java.util.*;
  * SAP SQL interpreter for Zeppelin.
  */
 public class SapSqlInterpreter extends Interpreter {
+
     Logger logger = LoggerFactory.getLogger(SapSqlInterpreter.class);
 
     private SapSqlContextProvider vsqlProvider = SapSqlContextProvider.getProvider();
 
     private static final String TREEVIEWKEYWORD = "treeview";
+
+    public static final String ERROR_PREFIX = "Error: ";
+    public static final String FALLBACK_ERROR_MSG =
+            "Please consult interpreter log file for details";
 
     /**
      * Constructor just for testing
@@ -121,15 +126,20 @@ public class SapSqlInterpreter extends Interpreter {
         String predColumn = null;
         String nameColumn = null;
         SapSQLContext vsqlc = null;
+
         if ( TREEVIEWKEYWORD.equalsIgnoreCase(keyword) ) {
             if (arr.length < 5) {
-                return new InterpreterResult(Code.ERROR, "id column, pred column, name column can not be empty");
+                String errMsg = "id column, pred column, name column can not be empty";
+                logger.error(errMsg);
+                return new InterpreterResult(Code.ERROR, formatErrorMessage(errMsg));
             }
             outputParser = "%angular ";
             idColumn = arr[1];
             predColumn = arr[2];
             if (idColumn.equalsIgnoreCase(predColumn)) {
-                return new InterpreterResult(Code.ERROR, "id column, pred column can should be different");
+                String errMsg = "id column, pred column can should be different";
+                logger.error(errMsg);
+                return new InterpreterResult(Code.ERROR, formatErrorMessage(errMsg));
             }
             nameColumn = arr[3];
             st = arr[4]; // actual sql command
@@ -148,9 +158,9 @@ public class SapSqlInterpreter extends Interpreter {
             Method take = rdd.getClass().getMethod("take", int.class);
             rows = (Object[]) take.invoke(rdd, maxResult + 1);
         } catch (Exception e) {
-            logger.error("SapSQLContext error: ", e);
+            logger.error(e.toString());
             sc.clearJobGroup();
-            return new InterpreterResult(Code.ERROR, e.getMessage());
+            return new InterpreterResult(Code.ERROR, parseFormattedMessageFromException(e));
         }
 
         String msg = null;
@@ -163,7 +173,8 @@ public class SapSqlInterpreter extends Interpreter {
             qe = (QueryExecution) queryExecution.invoke(rdd);
         } catch (NoSuchMethodException | SecurityException | IllegalAccessException
                 | IllegalArgumentException | InvocationTargetException e) {
-            throw new InterpreterException(e);
+            logger.error(e.toString());
+            return new InterpreterResult(Code.ERROR, parseFormattedMessageFromException(e));
         }
 
         if (rows != null && rows.length > 0) {
@@ -209,7 +220,8 @@ public class SapSqlInterpreter extends Interpreter {
                 }
             } catch (NoSuchMethodException | SecurityException | IllegalAccessException
                     | IllegalArgumentException | InvocationTargetException e) {
-                throw new InterpreterException(e);
+                logger.error(e.toString());
+                return new InterpreterResult(Code.ERROR, parseFormattedMessageFromException(e));
             }
         } else {
             outputParser = "%angular ";//parses html better
@@ -217,7 +229,7 @@ public class SapSqlInterpreter extends Interpreter {
         }
 
         if (rows.length > maxResult) {
-            msg += "\n<font color=red>Results are limited by " + maxResult + ".</font>";
+            msg += "\n<font color=yellow>Results are limited by " + maxResult + ".</font>";
         }
         InterpreterResult rett = new InterpreterResult(Code.SUCCESS, outputParser + msg);
         sc.clearJobGroup();
@@ -407,5 +419,26 @@ public class SapSqlInterpreter extends Interpreter {
         }
 
         return script;
+    }
+
+    private static String formatErrorMessage(String msg) {
+
+        return "%angular <font color=red>" + ERROR_PREFIX + msg + "</font>";
+    }
+
+    private static String parseFormattedMessageFromException(Exception e) {
+        Throwable ex = e;
+        String errMsg = FALLBACK_ERROR_MSG;
+
+        while(ex != null) {
+            String msg = ex.getMessage();
+            if(msg != null && msg != "") {
+                errMsg = msg;
+                break;
+            }
+            ex = ex.getCause();
+        }
+
+        return formatErrorMessage(errMsg);
     }
 }
