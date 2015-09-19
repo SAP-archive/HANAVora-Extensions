@@ -6,9 +6,9 @@ import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import org.apache.spark.sql.types.{NodeType, IntegerType, StructField, StructType}
 import org.apache.spark.sql.{GlobalVelocitySQLContext, SQLContext}
 import org.apache.spark.{SparkContext, TaskContext}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
@@ -152,6 +152,15 @@ class CatalystSourceStrategySuite
 
     plan = lcr.groupBy(lcrCInt)(avg(lcrCInt).as('c_avg), lcrCInt)
       .groupBy(lcrCInt)(lcrCInt)
+    physicals = CatalystSourceStrategy(plan)
+    assert(physicals.isEmpty)
+
+    plan = Hierarchy(lcr, "v",
+      expressions.EqualTo(lcrCInt, lcrCInt),
+      Nil,
+      None,
+      AttributeReference("node", NodeType)()
+    )
     physicals = CatalystSourceStrategy(plan)
     assert(physicals.isEmpty)
   }

@@ -135,6 +135,7 @@ private[sql] object CatalystSourceStrategy extends Strategy {
       case _: logical.Intersect => true
       case _: logical.Except => true
       case _: logical.Aggregate => true
+      case _: logical.Hierarchy => true
       case _ => false
     }
 
