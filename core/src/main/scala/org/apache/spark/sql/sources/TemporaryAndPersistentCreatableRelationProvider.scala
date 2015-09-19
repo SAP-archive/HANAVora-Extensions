@@ -1,7 +1,6 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 
 /**
  * In general SQL terms temporary tables go away when the context closes (i.e. user session)
@@ -9,14 +8,16 @@ import org.apache.spark.sql.types.StructType
  * after spark is shut down.
  *
  * If this is the case, the datasource can inherit this trait to extend the standard
- * RelationProvider with the temporary and persistent table creation support.
+ * CreatableRelationProvider with the temporary and persistent table creation support.
  */
 
-trait TemporaryAndPersistentRelationProvider
-  extends RelationProvider
+trait TemporaryAndPersistentCreatableRelationProvider
+  extends CreatableRelationProvider
   with TemporaryAndPersistentNature {
 
   def createRelation(sqlContext: SQLContext,
+                     mode: SaveMode,
                      parameters: Map[String, String],
+                     data: DataFrame,
                      isTemporary: Boolean): BaseRelation
 }

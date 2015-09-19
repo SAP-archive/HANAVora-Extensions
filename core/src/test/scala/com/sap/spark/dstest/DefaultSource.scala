@@ -1,36 +1,36 @@
 package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.execution.RegisterAllTablesCommand
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
-
-import scala.collection.JavaConversions._
 
 /**
  * Test default source that is capable of creating dummy temporary and persistent relations
  */
-class DefaultSource extends SchemaRelationProvider
-      with TemporaryAndPersistentRelationProvider
-      with RegisterAllTableRelations {
+class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
+with TemporaryAndPersistentRelationProvider
+with RegisterAllTableRelations {
 
 
+  override def createRelation(sqlContext: SQLContext,
+                              parameters: Map[String, String]): BaseRelation =
+    createRelation(sqlContext, parameters, false)
 
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String],
                               schema: StructType): BaseRelation =
-                              new DummyRelationWithoutTempFlag(sqlContext, schema)
+    new DummyRelationWithoutTempFlag(sqlContext, schema)
 
 
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
                               isTemporary: Boolean): BaseRelation =
-                              new DummyRelationWithTempFlag(sqlContext,
-                                DefaultSource.standardSchema,
-                                isTemporary)
+    new DummyRelationWithTempFlag(sqlContext,
+      DefaultSource.standardSchema,
+      isTemporary)
 
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
                               sparkSchema: StructType, isTemporary: Boolean): BaseRelation =
-                              new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
+    new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
 
   override def getAllTableRelations(sqlContext: SQLContext,
                                     options: Map[String, String]): Map[String, BaseRelation] = {
@@ -42,12 +42,13 @@ class DefaultSource extends SchemaRelationProvider
 
   override def getTableRelation(tableName: String, sqlContext: SQLContext,
                                 options: Map[String, String]): Option[BaseRelation] = {
-    if(DefaultSource.relations.contains(tableName)){
-      Some(new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema,  false))
+    if (DefaultSource.relations.contains(tableName)) {
+      Some(new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema, false))
     } else {
       None
     }
   }
+
 }
 
 /**
@@ -59,11 +60,11 @@ object DefaultSource {
 
   private var relations = Seq.empty[String]
 
-  def addRelation(name:String): Unit ={
+  def addRelation(name: String): Unit = {
     relations = relations ++ Seq(name)
   }
 
-  def reset(): Unit ={
+  def reset(): Unit = {
     relations = Seq.empty[String]
   }
 

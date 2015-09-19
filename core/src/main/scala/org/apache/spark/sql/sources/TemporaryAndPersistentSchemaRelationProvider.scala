@@ -9,14 +9,14 @@ import org.apache.spark.sql.types.StructType
  * after spark is shut down.
  *
  * If this is the case, the datasource can inherit this trait to extend the standard
- * RelationProvider with the temporary and persistent table creation support.
+ * SchemaRelationProvider with the temporary and persistent table creation support.
  */
-
-trait TemporaryAndPersistentRelationProvider
-  extends RelationProvider
+trait TemporaryAndPersistentSchemaRelationProvider
+  extends SchemaRelationProvider
   with TemporaryAndPersistentNature {
 
   def createRelation(sqlContext: SQLContext,
                      parameters: Map[String, String],
+                     schema: StructType,
                      isTemporary: Boolean): BaseRelation
 }
