@@ -1,5 +1,7 @@
 package org.apache.spark.sql
 
+import java.io.{ByteArrayOutputStream, ObjectOutputStream}
+
 import com.sap.spark.dstest.DummyRelationWithoutTempFlag
 import org.scalatest.FunSuite
 
@@ -83,6 +85,15 @@ class SapSQLContextSuite extends FunSuite {
       SapSQLContextEnv.getContext()
     val tables = sapSqlContext.tableNames()
     assert(tables.length == 0)
+  }
+
+  test("Ensure SapSQLContext stays serializable"){
+    // relevant for Bug 92818
+    // Remember that all class references in SapSQLContext must be serializable!
+    val sapSqlContext = SapSQLContextEnv.getContext()
+    val oos = new ObjectOutputStream(new ByteArrayOutputStream())
+    oos.writeObject(sapSqlContext)
+    oos.close
   }
 
 

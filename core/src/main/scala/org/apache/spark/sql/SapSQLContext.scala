@@ -16,8 +16,7 @@ class SapSQLContext(@transient override val sparkContext: SparkContext)
   with NonTemporaryTableSQLContextExtension
 {
   // check if we have to automatically register tables
-  val sparkConf = sparkContext.getConf
-  sparkConf.getOption(SapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
+  sparkContext.getConf.getOption(SapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
     case None => // do nothing
     case conf: Some[String] => {
       conf.get.split(",").foreach(ds => {
