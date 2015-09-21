@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ "$SKIP_TESTS" == "true" ] ; then
+  echo "Tests are skippped."
+  exit 0
+fi
+
 # apparently, Maven sets JAVA_HOME to the java executable
 # pypark then appends /bin/java to it, which obviously doesn't work
 unset JAVA_HOME

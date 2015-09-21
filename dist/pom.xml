@@ -122,6 +122,7 @@
               <workingDirectory>src/main/resources/python</workingDirectory>
               <environmentVariables>
                 <PYTHONPATH>../../main/python:$PYTHONPATH</PYTHONPATH>
+                <SKIP_TESTS>${skipTests}</SKIP_TESTS>
               </environmentVariables>
             </configuration>
             <id>python-test</id>
