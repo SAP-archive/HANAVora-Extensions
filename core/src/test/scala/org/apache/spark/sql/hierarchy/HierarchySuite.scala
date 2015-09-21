@@ -111,13 +111,12 @@ class HierarchySuite extends FunSuite
     assertResult(expected)(result.toSet)
   }
 
-  test("trying to create a hierarchy without root throws") {
-    val thrown = intercept[RuntimeException] {
-      val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-      val hSrc = sqlContext.createDataFrame(rdd).cache()
-      hSrc.registerTempTable("h_src")
+  test("hierarchy without any roots results in empty results") {
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("h_src")
 
-      val queryString = """
+    val queryString = """
     SELECT name, node FROM HIERARCHY (
       USING h_src AS v
         JOIN PARENT u ON v.pred = u.succ
@@ -127,9 +126,8 @@ class HierarchySuite extends FunSuite
       ) AS H
     """
 
-      sqlc.sql(queryString).collect()
-    }
-    assert(thrown.getMessage.contains("The hierarchy does not have any roots"))
+    val result = sqlc.sql(queryString).collect()
+    assert(result.isEmpty)
   }
 
   test("create hierarchy without start where and search by clause") {

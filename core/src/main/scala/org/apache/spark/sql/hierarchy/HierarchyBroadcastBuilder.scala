@@ -97,7 +97,6 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     logDebug(s"Finished collecting data to build hierarchy")
 
     lazy val successors = data.map(_.succ).toSet
-
     logTrace(s"Partitioning roots / non-roots")
     val (roots, nonRoots) = data partition { hrow =>
       hrow.isRoot match {
@@ -105,37 +104,35 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
           case None => !successors.contains(hrow.pred)
         }
     }
-
     if (roots.isEmpty) {
-      sys.error("The hierarchy does not have any roots.")
-    }
+      rdd.sparkContext.emptyRDD[O]
+    } else {
+      logTrace(s"Grouping candidates")
+      val candidateMap = nonRoots.groupBy(_.pred)
 
-    logTrace(s"Grouping candidates")
-    val candidateMap = nonRoots.groupBy(_.pred)
+      logDebug(s"Building hierarchy")
+      val forest = {
+        val trees = roots map { hrow => new Tree[C](None, hrow.succ, preRank = 1) }
+        val refs = mutable.Map[C, Tree[C]]()
+        trees map (buildTree(refs, _, candidateMap, 0))
+        new Forest(refs, trees)
+      }
+      logDebug(s"Broadcasted hierarchy")
+      val forestBroadcast = rdd.sparkContext.broadcast(forest)
+      logDebug(s"Broadcasted hierarchy as: ${forestBroadcast.id}")
 
-    logDebug(s"Building hierarchy")
-    val forest = {
-      val trees = roots map { hrow => new Tree[C](None, hrow.succ, preRank = 1) }
-      val refs = mutable.Map[C,Tree[C]]()
-      trees map(buildTree(refs, _, candidateMap, 0))
-      new Forest(refs, trees)
-    }
-
-    logDebug(s"Broadcasted hierarchy")
-    val forestBroadcast = rdd.sparkContext.broadcast(forest)
-    logDebug(s"Broadcasted hierarchy as: ${forestBroadcast.id}")
-
-    rdd mapPartitions { iter =>
-      iter flatMap { x =>
-        val id = succ(x)
-        val forest = forestBroadcast.value
-        val subtreeOpt = forest.findTree(id)
-        subtreeOpt map { subtree =>
-          transformRowFunction(x, Node(
-            path = subtree.prefix,
-            preRank = subtree.preRank,
-            isLeaf = subtree.isLeaf
-          ))
+      rdd mapPartitions { iter =>
+        iter flatMap { x =>
+          val id = succ(x)
+          val forest = forestBroadcast.value
+          val subtreeOpt = forest.findTree(id)
+          subtreeOpt map { subtree =>
+            transformRowFunction(x, Node(
+              path = subtree.prefix,
+              preRank = subtree.preRank,
+              isLeaf = subtree.isLeaf
+            ))
+          }
         }
       }
     }
