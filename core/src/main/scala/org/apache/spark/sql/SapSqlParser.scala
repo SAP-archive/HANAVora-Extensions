@@ -284,8 +284,7 @@ class SapSqlParser extends SqlParser {
   * https://issues.apache.org/jira/browse/SPARK-8628
   */
   override def parse(input: String): LogicalPlan = {
-    // Initialize the Keywords.
-    lexical.reserved ++= reservedWords
+    initLexical
     phrase(start)(new lexical.Scanner(input)) match {
       case Success(plan, _) => plan
       case failureOrError =>

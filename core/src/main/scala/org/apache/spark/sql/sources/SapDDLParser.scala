@@ -174,19 +174,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
    *
    */
   override def parse(input: String): LogicalPlan = {
-    // CAUTION:
-    // In the overridden method of the super class they use
-    // > initLexical
-    // to initialize the parser keywords.
-    // However, this fails to execute (NoSuchMethod) or even
-    // compile with some Spark versions (probably 1.4.0, could
-    // not narrow down the issue yet).
-    // The following line circumvents the access of the lazy value
-    // in the abstract superclass and has been taken from SapSQLParser.
-    // It works under Spark 1.4.0 and 1.4.1.
-    // In future Spark versions probably the original
-    // initialization call can be used again.
-    lexical.reserved ++= reservedWords
+    initLexical
     phrase(start)(new lexical.Scanner(input)) match {
       case Success(plan, _) => plan
       case failureOrError =>
