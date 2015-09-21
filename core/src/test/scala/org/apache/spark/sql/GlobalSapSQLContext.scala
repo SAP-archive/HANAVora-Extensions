@@ -32,7 +32,7 @@ trait GlobalSapSQLContext extends GlobalSparkContext with WithSQLContext {
       val stringRow = Row.fromSeq(line.split(",", -1).map(UTF8String(_)))
       Row.fromSeq(conversions.map({ c => c.eval(stringRow) }))
     })
-    val rdd = sc.parallelize(data.toSeq)
+    val rdd = sc.parallelize(data.toSeq, numberOfSparkWorkers)
     sqlContext.createDataFrame(rdd, sparkSchema)
   }
 }
