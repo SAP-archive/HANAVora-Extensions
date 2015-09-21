@@ -1,5 +1,8 @@
 package org.apache.spark.sql
 
+import java.io.{IOException, FileInputStream, InputStream}
+import java.util.Properties
+
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.sources.{CatalystSourceStrategy, CreatePersistentTableStrategy}
 import org.apache.spark.sql.sources._
@@ -15,6 +18,7 @@ class SapSQLContext(@transient override val sparkContext: SparkContext)
   with SapCommandsSQLContextExtension
   with NonTemporaryTableSQLContextExtension
 {
+  logProjectVersion()
   // check if we have to automatically register tables
   sparkContext.getConf.getOption(SapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
     case None => // do nothing
@@ -24,6 +28,27 @@ class SapSQLContext(@transient override val sparkContext: SparkContext)
         SapSQLContext.registerTablesFromDs(ds, this, Map.empty[String,String],
           ignoreConflicts = true)
       })
+    }
+  }
+
+  def logProjectVersion(): Unit = {
+    val prop = new Properties()
+    var input: InputStream = null
+    try {
+      input = getClass.getResourceAsStream("/project.properties")
+      prop.load( input)
+      logInfo( s"SapSQLContext [version: ${prop.getProperty("datasourcedist.version")}] created")
+    }
+    catch {
+      case e: Exception => logDebug( "project.properties file does not exist")
+    }
+    if( input != null ) {
+      try {
+        input.close()
+      }
+      catch {
+        case e: Exception =>
+      }
     }
   }
 }
