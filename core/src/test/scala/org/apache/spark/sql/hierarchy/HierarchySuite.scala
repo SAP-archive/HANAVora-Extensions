@@ -680,4 +680,16 @@ class HierarchySuite extends FunSuite
     )
     assertSetEqual(expected)(result.toSet)
   }
+
+  test("regression test for bug 92871") {
+    val sRdd = sc.parallelize(sensors.sortBy(x => Random.nextDouble()))
+    val sSrc = sqlContext.createDataFrame(sRdd).cache()
+    sSrc.registerTempTable("sSrc")
+    val result = sqlContext.sql(s"""
+        | SELECT name FROM HIERARCHY ( USING sSrc AS v
+        | JOIN PARENT u ON v.par = u.sensor SEARCH BY sensor ASC START WHERE sensor = "c"
+        | SET node) AS H  WHERE IS_ROOT(node) = true""".stripMargin).collect()
+    assertSetEqual(Set(
+      Row("All Sensors")))(result.toSet)
+  }
 }

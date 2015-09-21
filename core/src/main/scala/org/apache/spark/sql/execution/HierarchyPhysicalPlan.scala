@@ -22,16 +22,13 @@ case class HierarchyPhysicalPlan(childAlias: String,
 
     /* XXX: Copied from DataFrame. See SPARK-4775 (weird duplicated rows). */
     val childSchema = child.schema
-    val cachedRdd = rdd.mapPartitions({ iter =>
-      val converter = CatalystTypeConverters.createToScalaConverter(childSchema)
-      iter.map(converter(_).asInstanceOf[Row])
-    }).cache()
+    val mappedRDD = rdd.mapPartitions({ iter => iter.map({case r:Row => Row(r.toSeq: _*)})})
     val resultRdd = HierarchyRowBroadcastBuilder(
       attributes,
       parenthoodExpression,
       startWhere,
       searchBy
-    ).buildFromAdjacencyList(cachedRdd)
+    ).buildFromAdjacencyList(mappedRDD)
     val cachedResultRdd = resultRdd
       .mapPartitions({ iter =>
       val schemaWithNode =
@@ -44,7 +41,6 @@ case class HierarchyPhysicalPlan(childAlias: String,
         Row.fromSeq(convertedRowWithoutNode.toSeq :+ node)
       })
     }).cache()
-    cachedRdd.unpersist(blocking = false)
     cachedResultRdd
   }
 

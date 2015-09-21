@@ -6,6 +6,8 @@ case class AnimalRow(name: String, pred: Option[Long], succ: Long, ord: Long)
 
 case class AddressRow(name: String, address: String)
 
+case class SensorRow(sensor: String, par: String, name: String)
+
 case class PartialResult(path: Seq[Long], pk: Long)
 
 /**
@@ -47,5 +49,21 @@ trait HierarchyTestUtils {
     AddressRow("Senior Developer", "Near-Acceptable Street"),
     AddressRow("Minion 3", "The Street"),
     AddressRow("Darth Vader", "Death Star")
+  )
+
+  protected def sensors: Seq[SensorRow] = Seq(
+    SensorRow("c","","All Sensors"),
+    SensorRow("c.1","c","A Model"),
+    SensorRow("c.2","c","B Model"),
+    SensorRow("c.3","c","C Model"),
+    SensorRow("c.1.1","c.1","A Model 1"),
+    SensorRow("c.1.2","c.1","A Model 2"),
+    SensorRow("c.1.3","c.1","A Model 3"),
+    SensorRow("c.2.1","c.2","B Model 1"),
+    SensorRow("c.2.2","c.2","B Model 2"),
+    SensorRow("c.2.3","c.2","B Model 3"),
+    SensorRow("c.3.1","c.3","C Model 1"),
+    SensorRow("c.3.2","c.3","C Model 2"),
+    SensorRow("c.3.3","c.3","C Model 3")
   )
 }
