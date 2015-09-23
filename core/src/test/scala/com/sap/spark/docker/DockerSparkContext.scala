@@ -67,11 +67,20 @@ private[spark] trait DockerSparkContext
 
   private val containers: mutable.ListBuffer[String] = mutable.ListBuffer()
 
-  override def sparkConf: SparkConf = {
-    super.sparkConf
-    /* TODO: conf.set("spark.eventLog.enabled", "true") */
-    /* TODO: Spark might pick an incorrect interface to announce the Driver */
-    /* conf.set("spark.driver.host", "") */
+  /**
+   * We assume that the Docker bridge interface is docker0 and
+   * that we are using IPv4.
+   */
+  protected lazy val dockerHostIp: String =
+    NetworkInterface.getByName("docker0").getInetAddresses.asScala.toList
+      .find(_.isInstanceOf[Inet4Address])
+      .map(_.getHostAddress)
+      .getOrElse(sys.error("docker0 interface not found"))
+
+  override lazy val sparkConf: SparkConf = {
+    val _sparkConf = super.sparkConf.clone()
+    _sparkConf.set("spark.driver.host", dockerHostIp)
+    _sparkConf
   }
 
   def cleanUpDockerCluster(): Unit = {
