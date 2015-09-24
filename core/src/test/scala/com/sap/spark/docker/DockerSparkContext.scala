@@ -3,6 +3,7 @@ package com.sap.spark.docker
 import java.io.IOException
 import java.net._
 
+import com.sap.spark.util.TestUtils._
 import com.sap.spark.{WithSapSQLContext, WithSparkContext}
 import com.spotify.docker.client._
 import com.spotify.docker.client.messages.{ContainerConfig, ProgressMessage}

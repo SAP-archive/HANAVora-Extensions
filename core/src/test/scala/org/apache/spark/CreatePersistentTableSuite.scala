@@ -1,6 +1,6 @@
 package org.apache.spark
 
-import org.apache.spark.sql.util.CsvGetter
+import com.sap.spark.util.TestUtils._
 import org.apache.spark.sql.{GlobalVelocitySQLContext, Row}
 import org.scalatest.FunSuite
 
@@ -36,7 +36,7 @@ class CreatePersistentTableSuite extends FunSuite with GlobalVelocitySQLContext 
   test("I can't register a persistent table using a datasource that doesn't extend " +
     "TemporaryAndPersistentNature") {
 
-    val path = CsvGetter.getFileFromClassPath("/simple.csv")
+    val path = getFileFromClassPath("/simple.csv")
     val tableName = "tableTestPersistent"
 
     val ex = intercept[RuntimeException] {
@@ -55,7 +55,7 @@ class CreatePersistentTableSuite extends FunSuite with GlobalVelocitySQLContext 
   test("I can register a temporary table using a datasource that doesn't extend " +
     "TemporaryAndPersistentNature") {
 
-    val path = CsvGetter.getFileFromClassPath("/simple.csv")
+    val path = getFileFromClassPath("/simple.csv")
     val tableName = "tableTestTemporary"
 
     sqlc.sql(

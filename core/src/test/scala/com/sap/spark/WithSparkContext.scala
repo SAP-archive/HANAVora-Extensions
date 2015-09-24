@@ -1,9 +1,8 @@
 package com.sap.spark
 
-import java.util.Locale
-
+import com.sap.spark.util.TestUtils._
 import org.apache.spark.{SparkConf, SparkContext}
-import org.scalatest.{BeforeAndAfterAll, Suite, BeforeAndAfterEach}
+import org.scalatest.{BeforeAndAfterAll, Suite}
 
 trait WithSparkContext extends BeforeAndAfterAll {
   self: Suite =>
@@ -67,22 +66,5 @@ trait WithSparkContext extends BeforeAndAfterAll {
   protected def setUpSparkContext(): Unit
 
   protected def tearDownSparkContext(): Unit
-
-  /**
-   * Gets a setting from a system property, environment variable or default value. In that order.
-   *
-   * @param key Lowercase, dot-separated system property key.
-   * @param default Optional default value.
-   * @return Setting value.
-   */
-  protected def getSetting(key: String, default: String): String = {
-    Seq(
-      Option(System.getProperty(key)),
-      Option(System.getenv(key.toUpperCase(Locale.ENGLISH).replaceAll("\\.", "_"))),
-      Some(default)
-    )
-      .flatten
-      .head
-  }
 
 }
