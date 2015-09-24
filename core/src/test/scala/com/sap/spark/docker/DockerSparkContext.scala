@@ -1,7 +1,7 @@
 package com.sap.spark.docker
 
 import java.io.IOException
-import java.net.{ConnectException, HttpURLConnection, Socket, URL}
+import java.net._
 
 import com.sap.spark.{WithSapSQLContext, WithSparkContext}
 import com.spotify.docker.client._
@@ -9,6 +9,8 @@ import com.spotify.docker.client.messages.{ContainerConfig, ProgressMessage}
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.Suite
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration.Duration
@@ -63,11 +65,22 @@ private[spark] trait DockerSparkContext
 
   protected var timingResults: Seq[String] = Seq()
 
-  override def sparkConf: SparkConf = {
-    super.sparkConf
-    /* TODO: conf.set("spark.eventLog.enabled", "true") */
-    /* TODO: Spark might pick an incorrect interface to announce the Driver */
-    /* conf.set("spark.driver.host", "") */
+  private val containers: mutable.ListBuffer[String] = mutable.ListBuffer()
+
+  /**
+   * We assume that the Docker bridge interface is docker0 and
+   * that we are using IPv4.
+   */
+  protected lazy val dockerHostIp: String =
+    NetworkInterface.getByName("docker0").getInetAddresses.asScala.toList
+      .find(_.isInstanceOf[Inet4Address])
+      .map(_.getHostAddress)
+      .getOrElse(sys.error("docker0 interface not found"))
+
+  override lazy val sparkConf: SparkConf = {
+    val _sparkConf = super.sparkConf.clone()
+    _sparkConf.set("spark.driver.host", dockerHostIp)
+    _sparkConf
   }
 
   def cleanUpDockerCluster(): Unit = {
@@ -109,10 +122,13 @@ private[spark] trait DockerSparkContext
         }
         logDebug(s"Create: $containerId")
         docker.createContainer(containerConfig, containerId)
-        logDebug(s"Start: $containerId")
-        this.synchronized {
-          docker.startContainer(containerId)
+        synchronized {
+          if (!containers.contains(containerId)) {
+            containers += containerId
+          }
         }
+        logDebug(s"Start: $containerId")
+        docker.startContainer(containerId)
         getContainerIp(containerId)
       case Failure(ex) =>
         throw ex
@@ -165,7 +181,27 @@ private[spark] trait DockerSparkContext
    * if a container did not stop before removing an exception occurs
    * this method waits and retries until every container is removed
    */
-  protected def stopRemoveAllContainers(): Unit = {}
+  protected def stopRemoveAllContainers(): Unit = {
+    if (docker == null) {
+      docker = buildDockerClient()
+    }
+    for (containerId <- containers) {
+      val containerOpt = docker
+        .listContainers(DockerClient.ListContainersParam.allContainers(true)).asScala
+        .find(_.names().asScala.exists(_ == s"/$containerId"))
+      containerOpt match {
+        case Some(container) =>
+          docker.killContainer(container.id())
+          docker.removeContainer(container.id())
+          containers -= containerId
+        case None =>
+          logWarning(s"Container $containerId not found, cannot remove it")
+      }
+    }
+    if (containers.nonEmpty) {
+      logError(s"Could not kill and remove all containers: ${containers.mkString(",")}")
+    }
+  }
 
   /**
    * Checks an http port to check if a http service is up
