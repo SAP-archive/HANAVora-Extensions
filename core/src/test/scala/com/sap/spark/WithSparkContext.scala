@@ -30,8 +30,8 @@ trait WithSparkContext extends BeforeAndAfterAll {
    * evaluate the Spark master URL, given as property or as environment variable
      to support different spark deployment options.
    */
-  protected lazy val sparkMaster: String =
-    getSetting("spark.master",s"local[$numberOfSparkWorkers]")
+  protected def sparkMaster: String =
+    getSetting("spark.master", s"local[$numberOfSparkWorkers]")
 
   /**
    * Number of workers to use (default: 3).
