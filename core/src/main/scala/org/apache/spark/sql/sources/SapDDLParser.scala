@@ -185,21 +185,23 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
 }
 
 private[sql] case class RegisterAllTablesUsing(
-                                                provider: String,
-                                                options: Map[String, String],
-                                                ignoreConflicts: Boolean
-                                                ) extends LogicalPlan with Command {
+    provider: String,
+    options: Map[String, String],
+    ignoreConflicts: Boolean)
+  extends LogicalPlan
+  with Command {
   override def output: Seq[Attribute] = Seq.empty
 
   override def children: Seq[LogicalPlan] = Seq.empty
 }
 
 private[sql] case class RegisterTableUsing(
-                                          tableName: String,
-                                          provider: String,
-                                          options: Map[String, String],
-                                          ignoreConflict: Boolean
-                                            ) extends LogicalPlan with Command {
+    tableName: String,
+    provider: String,
+    options: Map[String, String],
+    ignoreConflict: Boolean)
+  extends LogicalPlan
+  with Command {
   override def output: Seq[Attribute] = Seq.empty
 
   override def children: Seq[LogicalPlan] = Seq.empty
@@ -210,9 +212,11 @@ private[sql] case class RegisterTableUsing(
  * @param table The table where the file is going to be appended
  * @param options The options map with the append configuration
  */
-private[sql] case class AppendCommand(table: LogicalPlan,
-                                      options: Map[String, String])
-  extends LogicalPlan with Command {
+private[sql] case class AppendCommand(
+    table: LogicalPlan,
+    options: Map[String, String])
+  extends LogicalPlan
+  with Command {
 
   override def output: Seq[Attribute] = Seq.empty
 
@@ -223,8 +227,11 @@ private[sql] case class AppendCommand(table: LogicalPlan,
  * Returned for the "DROP TABLE [dbName.]tableName" command.
  * @param table The table to be dropped
  */
-private[sql] case class DropCommand(table: LogicalPlan, cascade: Boolean)
-  extends LogicalPlan with Command {
+private[sql] case class DropCommand(
+    table: LogicalPlan,
+    cascade: Boolean)
+  extends LogicalPlan
+  with Command {
 
   override def output: Seq[Attribute] = Seq.empty
 
@@ -234,9 +241,11 @@ private[sql] case class DropCommand(table: LogicalPlan, cascade: Boolean)
 /**
  * Returned for the "SHOW DATASOURCETABLES" command.
  */
-private[sql] case class ShowDatasourceTablesCommand(classIdentifier: String,
-                                                    options: Map[String, String])
-  extends LogicalPlan with Command {
+private[sql] case class ShowDatasourceTablesCommand(
+    classIdentifier: String,
+    options: Map[String, String])
+  extends LogicalPlan
+  with Command {
 
   override def output: Seq[Attribute] = Seq(AttributeReference("tbl_name", StringType,
     nullable = false, new MetadataBuilder()
@@ -255,8 +264,7 @@ private[sql] case class ShowDatasourceTablesCommand(classIdentifier: String,
  *
  * @param input The "USE xyz" input statement
  */
-private[sql] case class UseStatementCommand(input: String)
-  extends RunnableCommand {
+private[sql] case class UseStatementCommand(input: String) extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     if(sqlContext.sparkContext.getConf.getBoolean(

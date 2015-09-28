@@ -6,11 +6,11 @@ import org.apache.spark.sql.sources.{LogicalRelation, RegisterAllTableRelations}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 case class RegisterTableCommand(
-                               tableName: String,
-                               provider: String,
-                               options: Map[String, String],
-                               ignoreConflicts: Boolean
-                               ) extends RunnableCommand {
+    tableName: String,
+    provider: String,
+    options: Map[String, String],
+    ignoreConflicts: Boolean)
+  extends RunnableCommand {
   override def run(sqlContext: SQLContext): Seq[Row] = {
     val resolvedProvider: RegisterAllTableRelations =
       instantiateProvider(provider, "register table action")

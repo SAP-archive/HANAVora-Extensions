@@ -5,12 +5,12 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DataType, NodeType}
 
 case class Hierarchy(
-                      relation: LogicalPlan,
-                      childAlias: String,
-                      parenthoodExpression: Expression,
-                      searchBy: Seq[SortOrder],
-                      startWhere: Option[Expression],
-                      nodeAttribute: Attribute)
+    relation: LogicalPlan,
+    childAlias: String,
+    parenthoodExpression: Expression,
+    searchBy: Seq[SortOrder],
+    startWhere: Option[Expression],
+    nodeAttribute: Attribute)
   extends UnaryNode {
 
   override def child: LogicalPlan = relation

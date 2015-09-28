@@ -3,6 +3,8 @@ package org.apache.spark.sql.hive.sap.thriftserver
 
 import java.io.File
 import java.sql.{DriverManager, ResultSet, Statement}
+
+import com.sap.spark.util.TestUtils._
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars
 import org.apache.hive.jdbc.HiveDriver
 import org.apache.hive.service.auth.PlainSaslHelper
@@ -10,13 +12,12 @@ import org.apache.hive.service.cli.GetInfoType
 import org.apache.hive.service.cli.thrift.TCLIService.Client
 import org.apache.hive.service.cli.thrift.ThriftCLIServiceClient
 import org.apache.spark.Logging
-import org.apache.spark.sql.util.CsvGetter
 import org.apache.spark.util.Utils
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TSocket
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.sys.process.{Process, ProcessLogger}
@@ -25,7 +26,7 @@ import scala.util.{Random, Try}
 class SapThriftBinaryServerSuite extends SapThriftJdbcTest2 with Logging {
   override def mode: ServerMode.Value = ServerMode.binary
 
-  val filePath = CsvGetter.getFileFromClassPath("/simpleData.json")
+  val filePath = getFileFromClassPath("/simpleData.json")
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -192,7 +193,7 @@ abstract class SapThriftServer2Test extends FunSuite with BeforeAndAfterAll with
   val tableName = "mockedTable"
   val schema = "name varchar(200), age integer"
 
-  val stds1 = CsvGetter.getFileFromClassPath("/simpleData.json")
+  val stds1 = getFileFromClassPath("/simpleData.json")
 
   var includedJars = Seq("/")
 

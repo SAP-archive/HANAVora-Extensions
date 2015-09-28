@@ -1,8 +1,7 @@
 package org.apache.spark.sql
 
+import com.sap.spark.util.TestUtils._
 import java.util.Properties
-
-import org.apache.spark.sql.util.CsvGetter
 import org.apache.zeppelin.display.{AngularObjectRegistry, GUI}
 import org.apache.zeppelin.interpreter.{InterpreterContext, InterpreterContextRunner, InterpreterGroup, InterpreterResult}
 import org.apache.zeppelin.spark.SparkInterpreter
@@ -20,7 +19,7 @@ class SapSqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
   var sapContext: SapSQLContext = null
 
-  val filePath = CsvGetter.getFileFromClassPath("/simpleData.json")
+  val filePath = getFileFromClassPath("/simpleData.json")
 
   override protected def beforeAll() = {
     val p = new Properties
@@ -65,7 +64,7 @@ class SapSqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
 
   test("Simple Select using JSON DataSource") {
 
-    val filePath = CsvGetter.getFileFromClassPath("/simpleData.json")
+    val filePath = getFileFromClassPath("/simpleData.json")
 
     val createQuery = s"""CREATE TEMPORARY TABLE createTestTable
                          |USING org.apache.spark.sql.json

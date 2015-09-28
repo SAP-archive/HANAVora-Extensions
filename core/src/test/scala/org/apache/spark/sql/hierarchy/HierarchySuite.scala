@@ -12,7 +12,8 @@ case class ComponentRow(extraField: String, name: String, pred: Long, succ: Long
 
 // scalastyle:off magic.number
 // scalastyle:off file.size.limit
-class HierarchySuite extends FunSuite
+class HierarchySuite
+  extends FunSuite
   with HierarchyTestUtils
   with GlobalSapSQLContext
   with Logging {

@@ -167,12 +167,14 @@ class CatalystSourceStrategySuite
 
 }
 
-private class DummyRelation(override val schema: StructType,
-                            @transient override val sqlContext: SQLContext) extends BaseRelation
+private class DummyRelation(
+    override val schema: StructType,
+    @transient override val sqlContext: SQLContext)
+  extends BaseRelation
 
 class DummyCatalystRelation(
-                                     override val schema: StructType,
-                                     @transient override val sqlContext: SQLContext)
+    override val schema: StructType,
+    @transient override val sqlContext: SQLContext)
   extends BaseRelation
   with CatalystSource
   with Serializable {
