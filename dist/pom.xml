@@ -112,28 +112,38 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.4.0</version>
-        <executions>
-          <execution>
-            <configuration>
-              <executable>./run-tests</executable>
-              <workingDirectory>src/main/resources/python</workingDirectory>
-              <environmentVariables>
-                <PYTHONPATH>../../main/python:$PYTHONPATH</PYTHONPATH>
-                <SKIP_TESTS>${skipTests}</SKIP_TESTS>
-              </environmentVariables>
-            </configuration>
-            <id>python-test</id>
-            <phase>test</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
         </plugins>
       </build>
+  <profiles>
+    <!-- We only want to run this test when we execute all the tests -->
+    <profile>
+      <id>full-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>1.4.0</version>
+            <executions>
+              <execution>
+                <configuration>
+                  <executable>./run-tests</executable>
+                  <workingDirectory>src/main/resources/python</workingDirectory>
+                  <environmentVariables>
+                    <PYTHONPATH>../../main/python:$PYTHONPATH</PYTHONPATH>
+                    <SKIP_TESTS>${skipTests}</SKIP_TESTS>
+                  </environmentVariables>
+                </configuration>
+                <id>python-test</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

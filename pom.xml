@@ -195,12 +195,25 @@
           <executions>
             <execution>
               <id>test</id>
+              <phase>test</phase>
               <goals>
                 <goal>test</goal>
               </goals>
               <configuration>
                 <suffixes>
                   Suite
+                </suffixes>
+              </configuration>
+            </execution>
+            <execution>
+              <id>integration-test</id>
+              <phase>integration-test</phase>
+              <goals>
+                <goal>test</goal>
+              </goals>
+              <configuration>
+                <suffixes>
+                  SuiteIT
                 </suffixes>
               </configuration>
             </execution>
@@ -354,26 +367,34 @@
       </properties>
     </profile>
     <profile>
-      <id>integration-test</id>
+      <id>full-tests</id>
       <build>
         <pluginManagement>
           <plugins>
             <plugin>
               <groupId>org.scalatest</groupId>
               <artifactId>scalatest-maven-plugin</artifactId>
-              <executions>
-                <execution>
-                  <id>integration-test</id>
-                  <goals>
-                    <goal>test</goal>
-                  </goals>
-                  <configuration>
-                    <suffixes>
-                      SuiteIT
-                    </suffixes>
-                  </configuration>
-                </execution>
-              </executions>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
+    <profile>
+      <id>fast-tests</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.scalatest</groupId>
+              <artifactId>scalatest-maven-plugin</artifactId>
+              <configuration>
+                <tagsToExclude>
+                  org.scalatest.tags.Slow
+                </tagsToExclude>
+              </configuration>
             </plugin>
           </plugins>
         </pluginManagement>

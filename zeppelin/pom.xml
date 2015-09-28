@@ -177,12 +177,6 @@
       <plugin>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest-maven-plugin</artifactId>
-        <configuration>
-          <argLine>-Xmx2g -XX:MaxPermSize=1024m -XX:ReservedCodeCacheSize=1024m</argLine>
-          <!-- TODO: we commented this out because of some incompatibility between asm versions
-          <htmlreporters>${project.build.directory}/surefire-reports</htmlreporters>
-          -->
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

@@ -71,11 +71,6 @@
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
-                <configuration>
-                    <forkMode>once</forkMode>
-                    <argLine>${argLine} -Xmx1024M -XX:MaxPermSize=700M -XX:MaxHeapSize=512m</argLine>
-                    <htmlreporters> </htmlreporters>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.scalastyle</groupId>
