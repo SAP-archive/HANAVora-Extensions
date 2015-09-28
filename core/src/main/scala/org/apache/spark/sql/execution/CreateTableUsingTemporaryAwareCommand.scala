@@ -10,12 +10,13 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
  * according to that.
  */
 private[sql]
-case class CreateTableUsingTemporaryAwareCommand(tableName: String,
-                                                 userSpecifiedSchema: Option[StructType],
-                                                 partitionColumns: Array[String],
-                                                 provider: String,
-                                                 options: Map[String, String],
-                                                 isTemporary: Boolean)
+case class CreateTableUsingTemporaryAwareCommand(
+    tableName: String,
+    userSpecifiedSchema: Option[StructType],
+    partitionColumns: Array[String],
+    provider: String,
+    options: Map[String, String],
+    isTemporary: Boolean)
   extends RunnableCommand {
 
   def run(sqlContext: SQLContext): Seq[Row] = {

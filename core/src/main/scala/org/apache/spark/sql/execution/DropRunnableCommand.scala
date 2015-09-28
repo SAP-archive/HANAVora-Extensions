@@ -5,8 +5,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.sources.{LogicalRelation, DropRelation}
 import scala.util.control.Breaks._
 
-case class DropRunnableCommand(relation: DropRelation, cascade: Boolean)
-  extends RunnableCommand {
+case class DropRunnableCommand(relation: DropRelation, cascade: Boolean) extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     getReferencingRelations(sqlContext, relation) match {

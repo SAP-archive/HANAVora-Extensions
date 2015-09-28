@@ -39,12 +39,12 @@ object NodeType extends UserDefinedType[Node] {
 }
 
 case class Node(
-                 path: Seq[Any],
-                 var preRank: java.lang.Integer = null,
-                 postRank: java.lang.Integer = null,
-                 isLeaf: java.lang.Boolean = null,
-                 var ordPath: Seq[Long] = null
-                 ) {
+    path: Seq[Any],
+    var preRank: java.lang.Integer = null,
+    postRank: java.lang.Integer = null,
+    isLeaf: java.lang.Boolean = null,
+    var ordPath: Seq[Long] = null) {
+
   def compareToRecursive( left: Seq[Long], right: Seq[Long]): Int =
   {
     (left.isEmpty, right.isEmpty) match {

@@ -9,8 +9,9 @@ import org.apache.spark.sql.types._
 /**
  * Extracts all the table from the catalog
  */
-case class ShowDataSourceTablesRunnableCommand(provider: String,
-                                               options: Map[String, String])
+case class ShowDataSourceTablesRunnableCommand(
+    provider: String,
+    options: Map[String, String])
   extends RunnableCommand {
 
   // The result of SHOW TABLES has one column: tableName

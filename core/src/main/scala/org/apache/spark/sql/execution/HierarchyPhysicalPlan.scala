@@ -7,12 +7,14 @@ import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrd
 import org.apache.spark.sql.hierarchy.HierarchyRowBroadcastBuilder
 import org.apache.spark.sql.types.{Node, NodeType, StructField, StructType}
 
-case class HierarchyPhysicalPlan(childAlias: String,
-                                 parenthoodExpression: Expression,
-                                 searchBy: Seq[SortOrder],
-                                 startWhere: Option[Expression],
-                                 nodeAttribute: Attribute,
-                                 child: SparkPlan) extends UnaryNode {
+case class HierarchyPhysicalPlan(
+    childAlias: String,
+    parenthoodExpression: Expression,
+    searchBy: Seq[SortOrder],
+    startWhere: Option[Expression],
+    nodeAttribute: Attribute,
+    child: SparkPlan)
+  extends UnaryNode {
 
   override def output: Seq[Attribute] = child.output :+ nodeAttribute
 

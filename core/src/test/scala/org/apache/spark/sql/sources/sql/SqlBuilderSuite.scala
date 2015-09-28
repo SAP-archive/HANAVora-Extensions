@@ -16,8 +16,8 @@ import org.scalatest.FunSuite
 // scalastyle:off multiple.string.literals
 
 case class TestSqlLikeRelation(
-                                        override val nameSpace: Option[String],
-                                        override val tableName: String)
+    override val nameSpace: Option[String],
+    override val tableName: String)
   extends SqlLikeRelation
 
 class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
