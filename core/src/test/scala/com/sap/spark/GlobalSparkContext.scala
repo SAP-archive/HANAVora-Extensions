@@ -45,7 +45,7 @@ object GlobalSparkContext {
     if (_sc == null) {
       this.synchronized {
         if (_sc == null) {
-          _sc = new SparkContext( sparkMaster, "test", sparkConf)
+          _sc = new SparkContext(sparkMaster, "test", sparkConf)
         }
       }
     }

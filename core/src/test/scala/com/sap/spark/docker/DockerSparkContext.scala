@@ -100,7 +100,7 @@ private[spark] trait DockerSparkContext
    */
   private def createSparkContext() {
     logDebug(s"Creating SparkContext with master $sparkMaster")
-    _sc = new SparkContext(sparkMaster, "docker-spark-test", sparkConf )
+    _sc = new SparkContext(sparkMaster, "docker-spark-test", sparkConf)
     if (useSparkInDocker) {
       addClassPathToSparkContext()
     }

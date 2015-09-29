@@ -176,7 +176,12 @@
  <check level="error" class="org.scalastyle.scalariform.ImportGroupingChecker" enabled="true"/>
  <check level="error" class="org.scalastyle.scalariform.DisallowSpaceBeforeTokenChecker" enabled="true">
   <parameters>
-   <parameter name="tokens">COLON</parameter>
+   <parameter name="tokens">COLON, RPAREN</parameter>
+  </parameters>
+ </check>
+ <check level="error" class="org.scalastyle.scalariform.DisallowSpaceAfterTokenChecker" enabled="true">
+  <parameters>
+   <parameter name="tokens">LPAREN</parameter>
   </parameters>
  </check>
  <check level="warning" class="org.scalastyle.scalariform.EnsureSingleSpaceBeforeTokenChecker" enabled="true">
@@ -186,7 +191,7 @@
  </check>
  <check level="warning" class="org.scalastyle.scalariform.EnsureSingleSpaceAfterTokenChecker" enabled="true">
   <parameters>
-   <parameter name="tokens">ARROW</parameter>
+   <parameter name="tokens">ARROW, IF, COMMA</parameter>
   </parameters>
  </check>
-</scalastyle>
+ </scalastyle>

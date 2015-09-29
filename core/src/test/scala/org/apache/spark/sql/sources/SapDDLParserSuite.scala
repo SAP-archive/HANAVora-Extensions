@@ -52,11 +52,11 @@ class SapDDLParserSuite
       ("sql", "provider", "options", "ignoreConflicts"),
       ("REGISTER ALL TABLES USING provider.name OPTIONS() IGNORING CONFLICTS",
         "provider.name", Map.empty[String, String], true),
-      ( """REGISTER ALL TABLES USING provider.name OPTIONS(optionA "option")""",
+      ("""REGISTER ALL TABLES USING provider.name OPTIONS(optionA "option")""",
         "provider.name", Map("optionA" -> "option"), false),
-      ( """REGISTER ALL TABLES USING provider.name""",
+      ("""REGISTER ALL TABLES USING provider.name""",
         "provider.name", Map.empty[String, String], false),
-      ( """REGISTER ALL TABLES USING provider.name IGNORING CONFLICTS""",
+      ("""REGISTER ALL TABLES USING provider.name IGNORING CONFLICTS""",
         "provider.name", Map.empty[String, String], true)
     )
 

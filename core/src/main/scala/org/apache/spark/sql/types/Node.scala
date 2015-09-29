@@ -45,14 +45,14 @@ case class Node(
     isLeaf: java.lang.Boolean = null,
     var ordPath: Seq[Long] = null) {
 
-  def compareToRecursive( left: Seq[Long], right: Seq[Long]): Int =
+  def compareToRecursive(left: Seq[Long], right: Seq[Long]): Int =
   {
     (left.isEmpty, right.isEmpty) match {
       case (true, true) => 0    // both are equal
       case (true, false) => -1  // left is smaller than right
       case (false, true) => 1   // right is smaller than right
       case (false, false) => {
-        if( left.head == right.head ) {
+        if(left.head == right.head) {
           compareToRecursive(left.tail, right.tail)
         } else {
           left.head.compareTo(right.head)
