@@ -16,8 +16,10 @@ trait MockitoSparkContext extends WithSparkContext with MockitoSugar {
 
   override def sc: SparkContext = _sc
 
+  protected def mockSparkConf: SparkConf = _sparkConf
+
   override protected def setUpSparkContext(): Unit = {
-    _sparkConf = sparkConf
+    _sparkConf = super.sparkConf
     _sc = mock[SparkContext](withSettings().stubOnly())
     when(_sc.conf).thenReturn(_sparkConf)
     when(_sc.getConf).thenReturn(_sparkConf)
