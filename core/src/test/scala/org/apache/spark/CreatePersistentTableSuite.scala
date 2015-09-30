@@ -1,13 +1,13 @@
 package org.apache.spark
 
 import com.sap.spark.util.TestUtils._
-import org.apache.spark.sql.{GlobalVelocitySQLContext, Row}
+import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.scalatest.FunSuite
 
 /**
  * Tests the additional possibility of creating temporary / persistent tables
  */
-class CreatePersistentTableSuite extends FunSuite with GlobalVelocitySQLContext {
+class CreatePersistentTableSuite extends FunSuite with GlobalSapSQLContext {
 
   test("Create non-temporary table") {
     sqlContext.sql(s"""CREATE TABLE tableNotTemp (field string)
@@ -56,7 +56,6 @@ class CreatePersistentTableSuite extends FunSuite with GlobalVelocitySQLContext 
 
     assert(result.contains(Row("twiceTest", false)))
   }
-
 
   test("I can't register a persistent table using a datasource that doesn't extend " +
     "TemporaryAndPersistentNature") {

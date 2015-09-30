@@ -24,7 +24,7 @@ private[sql] class SapParserDialect extends ParserDialect {
  * This parser covers only SELECT and CREATE VIEW statements.
  * For DML statements see [[org.apache.spark.sql.sources.SapDDLParser]].
  */
-private[sql] object SapSqlParser extends SqlParser {
+private object SapSqlParser extends SqlParser {
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")

@@ -11,9 +11,9 @@ import org.apache.spark.SparkContext;
  */
 public class SapSqlContextProvider {
 
-    private static SapSQLContext instance = null;
+    private static SQLContext instance = null;
 
-    public synchronized SapSQLContext getSqlContext(SparkContext sc) {
+    public synchronized SQLContext getSqlContext(SparkContext sc) {
         if(SapSqlContextProvider.instance == null) {
             SapSqlContextProvider.instance = new SapSQLContext(sc);
         }

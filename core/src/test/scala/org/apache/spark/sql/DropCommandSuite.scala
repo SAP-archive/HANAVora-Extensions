@@ -2,7 +2,7 @@ package org.apache.spark.sql
 
 import org.scalatest.FunSuite
 
-class DropCommandSuite extends FunSuite with GlobalVelocitySQLContext{
+class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
 
   test("Drop a Spark table referencing Velocity tables removes it from Spark catalog."){
     sqlContext.sql(s"""CREATE TABLE existingTable1 (id string)

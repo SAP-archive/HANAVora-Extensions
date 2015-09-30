@@ -9,14 +9,14 @@ import org.apache.spark.SparkContext;
  */
 public class SapSqlContextProviderMock extends SapSqlContextProvider {
 
-    private SapSQLContext vsc;
+    private SQLContext vsc;
 
-    public SapSqlContextProviderMock(SapSQLContext vsc){
+    public SapSqlContextProviderMock(SQLContext vsc){
         this.vsc = vsc;
     }
 
     @Override
-    public synchronized SapSQLContext getSqlContext(SparkContext sc) {
+    public synchronized SQLContext getSqlContext(SparkContext sc) {
         return this.vsc;
     }
 

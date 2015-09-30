@@ -2,6 +2,10 @@ package com.sap.spark.util
 
 import java.util.Locale
 
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.{SQLContext, SapSQLContext}
+import org.apache.spark.sql.hive.SapHiveContext
+
 /**
  * Miscellaneous utilities for test suites.
  */
@@ -31,6 +35,15 @@ object TestUtils {
     )
       .flatten
       .head
+  }
+
+  def newSQLContext(sc: SparkContext): SQLContext = {
+    if (TestUtils.getSetting("test.with.hive.context", "false") == "true") {
+      new SapHiveContext(sc)
+    } else {
+      new SapSQLContext(sc)
+    }
+
   }
 
 }

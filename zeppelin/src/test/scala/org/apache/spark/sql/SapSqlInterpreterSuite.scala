@@ -17,7 +17,7 @@ class SapSqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
   var si: SparkInterpreter = _
   var context: InterpreterContext = _
 
-  var sapContext: SapSQLContext = null
+  var sapContext: SQLContext = null
 
   val filePath = getFileFromClassPath("/simpleData.json")
 

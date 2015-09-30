@@ -81,6 +81,26 @@
       <plugin>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>test</id>
+            <goals>
+              <goal>test</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>test-with-hive-context</id>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <forkMode>once</forkMode>
+              <systemProperties>
+                <test.with.hive.context>true</test.with.hive.context>
+              </systemProperties>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.scalastyle</groupId>

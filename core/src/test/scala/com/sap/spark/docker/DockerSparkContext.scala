@@ -7,7 +7,7 @@ import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.scalatest.Suite
 
 /**
- * Trait to be extended by any class using a [[org.apache.spark.sql.SapSQLContext]]
+ * Trait to be extended by any class using a [[org.apache.spark.sql.AbstractSapSQLContext]]
  * in a Docker environment.
  */
 private[spark] trait DockerSparkContext

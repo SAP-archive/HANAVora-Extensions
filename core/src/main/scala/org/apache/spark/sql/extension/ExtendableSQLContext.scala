@@ -1,27 +1,22 @@
 package org.apache.spark.sql.extension
 
 import org.apache.spark.SparkContext
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.{ParserDialect, CatalystConf}
-import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
+import org.apache.spark.sql.catalyst.{SimpleCatalystConf, ParserDialect}
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, SimpleCatalog, SimpleFunctionRegistry}
+import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.execution.ExtractPythonUdfs
-import org.apache.spark.sql.hive.{HiveContext, HiveFunctionRegistryProxy, HiveMetastoreCatalogProxy, HiveStrategiesProxy}
-import org.apache.spark.sql.sources.{DDLParser, DataSourceStrategy}
+import org.apache.spark.sql.sources.{DDLParser, PreInsertCastAndRename}
 
 /**
- * Extendable SQLContext. This SQLContext is composable with traits
+ * Extendable [[SQLContext]]. This context is composable with traits
  * that can provide extended parsers, resolution rules, function registries or
  * strategies.
  *
  * @param sparkContext The SparkContext.
  */
-@DeveloperApi
-private[sql] class ExtendableSQLContext(
-    @transient override val sparkContext: SparkContext)
-  extends HiveContext(sparkContext)
-  with SQLContextExtensionBase {
+private[sql] class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
+  extends SQLContext(sparkContext) with SQLContextExtensionBase {
   self =>
 
   override protected[sql] def getSQLDialect(): ParserDialect = extendedParserDialect
@@ -29,20 +24,13 @@ private[sql] class ExtendableSQLContext(
   @transient
   override protected[sql] val ddlParser: DDLParser = extendedDdlParser(sqlParser.parse)
 
+  private def catalystConf = new SimpleCatalystConf(caseSensitiveAnalysis = false)
+
   @transient
   override protected[sql] lazy val functionRegistry = {
-    val registry = new HiveFunctionRegistryProxy with OverrideFunctionRegistry {
-
-      override val functionBuilders = StringKeyHashMap[FunctionBuilder](caseSensitive = false)
-
-      override def conf: CatalystConf = currentSession().conf
-    }
+    val registry = new SimpleFunctionRegistry(catalystConf)
     registerFunctions(registry)
     registry
-  }
-
-  override protected[sql] def createSession(): SQLSession = {
-    new this.SQLSession()
   }
 
   protected class SQLSession extends super.SQLSession {
@@ -53,97 +41,34 @@ private[sql] class ExtendableSQLContext(
   }
 
   @transient
-  override protected[sql] lazy val catalog = new HiveMetastoreCatalogProxy(metadataHive, this)
+  override protected[sql] lazy val catalog = new SimpleCatalog(conf) with TemporaryFlagProxyCatalog
 
+  /**
+   * Copy of [[SQLContext]]'s [[Analyzer]] adding rules from our extensions.
+   */
   @transient
-  override protected[sql] lazy val analyzer: Analyzer = {
-
-    new Analyzer(catalog, functionRegistry, conf) with CheckAnalysis {
-      val parentRules =
-        catalog.ParquetConversions ::
-        catalog.CreateTables ::
-        ExtractPythonUdfs ::
-        sources.PreInsertCastAndRename ::
-        Nil
-      override val extendedResolutionRules = resolutionRules(this) ++ parentRules
-
-      /* XXX: Override this to replace ResolveReferences with ResolveReferencesWithHierarchies */
-      override lazy val batches: Seq[Batch] = Seq(
-        Batch("Substitution", fixedPoint,
-          CTESubstitution ::
-            WindowsSubstitution ::
-            Nil: _*),
-        Batch("Resolution", fixedPoint,
-          ResolveRelations ::
-            ResolveReferencesWithHierarchies(this) ::
-            ResolveGroupingAnalytics ::
-            ResolveSortReferences ::
-            ResolveGenerate ::
-            ResolveFunctions ::
-            ExtractWindowExpressions ::
-            GlobalAggregates ::
-            UnresolvedHavingClauseAttributes ::
-            TrimGroupingAliases ::
-            typeCoercionRules ++
-              extendedResolutionRules: _*)
-      )
+  override protected[sql] lazy val analyzer: Analyzer =
+    new Analyzer(catalog, functionRegistry, conf) {
+      override val extendedResolutionRules =
+        resolutionRules(this) ++
+          (ExtractPythonUdfs ::
+          PreInsertCastAndRename ::
+          Nil)
 
       override val extendedCheckRules = Seq(
         sources.PreWriteCheck(catalog)
       )
     }
-  }
 
   @transient
-  override protected[sql] lazy val optimizer: Optimizer = new Optimizer {
-
-    private val extendedOptimizerRules = self.optimizerRules
-    private val MAX_ITERATIONS = 100
-
-    /* TODO: This should be gone in Spark 1.5+
-     * See: https://issues.apache.org/jira/browse/SPARK-7727
-     */
-    // scalastyle:off structural.type
-    private def transformBatchType(b: DefaultOptimizer.Batch): Batch = {
-      val strategy = b.strategy.maxIterations match {
-        case 1 => Once
-        case n => FixedPoint(n)
-      }
-      Batch(b.name, strategy, b.rules: _*)
-    }
-
-    // scalastyle:on structural.type
-
-    private val baseBatches = DefaultOptimizer.batches.map(transformBatchType)
-
-    override protected val batches: Seq[Batch] = if (extendedOptimizerRules.isEmpty) {
-      baseBatches
-    } else {
-      baseBatches :+
-        Batch("Extended Optimization Rules", FixedPoint(MAX_ITERATIONS), extendedOptimizerRules: _*)
-    }
-  }
+  override protected[sql] lazy val optimizer: Optimizer =
+    new ExtendableOptimizer(optimizerRules)
 
   @transient
   override protected[sql] val planner =
   // HiveStrategies defines its own strategies, we should be back to SparkPlanner strategies
-    new SparkPlanner with HiveStrategiesProxy with ExtendedPlanner {
-      override def strategies: Seq[Strategy] = self.strategies(this) ++
-        experimental.extraStrategies ++ (
-        DataSourceStrategy ::
-          DDLStrategy ::
-          TakeOrdered ::
-          HashAggregation ::
-          LeftSemiJoin ::
-          HashJoin ::
-          InMemoryScans ::
-          ParquetOperations ::
-          BasicOperators ::
-          CartesianProduct ::
-          BroadcastNestedLoopJoin ::
-          HiveTableScans :: Nil)
-
-
-      override val hiveContext = self
+    new SparkPlanner with ExtendedPlanner {
+      override def strategies: Seq[Strategy] =
+        self.strategies(this) ++ super.strategies
     }
 }
