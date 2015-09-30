@@ -45,7 +45,47 @@
     <spotify.dockerclient.version>3.1.4</spotify.dockerclient.version>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
+    <scala.maven.plugin.version>3.2.0</scala.maven.plugin.version>
+    <jacoco.maven.plugin.version>0.7.4.201502262128</jacoco.maven.plugin.version>
+    <!-- Property to not verify the location of all the project dependencies -->
+    <dependency.locations.enabled>false</dependency.locations.enabled>
+    <!-- Workaround to fix a bug related to report plugin -->
+    <topSiteURL>http://sap.corp/</topSiteURL>
   </properties>
+
+  <distributionManagement>
+    <site>
+      <id>${project.artifactId}-site</id>
+      <url>./</url>
+    </site>
+  </distributionManagement>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>2.8.1</version>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>index</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+      <plugin>
+        <groupId>net.alchim31.maven</groupId>
+        <artifactId>scala-maven-plugin</artifactId>
+        <version>${scala.maven.plugin.version}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.maven.plugin.version}</version>
+      </plugin>
+    </plugins>
+  </reporting>
 
   <dependencyManagement>
     <dependencies>
@@ -265,7 +305,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.7.4.201502262128</version>
+        <version>${jacoco.maven.plugin.version}</version>
         <executions>
           <execution>
             <id>default-prepare-agent</id>
@@ -311,7 +351,7 @@
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>${scala.maven.plugin.version}</version>
         <configuration>
           <recompileMode>incremental</recompileMode>
           <useZincServer>true</useZincServer>
