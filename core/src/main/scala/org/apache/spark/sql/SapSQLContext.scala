@@ -74,11 +74,3 @@ private[sql] trait NonTemporaryTableSQLContextExtension extends PlannerSQLContex
   override def strategies(planner: ExtendedPlanner): List[Strategy] =
     CreatePersistentTableStrategy :: super.strategies(planner)
 }
-
-// class VelocitySQLContext is kept for a short time in order to avoid
-// build problems with datasource package
-@deprecated
-class VelocitySQLContext(@transient override val sparkContext: SparkContext)
- extends SapSQLContext(sparkContext){
-}
-

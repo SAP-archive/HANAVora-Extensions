@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sap.spark</groupId>
   <artifactId>spark-sap-parent</artifactId>
-  <version>1.1.7</version>
+  <version>1.1.8</version>
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
@@ -42,7 +42,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <minimum.code.covered.ratio>0.80</minimum.code.covered.ratio>
-    <spotify.dockerclient.version>3.0.0</spotify.dockerclient.version>
+    <spotify.dockerclient.version>3.1.4</spotify.dockerclient.version>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
   </properties>
@@ -113,12 +113,12 @@
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.1.7</version>
+        <version>1.1.8</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.1.7</version>
+        <version>1.1.8</version>
         <type>test-jar</type>
       </dependency>
       <dependency>
