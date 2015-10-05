@@ -267,14 +267,16 @@ private[sql] case class ShowDatasourceTablesCommand(
 private[sql] case class UseStatementCommand(input: String) extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    if(sqlContext.sparkContext.getConf.getBoolean(
-      SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, false)) {
+    val confValue = sqlContext.sparkContext
+      .getConf.getBoolean(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, defaultValue = false)
+    val sqlConfValue = sqlContext
+      .getConf(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, defaultValue = confValue.toString)
+      .toBoolean
+    if (sqlConfValue) {
       log.info(s"Ignoring statement:\n$input")
-    }
-    else {
+    } else {
       throw new SapParserException(input, 1, 1, "USE statement is not supported")
     }
     Nil
   }
 }
-
