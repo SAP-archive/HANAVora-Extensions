@@ -181,6 +181,11 @@ class HierarchyUDFsSuite
     Row("Mammal", false),
     Row("Oviparous", false)))
 
+  testUnaryUdfWithBuilders("IS_LEAF", Set(
+    Row("Animal", false),
+    Row("Mammal", true),
+    Row("Oviparous", true)))
+
   testUnaryUdfWithBuilders("LEVEL", Set(
     Row("Animal", 1),
     Row("Mammal", 2),
