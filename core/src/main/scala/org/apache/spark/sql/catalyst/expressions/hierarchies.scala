@@ -98,11 +98,6 @@ case class IsRoot(child: Expression) extends UnaryNodeExpression {
   check()
 }
 
-/**
- * This UDF is not part of the official list of UDFs we want to support.
- * TODO (YH, SM) either keep it and it to both Spark and HANA Vora
- * of remove it completely (#90029).
- */
 case class IsLeaf(child: Expression) extends UnaryNodeExpression {
   type EvaluatedType = Any
   override def dataType: DataType = BooleanType
