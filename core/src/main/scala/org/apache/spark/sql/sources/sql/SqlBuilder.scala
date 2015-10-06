@@ -238,6 +238,7 @@ class SqlBuilder {
     expression match {
       case expr.And(left, right) => s"(${expressionToSql(left)} AND ${expressionToSql(right)})"
       case expr.Or(left, right) => s"(${expressionToSql(left)} OR ${expressionToSql(right)})"
+      case expr.Remainder(child, div) => s"MOD(${expressionToSql(child)}, ${expressionToSql(div)})"
       case be: expr.BinaryExpression =>
         s"(${expressionToSql(be.left)} ${be.symbol} " +
           s"${expressionToSql(be.right)})"
@@ -252,8 +253,6 @@ class SqlBuilder {
         s"CAST(${expressionToSql(child)} AS ${typeToSql(dataType)})"
       case expr.ToVarChar(child) => s"TO_VARCHAR(${expressionToSql(child)})"
       case expr.CountDistinct(children) => s"COUNT(DISTINCT ${expressionsToSql(children, ",")})"
-      case expr.Remainder(child, div) => s"MOD(${expressionToSql(child)}," +
-        s"${expressionToSql(div)})"
       case expr.Coalesce(children) => s"COALESCE(${expressionsToSql(children, ",")})"
       case expr.Extract(flag,date) => s"EXTRACT(${flagToSql(flag)} FROM " +
         s"${expressionToSql(date)})"
