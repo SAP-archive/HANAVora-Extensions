@@ -4,12 +4,27 @@ import java.io.{IOException, FileInputStream, InputStream}
 import java.util.Properties
 
 import org.apache.spark.SparkContext
+import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql.sources.{CatalystSourceStrategy, CreatePersistentTableStrategy}
 import org.apache.spark.sql.sources._
 
 /**
- * This context provides extended [[SQLContext]] functionality such as hierarchies, enhanced data
- * sources API with support for aggregates pushdown, etc.
+ * [[SapSQLContext]] is the main entry point for SAP Spark extensions.
+ * Users of this class should check Apache Spark SQL official documentation.
+ *
+ * Extensions are composed through [[ExtendableSQLContext]], which allows
+ * to define modular extensions.
+ *
+ * The following extensions are applied to [[SapSQLContext]]:
+ *
+ *  - [[CatalystSourceSQLContextExtension]]: Provides a new data source API that
+ *    can be used to push arbitrary queries down to the data source.
+ *  - [[HierarchiesSQLContextExtension]]: Adds support for a new SQL extension for
+ *    hierarchy support.
+ *  - [[SapCommandsSQLContextExtension]]: Enables support for commands (e.g. REGISTER TABLE).
+ *  - [[NonTemporaryTableSQLContextExtension]]: Adds support for both temporary and
+ *    non-temporary tables.
+ *
  */
 class SapSQLContext(@transient override val sparkContext: SparkContext)
   extends ExtendableSQLContext(sparkContext)
@@ -63,14 +78,24 @@ object SapSQLContext {
   }
 }
 
-private[sql] trait CatalystSourceSQLContextExtension extends PlannerSQLContextExtension {
+/**
+ * Provides a new data source API that can be used to push arbitrary queries down to the
+ * data source.
+ *
+ * In order to leverage this API, data sources must implement the [[CatalystSource]] trait.
+ *
+ * [[CatalystSourceStrategy]] is added to the planner to deal with this kind of data source.
+ */
+@DeveloperApi
+trait CatalystSourceSQLContextExtension extends PlannerSQLContextExtension {
 
   override def strategies(planner: ExtendedPlanner): List[Strategy] =
     CatalystSourceStrategy :: super.strategies(planner)
 
 }
 
-private[sql] trait NonTemporaryTableSQLContextExtension extends PlannerSQLContextExtension {
+@DeveloperApi
+trait NonTemporaryTableSQLContextExtension extends PlannerSQLContextExtension {
   override def strategies(planner: ExtendedPlanner): List[Strategy] =
     CreatePersistentTableStrategy :: super.strategies(planner)
 }

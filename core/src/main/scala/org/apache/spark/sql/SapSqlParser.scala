@@ -11,8 +11,16 @@ import org.apache.spark.sql.types.DoubleType
 
 import scala.util.parsing.input.Position
 
+/**
+ * SQL parser based on [[org.apache.spark.sql.catalyst.SqlParser]] with
+ * extended syntax and fixes.
+ *
+ * This parser covers only SELECT and CREATE VIEW statements.
+ * For DML statements see [[org.apache.spark.sql.sources.SapDDLParser]].
+ */
 class SapSqlParser extends SqlParser {
 
+  /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")
   protected val USING = Keyword("USING")
   protected val PARENT = Keyword("PARENT")
@@ -20,10 +28,10 @@ class SapSqlParser extends SqlParser {
   protected val START = Keyword("START")
   protected val SET = Keyword("SET")
 
+  /* Views keywords */
   protected val CREATE = Keyword("CREATE")
   protected val VIEW = Keyword("VIEW")
 
-  /* XXX Those expressions are not only for hierarchies */
   /* EXTRACT keywords */
   protected val EXTRACT = Keyword("EXTRACT")
   protected val DAY = Keyword("DAY")
@@ -33,6 +41,7 @@ class SapSqlParser extends SqlParser {
   protected val MINUTE = Keyword("MINUTE")
   protected val SECOND = Keyword("SECOND")
 
+  /* Other function keywords */
   protected val DAYOFMONTH = Keyword("DAYOFMONTH")
   protected val WEEKDAY = Keyword("WEEKDAY")
   protected val ADD_DAYS = Keyword("ADD_DAYS")
@@ -72,17 +81,31 @@ class SapSqlParser extends SqlParser {
 
   lexical.delimiters += "$"
 
+  /**
+   * This is the starting rule from, where parsing always starts.
+   *
+   * Overriden to hook [[createView]] parser.
+   */
   override protected lazy val start: Parser[LogicalPlan] =
     start1 | insert | cte | createView
 
+  /**
+   * Overriden to hook [[hierarchy]] parser.
+   */
   override protected lazy val relation: Parser[LogicalPlan] =
     hierarchy | joinedRelation | relationFactor
 
+  /**
+   * Every function / expression parsing is hooked here.
+   */
   override protected lazy val function: Parser[Expression] =
     extract | sparkFunctions | sapFunctions | dataSourceFunctions
 
   // scalastyle:off
-  /* TODO SparkSQL parser functions code copied */
+  /**
+   * Original code from [[SqlParser.function]], copied here to be able
+   * to override it and reference it later.
+   */
   protected lazy val sparkFunctions: Parser[Expression] =
     (SUM   ~> "(" ~> expression             <~ ")" ^^ { case exp => Sum(exp) }
       | SUM   ~> "(" ~> DISTINCT ~> expression <~ ")" ^^ { case exp => SumDistinct(exp) }
@@ -123,6 +146,7 @@ class SapSqlParser extends SqlParser {
       )
   // scalastyle:on
 
+  /** Hierarchy parser. */
   protected lazy val hierarchy: Parser[LogicalPlan] =
     HIERARCHY ~> "(" ~>
         (USING ~> relationFactor) ~
@@ -141,16 +165,19 @@ class SapSqlParser extends SqlParser {
          nodeAttribute = UnresolvedAttribute(nc)))
     }
 
+  /** Create view parser. */
   protected lazy val createView: Parser[LogicalPlan] =
     (CREATE ~> VIEW ~> ident <~ AS) ~ start1 ^^ {
       case name ~ query => CreateViewCommand(name, query)
     }
 
+  /** EXTRACT function. */
   protected lazy val extract: Parser[Expression] =
     EXTRACT ~ "(" ~> dateIdLiteral ~ (FROM ~> expression) <~ ")" ^^ {
       case dFlag ~ d => Extract(dFlag, d)
     }
 
+  /** @see [[extract]] */
   protected lazy val dateIdLiteral: Parser[Literal] =
     (DAY ^^^ Literal.create(DAY.str, StringType)
       | MONTH ^^^ Literal.create(MONTH.str, StringType)
@@ -160,12 +187,21 @@ class SapSqlParser extends SqlParser {
       | SECOND ^^^ Literal.create(SECOND.str, StringType)
       )
 
+  /**
+   * Parser for data source specific functions. That is, functions
+   * prefixed with $, so that they are always push down to the data
+   * source as they are.
+   */
   protected lazy val dataSourceFunctions: Parser[Expression] =
      (
       "$" ~> ident ~ ("(" ~> repsep(expression,",") <~ ")") ^^
         { case udf~expr => DataSourceExpression(udf.toLowerCase,expr) }
       )
+
   // scalastyle:off
+  /**
+   * Miscelaneous functions added by us.
+   */
   protected lazy val sapFunctions: Parser[Expression] =
       (LENGTH ~ "(" ~> expression <~ ")" ^^ { case exp => Length(exp) }
       | TRIM  ~ "(" ~> expression <~ ")" ^^ { case exp => Trim(exp) }
@@ -275,15 +311,20 @@ class SapSqlParser extends SqlParser {
       | termExpression
       )
 
-  /*
-  * TODO: Remove in future Spark versions.
-  * CAUTION: This override catches and reformats
-  *  the raw scala parse error message.
-  *
-  * This is a workaround to a race condition in AbstractSparkSQLParser:
-  * https://issues.apache.org/jira/browse/SPARK-8628
-  */
+
+  /**
+   * Main entry point for the parser.
+   *
+   * Overriden to control error handling.
+   *
+   * @param input Query to be parsed.
+   * @return A [[LogicalPlan]].
+   */
   override def parse(input: String): LogicalPlan = {
+    /*
+     * This is a workaround to a race condition in AbstractSparkSQLParser:
+     * https://issues.apache.org/jira/browse/SPARK-8628
+     */
     initLexical
     phrase(start)(new lexical.Scanner(input)) match {
       case Success(plan, _) => plan

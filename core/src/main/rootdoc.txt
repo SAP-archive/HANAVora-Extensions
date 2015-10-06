@@ -1,0 +1,24 @@
+
+This is the developer documentation for for SAP Spark extensions.
+
+[[org.apache.spark.sql.SapSQLContext]] is the main entry point for SAP Spark extensions
+and the only class that end users should interact with. All other classes are considered
+part of the developer API.
+
+Here is an overview of the package structure, which mimicks the Apache Spark SQL structure:
+
+  - [[org.apache.spark.sql]]: Contains [[org.apache.spark.sql.SapSQLContext]] and
+    [[org.apache.spark.sql.ExtendableSQLContext]].
+  - [[org.apache.spark.sql.catalyst]]: Contains extensions to Catalyst (Apache Spark SQL's
+    library that covers all aspects related to SQL at the logical level, excluding any
+    execution aspect.
+  - [[org.apache.spark.sql.execution]]: SQL execution.
+  - [[org.apache.spark.sql.hierarchy]]: Support for hierarchy SQL query execution.
+  - [[org.apache.spark.sql.hive]]: Support for the Spark+Hive integration.
+  - [[org.apache.spark.sql.sources]]: Everything related to the data sources API. Developers
+    interested in extending their data source capabilities should look here.
+  - [[org.apache.spark.sql.types]]: Extensions to the Spark SQL type system.
+  - [[org.apache.spark.sql.util]]: Miscellaneous utils.
+
+Developers who want to get deeper into the code base can navigate the documentation
+starting from [[org.apache.spark.sql.SapSQLContext]].

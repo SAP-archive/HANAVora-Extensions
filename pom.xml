@@ -78,6 +78,12 @@
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
         <version>${scala.maven.plugin.version}</version>
+        <configuration>
+          <args>
+            <arg>-doc-root-content</arg>
+            <arg>${basedir}/src/main/rootdoc.txt</arg>
+          </args>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
