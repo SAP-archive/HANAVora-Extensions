@@ -155,7 +155,8 @@ class HierarchyViewsSuite
 
     val expected = Set(
       Row(null,"Minion 3"),
-      Row(null,"The Middle Manager"),
+      Row("Carnivores","The Middle Manager"),
+      Row("Herbivores","The Middle Manager"),
       Row(null,"Minion 1"),
       Row(null,"Senior Developer"),
       Row(null,"The Other Middle Manager"),

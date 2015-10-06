@@ -261,13 +261,13 @@ class HierarchySuite
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, isLeaf = true)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, isLeaf = true)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true)),
-      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, isLeaf = true))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 7, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, 6, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 5, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 3, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, 4, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true)),
+      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, 2, isLeaf = true))
     )
 
     assertSetEqual(expected)(result.toSet)
@@ -294,12 +294,12 @@ class HierarchySuite
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, isLeaf = true)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, isLeaf = true)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 6, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, 5, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 4, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 2, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, 3, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true))
     )
 
     assertSetEqual(expected)(result.toSet)
@@ -332,12 +332,12 @@ class HierarchySuite
     val result = sqlContext.sql(queryString).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, isLeaf = true)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, isLeaf = true)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 6, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, 5, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 4, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 2, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, 3, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true))
     )
 
     assertSetEqual(expected)(result.toSet)
@@ -365,9 +365,9 @@ class HierarchySuite
     val result = sqlContext.sql(queryString).collect().toSet
 
     val expected = Set(
-      Row("Parent", 3L, 1L, 1, Node(List(1L), 1, isLeaf = false)),
-      Row("Child", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
-      Row("Cycler", 2L, 3L, 1, Node(List(1L, 2L, 3L), 3, isLeaf = true))
+      Row("Parent", 3L, 1L, 1, Node(List(1L), 1, 3, isLeaf = false)),
+      Row("Child", 1L, 2L, 1, Node(List(1L, 2L), 2, 2, isLeaf = false)),
+      Row("Cycler", 2L, 3L, 1, Node(List(1L, 2L, 3L), 3, 1, isLeaf = true))
     )
 
     assertSetEqual(expected)(result.toSet)
@@ -425,13 +425,13 @@ class HierarchySuite
           Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L))))
       } else {
         Set(
-          Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, isLeaf = false)),
-          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, isLeaf = true)),
-          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, isLeaf = false)),
-          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, isLeaf = false)),
-          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, isLeaf = true)),
-          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, isLeaf = true)),
-          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, isLeaf = true)))
+          Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 7, isLeaf = false)),
+          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, 6, isLeaf = true)),
+          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 5, isLeaf = false)),
+          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 3, isLeaf = false)),
+          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, 4, isLeaf = true)),
+          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true)),
+          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, 2, isLeaf = true)))
       }
 
       assertSetEqual(expected)(result.collect().toSet)

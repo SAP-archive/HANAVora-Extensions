@@ -22,6 +22,8 @@ private[sql] object RegisterHierarchyFunctions {
     r("is_parent", binaryExpression[IsParent])
     r("is_child", reverse(binaryExpression[IsParent]))
     r("is_sibling", binaryExpression[IsSibling])
+    r("is_self", binaryExpression[IsSelf])
+    r("is_sibling_or_self", binaryExpression[IsSiblingOrSelf])
     r("is_following", binaryExpression[IsFollowing])
     r("is_preceding", reverse(binaryExpression[IsFollowing]))
   }

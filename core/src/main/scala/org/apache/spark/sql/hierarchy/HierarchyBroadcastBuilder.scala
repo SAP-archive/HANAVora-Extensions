@@ -22,6 +22,7 @@ private[hierarchy] class Tree[T](
                                   val parent: Option[Tree[T]],
                                   val root: T,
                                   var preRank: Int = 0,
+                                  var postRank: Int = 0,
                                   var isLeaf: Boolean = false)
   extends Serializable {
 
@@ -36,6 +37,8 @@ private[hierarchy] class Tree[T](
 
 }
 
+private[hierarchy] case class Ranks(var pre: Int, var post: Int)
+
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
 (pred: I => C,
  succ: I => C,
@@ -43,10 +46,10 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
  ord: I => C,
  transformRowFunction: (I, Node) => O) extends HierarchyBuilder[I, O] with Logging {
 
-  def buildTree(refs: mutable.Map[C,Tree[C]],
+  def buildTree(refs: mutable.Map[C, Tree[C]],
                 t: Tree[C],
                 candidateMap: Map[C, Array[HRow[C]]],
-                prevPreRank: Int): Int = {
+                prevRanks: Ranks): Ranks = {
     refs.put(t.root, t)
 
     val children =
@@ -57,12 +60,14 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
         })
 
     t.isLeaf = children.isEmpty
-    t.preRank = prevPreRank + 1
-    var childPrevPreRank = t.preRank
+    t.preRank = prevRanks.pre + 1
+    var ranks = Ranks(t.preRank, prevRanks.post)
     children foreach { child =>
-      childPrevPreRank = buildTree(refs, child, candidateMap - t.root, childPrevPreRank)
+      ranks = buildTree(refs, child, candidateMap - t.root, ranks)
     }
-    childPrevPreRank
+    t.postRank = ranks.post + 1
+    ranks.post += 1
+    ranks
   }
 
   /**
@@ -100,9 +105,9 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     logTrace(s"Partitioning roots / non-roots")
     val (roots, nonRoots) = data partition { hrow =>
       hrow.isRoot match {
-          case Some(ir) => ir
-          case None => !successors.contains(hrow.pred)
-        }
+        case Some(ir) => ir
+        case None => !successors.contains(hrow.pred)
+      }
     }
     if (roots.isEmpty) {
       rdd.sparkContext.emptyRDD[O]
@@ -111,10 +116,11 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
       val candidateMap = nonRoots.groupBy(_.pred)
 
       logDebug(s"Building hierarchy")
+      val refs = mutable.Map[C, Tree[C]]()
       val forest = {
         val trees = roots map { hrow => new Tree[C](None, hrow.succ, preRank = 1) }
         val refs = mutable.Map[C, Tree[C]]()
-        trees map (buildTree(refs, _, candidateMap, 0))
+        trees map (buildTree(refs, _, candidateMap, Ranks(0, 0)))
         new Forest(refs, trees)
       }
       logDebug(s"Broadcasted hierarchy")
@@ -130,6 +136,7 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
             transformRowFunction(x, Node(
               path = subtree.prefix,
               preRank = subtree.preRank,
+              postRank = subtree.postRank,
               isLeaf = subtree.isLeaf
             ))
           }
