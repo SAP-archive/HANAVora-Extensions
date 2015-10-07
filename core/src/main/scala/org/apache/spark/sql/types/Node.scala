@@ -39,11 +39,11 @@ object NodeType extends UserDefinedType[Node] {
 }
 
 case class Node(
-    path: Seq[Any],
-    var preRank: java.lang.Integer = null,
-    postRank: java.lang.Integer = null,
-    isLeaf: java.lang.Boolean = null,
-    var ordPath: Seq[Long] = null) {
+                 path: Seq[Any],
+                 var preRank: java.lang.Integer = null,
+                 var postRank: java.lang.Integer = null,
+                 isLeaf: java.lang.Boolean = null,
+                 var ordPath: Seq[Long] = null) {
 
   def compareToRecursive(left: Seq[Long], right: Seq[Long]): Int =
   {
@@ -63,7 +63,7 @@ case class Node(
 
   def compareTo(that: Node): Int = compareToRecursive(ordPath, that.ordPath)
 
-    /* XXX: No-arg constructor is provided to allow Kryo serialization */
+  /* XXX: No-arg constructor is provided to allow Kryo serialization */
   protected def this() = this(null)
 
   if (path != null && path.isEmpty) {

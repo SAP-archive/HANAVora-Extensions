@@ -19,7 +19,10 @@ trait HierarchyTestUtils {
   protected def animalsHierarchy: Seq[AnimalRow] = Seq(
     AnimalRow("Animal", None, 1L, 1L),
     AnimalRow("Mammal", Some(1L), 2L, 1L),
-    AnimalRow("Oviparous", Some(1L), 3L, 2L)
+    AnimalRow("Oviparous", Some(1L), 3L, 2L),
+    AnimalRow("Carnivores", Some(2L), 4L, 3L),
+    AnimalRow("Herbivores", Some(2L), 5L, 4L)
+
   )
 
   /*  --------------------------------------------

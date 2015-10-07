@@ -5,7 +5,7 @@
   <parent>
     <artifactId>spark-sap-parent</artifactId>
     <groupId>com.sap.spark</groupId>
-    <version>1.1.14</version>
+    <version>1.1.15</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -23,10 +23,6 @@
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-sql_${scala.binary.version}</artifactId>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-hive_${scala.binary.version}</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>

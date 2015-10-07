@@ -162,6 +162,32 @@ case class IsSibling(left: Expression, right: Expression) extends NodePredicate 
   check()
 }
 
+case class IsSelf(left: Expression, right: Expression) extends NodePredicate {
+  override def symbol: String = "IS_SELF"
+
+  override def eval(input: Row): EvaluatedType = {
+    val leftNode = left.eval(input).asInstanceOf[Node]
+    val rightNode = right.eval(input).asInstanceOf[Node]
+    leftNode == rightNode
+  }
+
+  check()
+}
+
+case class IsSiblingOrSelf(left: Expression, right: Expression) extends NodePredicate {
+  override def symbol: String = "IS_SIBLING_OR_SELF"
+
+  override def eval(input: Row): EvaluatedType = {
+    val leftNode = left.eval(input).asInstanceOf[Node]
+    val rightNode = right.eval(input).asInstanceOf[Node]
+    leftNode == rightNode || (leftNode.path.last != rightNode.path.last &&
+      leftNode.path.slice(0, leftNode.path.size - 1) ==
+        rightNode.path.slice(0, rightNode.path.size - 1))
+  }
+
+  check()
+}
+
 case class IsFollowing(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_FOLLOWING"
   override def nullable: Boolean = false

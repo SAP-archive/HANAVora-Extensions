@@ -51,11 +51,9 @@ case class CreateTableUsingTemporaryAwareCommand(
 
     dataSource match {
       case drp: TemporaryAndPersistentSchemaRelationProvider if userSpecifiedSchema.nonEmpty =>
-        userSpecifiedSchema match {
-          case Some(schema) =>
             new ResolvedDataSource(drp.getClass,
-              drp.createRelation(sqlContext, new CaseInsensitiveMap(options), schema, isTemporary))
-        }
+              drp.createRelation(sqlContext,
+                new CaseInsensitiveMap(options), userSpecifiedSchema.get, isTemporary))
       case drp: TemporaryAndPersistentRelationProvider =>
         new ResolvedDataSource(drp.getClass,
           drp.createRelation(sqlContext, new CaseInsensitiveMap(options), isTemporary))

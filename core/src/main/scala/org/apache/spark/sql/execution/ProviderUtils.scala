@@ -17,11 +17,11 @@ object ProviderUtils {
           Class.forName(provider + ".DefaultSource").newInstance()
             .asInstanceOf[T]
         } catch {
-          case e => throw
+          case e: Exception => throw
             new ClassNotFoundException(
               s"""Cannot instantiate $provider.DefaultSource to execute $executedCommandName""", e)
         }
-      case e => throw new ClassNotFoundException(
+      case e: Exception => throw new ClassNotFoundException(
         s"""Cannot instantiate $provider to execute $executedCommandName""", e)
     }
   }
