@@ -7,6 +7,7 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.SapDDLStrategy
+import org.apache.spark.sql.hierarchy.HierarchyStrategy
 import org.apache.spark.sql.sources._
 
 @DeveloperApi
