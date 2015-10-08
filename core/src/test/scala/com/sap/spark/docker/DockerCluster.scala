@@ -114,6 +114,7 @@ class DockerCluster(val runId: String = DockerCluster.newRunId) extends Logging 
    *
    * @param containerId Name for the container.
    * @param image Docker image to use.
+   * @param hostname hostname for the container.
    * @param env A list of environment variables in the form of key=val.
    * @param portTests A list of ports to test in the form of (port, protocol),
    *                  where protocol can be TCP or HTTP.
@@ -122,6 +123,7 @@ class DockerCluster(val runId: String = DockerCluster.newRunId) extends Logging 
   def getOrCreateContainer(
                             containerId: String,
                             image: String,
+                            hostname: String = null,
                             env: Seq[String] = Nil,
                             cmd: Seq[String] = Nil,
                             binds: Seq[String] = Nil,
@@ -139,7 +141,7 @@ class DockerCluster(val runId: String = DockerCluster.newRunId) extends Logging 
           case ex: ImageNotFoundException => pullImage(image)
         }
         logDebug(s"Create: $containerId")
-        val containerConfig = buildContainerConf(containerId, image, env, cmd, binds)
+        val containerConfig = buildContainerConf(containerId, image, hostname, env, cmd, binds)
         docker.createContainer(containerConfig, containerId)
         synchronized {
           if (!containers.contains(containerId)) {
@@ -169,6 +171,7 @@ class DockerCluster(val runId: String = DockerCluster.newRunId) extends Logging 
 
   private def buildContainerConf(containerId: String,
                                  image: String,
+                                 hostname: String,
                                  env: Seq[String],
                                  cmd: Seq[String],
                                  binds: Seq[String]): ContainerConfig = {
@@ -179,6 +182,7 @@ class DockerCluster(val runId: String = DockerCluster.newRunId) extends Logging 
     }
     val configBuilder = ContainerConfig.builder()
       .image(image)
+      .hostname(Option(hostname).getOrElse(containerId))
       .memory(ramLimit)
       .tty(true)
       .hostConfig(hostConfigBuilder.build())

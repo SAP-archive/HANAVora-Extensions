@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sap.spark</groupId>
   <artifactId>spark-sap-parent</artifactId>
-  <version>1.1.15</version>
+  <version>1.1.16</version>
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
@@ -78,6 +78,12 @@
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
         <version>${scala.maven.plugin.version}</version>
+        <configuration>
+          <args>
+            <arg>-doc-root-content</arg>
+            <arg>${basedir}/src/main/rootdoc.txt</arg>
+          </args>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
@@ -153,12 +159,12 @@
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.1.15</version>
+        <version>1.1.16</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.1.15</version>
+        <version>1.1.16</version>
         <type>test-jar</type>
       </dependency>
       <dependency>
