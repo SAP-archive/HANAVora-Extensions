@@ -55,7 +55,6 @@ class CreatePersistentTableSuite extends FunSuite with GlobalVelocitySQLContext 
     val result = sqlContext.tables().collect()
 
     assert(result.contains(Row("twiceTest", false)))
-    assert(result.length == 1)
   }
 
 

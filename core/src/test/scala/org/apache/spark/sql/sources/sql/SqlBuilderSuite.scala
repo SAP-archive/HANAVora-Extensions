@@ -263,63 +263,63 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   )(Distinct(t1.groupBy(c1)(c1)))
 
   testLogicalPlan(
-    s"""(SELECT "c1", "c2" FROM "t1") UNION (SELECT "c1", "c2" FROM "t2")"""
+    s"""SELECT "c1", "c2" FROM "t1" UNION SELECT "c1", "c2" FROM "t2""""
   )(Distinct(t1.unionAll(t2)))
 
   testLogicalPlan(
-    s"""(SELECT "c1", "c2" FROM "t1") UNION ALL (SELECT "c1", "c2" FROM "t2")"""
+    s"""SELECT "c1", "c2" FROM "t1" UNION ALL SELECT "c1", "c2" FROM "t2""""
   )(t1.unionAll(t2))
 
   testLogicalPlan(
-    s"""((SELECT "c1", "c2" FROM "t1")
+    s"""SELECT "c1", "c2" FROM "t1"
         |UNION ALL
-        |(SELECT "c1", "c2" FROM "t2"))
-        |EXCEPT (SELECT "c1", "c2" FROM "t1")"""
+        |SELECT "c1", "c2" FROM "t2"
+        |EXCEPT SELECT "c1", "c2" FROM "t1" """
       .stripMargin
   )(t1.unionAll(t2).except(t1))
 
   testLogicalPlan(
     s"""SELECT "__subquery3"."c1", "__subquery3"."c2" FROM
-       |((SELECT "c1", "c2" FROM "t1")
+       |(SELECT "c1", "c2" FROM "t1"
        |UNION ALL
-       |(SELECT "c1", "c2" FROM "t2")) AS "__subquery3"
+       |SELECT "c1", "c2" FROM "t2") AS "__subquery3"
        |ORDER BY "__subquery3"."c1" DESC"""
       .stripMargin
   )(t1.unionAll(t2).orderBy(c1 desc))
 
   testLogicalPlan(
-    s"""(SELECT "c1", "c2" FROM "t1") EXCEPT (SELECT "c1", "c2" FROM "t2")"""
+    s"""SELECT "c1", "c2" FROM "t1" EXCEPT SELECT "c1", "c2" FROM "t2""""
   )(Except(t1, t2))
 
   testLogicalPlan(
     s"""SELECT "__subquery3"."c1", "__subquery3"."c2" FROM
-       |((SELECT "c1", "c2" FROM "t1")
+       |(SELECT "c1", "c2" FROM "t1"
        |EXCEPT
-       |(SELECT "c1", "c2" FROM "t2")) AS "__subquery3"
+       |SELECT "c1", "c2" FROM "t2") AS "__subquery3"
        |ORDER BY "__subquery3"."c1" DESC"""
       .stripMargin
   )(Except(t1, t2).orderBy(c1 desc))
 
   testLogicalPlan(
-    s"""(SELECT "c1", "c2" FROM "t1") INTERSECT (SELECT "c1", "c2" FROM "t2")"""
+    s"""SELECT "c1", "c2" FROM "t1" INTERSECT SELECT "c1", "c2" FROM "t2""""
   )(Intersect(t1, t2))
 
   testLogicalPlan(
     s"""SELECT "__subquery3"."c1", "__subquery3"."c2" FROM
-       |((SELECT "c1", "c2" FROM "t1")
+       |(SELECT "c1", "c2" FROM "t1"
        |INTERSECT
-       |(SELECT "c1", "c2" FROM "t2")) AS "__subquery3"
+       |SELECT "c1", "c2" FROM "t2") AS "__subquery3"
        |ORDER BY "__subquery3"."c1" DESC"""
       .stripMargin
   )(Intersect(t1, t2).orderBy(c1 desc))
 
   testLogicalPlan(
     s"""
-       |  (SELECT "c1", "c2" FROM "t1")
+       |  SELECT "c1", "c2" FROM "t1"
        |UNION
-       |  ((SELECT "c1", "c2" FROM "t2")
+       |  SELECT "c1", "c2" FROM "t2"
        |  EXCEPT
-       |  (SELECT "c1", "c2" FROM "t1"))
+       |  SELECT "c1", "c2" FROM "t1"
      """.stripMargin
   )(Distinct(t1.unionAll(t2.except(t1))))
 
