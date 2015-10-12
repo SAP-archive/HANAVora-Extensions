@@ -18,5 +18,6 @@ trait TemporaryAndPersistentSchemaRelationProvider
   def createRelation(sqlContext: SQLContext,
                      parameters: Map[String, String],
                      schema: StructType,
-                     isTemporary: Boolean): BaseRelation
+                     isTemporary: Boolean,
+                     allowExisting: Boolean): BaseRelation
 }
