@@ -16,7 +16,8 @@ case class CreateTableUsingTemporaryAwareCommand(
     partitionColumns: Array[String],
     provider: String,
     options: Map[String, String],
-    isTemporary: Boolean)
+    isTemporary: Boolean,
+    allowExisting: Boolean)
   extends RunnableCommand {
 
   def run(sqlContext: SQLContext): Seq[Row] = {
@@ -24,7 +25,7 @@ case class CreateTableUsingTemporaryAwareCommand(
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     val resolved: ResolvedDataSource = resolveDataSource(sqlContext,
-      userSpecifiedSchema, partitionColumns, dataSource, options, isTemporary)
+      userSpecifiedSchema, partitionColumns, dataSource, options, isTemporary, allowExisting)
     // check if this class implements the DatabaseRelation Provider trait
     // this is also checked in the corresponding strategy CreatePersistentTableStrategy
     // however this class could also be called from somewhere else
@@ -47,16 +48,22 @@ case class CreateTableUsingTemporaryAwareCommand(
                                 partitionColumns: Array[String],
                                 dataSource: Any,
                                 options: Map[String, String],
-                                isTemporary: Boolean): ResolvedDataSource = {
+                                isTemporary: Boolean,
+                                allowExisting: Boolean): ResolvedDataSource = {
 
     dataSource match {
       case drp: TemporaryAndPersistentSchemaRelationProvider if userSpecifiedSchema.nonEmpty =>
             new ResolvedDataSource(drp.getClass,
-              drp.createRelation(sqlContext,
-                new CaseInsensitiveMap(options), userSpecifiedSchema.get, isTemporary))
+              drp.createRelation(
+                sqlContext,
+                new CaseInsensitiveMap(options),
+                userSpecifiedSchema.get,
+                isTemporary,
+                allowExisting))
       case drp: TemporaryAndPersistentRelationProvider =>
         new ResolvedDataSource(drp.getClass,
-          drp.createRelation(sqlContext, new CaseInsensitiveMap(options), isTemporary))
+          drp.createRelation(sqlContext,
+            new CaseInsensitiveMap(options), isTemporary, allowExisting))
       case _ => ResolvedDataSource(sqlContext, userSpecifiedSchema,
         partitionColumns, provider, options)
     }

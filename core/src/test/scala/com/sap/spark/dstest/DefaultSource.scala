@@ -14,7 +14,7 @@ with RegisterAllTableRelations {
 
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String]): BaseRelation =
-    createRelation(sqlContext, parameters, false)
+    createRelation(sqlContext, parameters, isTemporary = false, allowExisting = false)
 
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String],
@@ -23,13 +23,14 @@ with RegisterAllTableRelations {
 
 
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
-                              isTemporary: Boolean): BaseRelation =
+                              isTemporary: Boolean, allowExisting: Boolean): BaseRelation =
     new DummyRelationWithTempFlag(sqlContext,
       DefaultSource.standardSchema,
       isTemporary)
 
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
-                              sparkSchema: StructType, isTemporary: Boolean): BaseRelation =
+                              sparkSchema: StructType, isTemporary: Boolean,
+                              allowExisting: Boolean): BaseRelation =
     new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
 
   override def getAllTableRelations(sqlContext: SQLContext,
