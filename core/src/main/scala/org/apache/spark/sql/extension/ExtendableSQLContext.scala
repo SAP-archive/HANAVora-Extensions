@@ -56,7 +56,9 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
           Nil)
 
       override val extendedCheckRules = Seq(
-        sources.PreWriteCheck(catalog)
+        sources.PreWriteCheck(catalog),
+        // TODO: Move this once bug #95571 is fixed.
+        HierarchyUDFAnalysis(catalog)
       )
     }
 
