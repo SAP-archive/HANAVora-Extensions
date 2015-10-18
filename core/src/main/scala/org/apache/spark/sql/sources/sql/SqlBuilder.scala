@@ -134,13 +134,13 @@ class SqlBuilder {
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
 
       case logical.Distinct(logical.Union(left, right)) =>
-        s"""(${logicalPlanToSql(left)}) UNION (${logicalPlanToSql(right)})"""
+        s"""${distinctInternal(left)} UNION ${distinctInternal(right)}"""
       case logical.Union(left, right) =>
-        s"""(${logicalPlanToSql(left)}) UNION ALL (${logicalPlanToSql(right)})"""
+        s"""${distinctInternal(left)} UNION ALL ${distinctInternal(right)}"""
       case logical.Intersect(left, right) =>
-        s"""(${logicalPlanToSql(left)}) INTERSECT (${logicalPlanToSql(right)})"""
+        s"""${distinctInternal(left)} INTERSECT ${distinctInternal(right)}"""
       case logical.Except(left, right) =>
-        s"""(${logicalPlanToSql(left)}) EXCEPT (${logicalPlanToSql(right)})"""
+        s"""${distinctInternal(left)} EXCEPT ${distinctInternal(right)}"""
 
       case SingleQuery(select, from, where, groupBy, having, orderBy, limit, distinct)
         if plan != from =>
@@ -184,6 +184,18 @@ class SqlBuilder {
     }
   // scalastyle:on method.length
   // scalastyle:on cyclomatic.complexity
+
+  /**
+   * If the given plan is a [SingleQuery], returns the evaluation of [logicalPlanToSql].
+   * Otherwise, it first wraps it into parentheses and evaluates [logicalPlanToSql].
+   *
+   * @param plan Plan to be turned into a string in context of a distinct operation
+   * @return Sql string representation of the given plan
+   */
+  protected def distinctInternal(plan: logical.LogicalPlan): String = plan match {
+    case SingleQuery(_) => s"${logicalPlanToSql(plan)}"
+    case default => s"(${logicalPlanToSql(plan)})"
+  }
 
   protected def joinTypeToSql(join: logical.Join): String = join match {
     case logical.Join(_, _, Inner, None) => "CROSS JOIN"
