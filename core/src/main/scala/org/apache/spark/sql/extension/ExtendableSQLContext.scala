@@ -1,16 +1,13 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.extension
 
-import org.apache.spark.{Logging, SparkContext}
+import org.apache.spark.SparkContext
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.sql.catalyst.CatalystConf
+import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.{ParserDialect, CatalystConf}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
 import org.apache.spark.sql.execution.ExtractPythonUdfs
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.hive._
+import org.apache.spark.sql.hive.{HiveContext, HiveFunctionRegistryProxy, HiveMetastoreCatalogProxy, HiveStrategiesProxy}
 import org.apache.spark.sql.sources.{DDLParser, DataSourceStrategy}
 
 /**
@@ -21,27 +18,16 @@ import org.apache.spark.sql.sources.{DDLParser, DataSourceStrategy}
  * @param sparkContext The SparkContext.
  */
 @DeveloperApi
-class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
+private[sql] class ExtendableSQLContext(
+    @transient override val sparkContext: SparkContext)
   extends HiveContext(sparkContext)
-  with SQLParserSQLContextExtension
-  with RegisterFunctionsSQLContextExtension
-  with AnalyzerSQLContextExtension
-  with OptimizerSQLContextExtension
-  with PlannerSQLContextExtension
-  with DDLParserSQLContextExtension {
+  with SQLContextExtensionBase {
   self =>
-  @transient
-  override protected[sql] val sqlParser: SparkSQLParser = extendedSqlParser
+
+  override protected[sql] def getSQLDialect(): ParserDialect = extendedParserDialect
 
   @transient
   override protected[sql] val ddlParser: DDLParser = extendedDdlParser(sqlParser.parse)
-
-  override def sql(sqlText: String): DataFrame = {
-    /* TODO: Switch between SQL dialects (Spark SQL's, HiveQL or our extended parser. */
-    DataFrame(this,
-      ddlParser.parse(sqlText, exceptionOnError = false)
-    )
-  }
 
   @transient
   override protected[sql] lazy val functionRegistry = {
@@ -160,62 +146,4 @@ class ExtendableSQLContext(@transient override val sparkContext: SparkContext)
 
       override val hiveContext = self
     }
-}
-
-@DeveloperApi
-trait ExtendedPlanner extends Logging {
-  self: SQLContext#SparkPlanner =>
-
-  def planLaterExt(p: LogicalPlan): SparkPlan = self.planLater(p)
-
-  def optimizedPlan(p: LogicalPlan): LogicalPlan = self.sqlContext.executePlan(p).optimizedPlan
-
-  override def plan(p: LogicalPlan): Iterator[SparkPlan] = {
-    val iter = strategies.view.flatMap({ strategy =>
-      val plans = strategy(p)
-      if (plans.isEmpty) {
-        logTrace(s"Strategy $strategy did not produce plans for $p")
-      } else {
-        logDebug(s"Strategy $strategy produced a plan for $p: ${plans.head}")
-      }
-      plans
-    }).toIterator
-    assert(iter.hasNext, s"No plan for $p")
-    iter
-  }
-
-}
-
-@DeveloperApi
-trait SQLParserSQLContextExtension {
-  protected def extendedSqlParser: SparkSQLParser = {
-    val fallback = new catalyst.SqlParser
-    new SparkSQLParser(fallback.parse)
-  }
-}
-
-@DeveloperApi
-trait DDLParserSQLContextExtension {
-  protected def extendedDdlParser(parser: String => LogicalPlan): DDLParser =
-    new DDLParser(parser)
-}
-
-@DeveloperApi
-trait RegisterFunctionsSQLContextExtension {
-  protected def registerFunctions(registry: FunctionRegistry): Unit = {}
-}
-
-@DeveloperApi
-trait AnalyzerSQLContextExtension {
-  protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] = Nil
-}
-
-@DeveloperApi
-trait OptimizerSQLContextExtension {
-  protected def optimizerRules: List[Rule[LogicalPlan]] = Nil
-}
-
-@DeveloperApi
-trait PlannerSQLContextExtension {
-  protected def strategies(planner: ExtendedPlanner): List[Strategy] = Nil
 }

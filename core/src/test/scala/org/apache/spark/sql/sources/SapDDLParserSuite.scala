@@ -1,7 +1,7 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.{SapParserException, SapSqlParser}
+import org.apache.spark.sql.{SapParserDialect, SapParserException, SapSqlParser}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}
 
@@ -11,7 +11,7 @@ class SapDDLParserSuite
   with GivenWhenThen
   with Logging {
 
-  val sqlParser = new SapSqlParser
+  val sqlParser = new SapParserDialect
   val ddlParser = new SapDDLParser(sqlParser.parse)
 
   val showDatasourceTablesPermutations = Table(

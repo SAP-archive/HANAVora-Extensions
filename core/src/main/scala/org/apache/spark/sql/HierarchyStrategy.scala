@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
 import org.apache.spark.sql.execution.{SparkPlan, HierarchyPhysicalPlan}
+import org.apache.spark.sql.extension.ExtendedPlanner
 
 case class HierarchyStrategy(planner: ExtendedPlanner) extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
