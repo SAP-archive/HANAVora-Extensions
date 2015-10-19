@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+if [ "$SKIP_TESTS" == "true" ] ; then
+  echo "Tests are skippped."
+  exit 0
+fi
+
+# apparently, Maven sets JAVA_HOME to the java executable
+# pypark then appends /bin/java to it, which obviously doesn't work
+unset JAVA_HOME
+# Figure out where the Spark framework is installed
+FWDIR="$(cd "`dirname "$0"`"; pwd)"
+BASEDIR="$(cd "`dirname "$0"`";cd ../../../../../core; pwd)"
+export PATH_TO_JARS="$BASEDIR/target/*"
+# check if spark home is set
+if [[ -z $SPARK_HOME ]]; then
+  echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
+  exit 1
+fi
+
+. "$SPARK_HOME"/bin/load-spark-env.sh
+
+# CD into the python directory to find things on the right path
+cd "$FWDIR/python"
+
+FAILED=0
+LOG_FILE=unit-tests.log
+START=$(date +"%s")
+
+rm -f $LOG_FILE
+
+# Remove the metastore and warehouse directory created by the HiveContext tests in Spark SQL
+rm -rf $SPARK_HOME/metastore_db
+
+function run_test() {
+    echo -en "Running test: $1 ... " | tee -a $LOG_FILE
+    echo `pwd`
+    start=$(date +"%s")
+    SPARK_TESTING=1 time "$SPARK_HOME"/bin/pyspark $1  > $LOG_FILE 2>&1
+
+    FAILED=$((PIPESTATUS[0]||$FAILED))
+
+    # Fail and exit on the first test failure.
+    if [[ $FAILED != 0 ]]; then
+        cat $LOG_FILE | grep -v "^[0-9][0-9]*" # filter all lines starting with a number.
+        echo -en "\033[31m"  # Red
+        echo "Had test failures; see logs."
+        echo -en "\033[0m"  # No color
+        exit -1
+    else
+        now=$(date +"%s")
+        echo "ok ($(($now - $start))s)"
+    fi
+}
+
+function run_core_tests() {
+    echo "Run core tests ..."
+    #export PYSPARK_SUBMIT_ARGS="--jars ${PATH_TO_JARS} pyspark-shell"
+    export SPARK_CLASSPATH=$PATH_TO_JARS
+    run_test "pyspark_vora.sql.test.test_smoke"
+}
+
+echo "Running PySpark tests. Output is in python/$LOG_FILE."
+export PYSPARK_PYTHON="python"
+
+# Try to test with Python 2.6, since that's the minimum version that we support:
+if [ $(which python2.6) ]; then
+    export PYSPARK_PYTHON="python2.6"
+fi
+
+echo "Testing with Python version:"
+$PYSPARK_PYTHON --version
+
+run_core_tests
+
+# Try to test with Python 3
+if [ $(which python3.4) ]; then
+    export PYSPARK_PYTHON="python3.4"
+    echo "Testing with Python3.4 version:"
+    $PYSPARK_PYTHON --version
+
+    run_core_tests
+fi
+
+# Try to test with PyPy
+if [ $(which pypy) ]; then
+    export PYSPARK_PYTHON="pypy"
+    echo "Testing with PyPy version:"
+    $PYSPARK_PYTHON --version
+
+    run_core_tests
+fi
+
+if [[ $FAILED == 0 ]]; then
+    now=$(date +"%s")
+    echo -e "\033[32mTests passed \033[0min $(($now - $START)) seconds"
+fi
+
