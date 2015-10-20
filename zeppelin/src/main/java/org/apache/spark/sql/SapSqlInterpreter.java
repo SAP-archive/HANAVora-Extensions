@@ -125,7 +125,7 @@ public class SapSqlInterpreter extends Interpreter {
         String idColumn = null;
         String predColumn = null;
         String nameColumn = null;
-        SapSQLContext vsqlc = null;
+        SQLContext vsqlc = null;
 
         if ( TREEVIEWKEYWORD.equalsIgnoreCase(keyword) ) {
             if (arr.length < 5) {

@@ -6,6 +6,7 @@ import org.apache.spark.scheduler.StatsReportListener
 import org.apache.spark.sql.SapSQLContext
 import org.apache.spark.sql.hive.HiveShim
 import org.apache.spark.sql.hive.thriftserver.SparkSQLEnv._
+import org.apache.spark.sql.hive.{HiveContext, SapHiveContext}
 import org.apache.spark.util.Utils
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 
@@ -31,7 +32,7 @@ object SapSQLEnv extends Logging {
 
       sparkContext = new SparkContext(sparkConf)
       sparkContext.addSparkListener(new StatsReportListener())
-      hiveContext = new SapSQLContext(sparkContext)
+      hiveContext = new SapHiveContext(sparkContext)
 
       hiveContext.metadataHive.setOut(new PrintStream(System.out, true, "UTF-8"))
       hiveContext.metadataHive.setInfo(new PrintStream(System.err, true, "UTF-8"))

@@ -6,6 +6,8 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.types.{MetadataBuilder, StringType}
+import org.apache.spark.sql._
+
 import scala.util.parsing.input.Position
 
 
@@ -268,9 +270,11 @@ private[sql] case class UseStatementCommand(input: String) extends RunnableComma
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     val confValue = sqlContext.sparkContext
-      .getConf.getBoolean(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, defaultValue = false)
+      .getConf.getBoolean(AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
+        defaultValue = false)
     val sqlConfValue = sqlContext
-      .getConf(SapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, defaultValue = confValue.toString)
+      .getConf(AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
+        defaultValue = confValue.toString)
       .toBoolean
     if (sqlConfValue) {
       log.info(s"Ignoring statement:\n$input")

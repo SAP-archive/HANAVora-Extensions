@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sap.spark</groupId>
   <artifactId>spark-sap-parent</artifactId>
-  <version>1.1.24</version>
+  <version>1.1.25</version>
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
@@ -51,6 +51,9 @@
     <dependency.locations.enabled>false</dependency.locations.enabled>
     <!-- Workaround to fix a bug related to report plugin -->
     <topSiteURL>http://sap.corp/</topSiteURL>
+    <skipTests>false</skipTests>
+    <skipUTs>${skipTests}</skipUTs>
+    <skipITs>${skipTests}</skipITs>
   </properties>
 
   <distributionManagement>
@@ -159,12 +162,12 @@
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.1.24</version>
+        <version>1.1.25</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.1.24</version>
+        <version>1.1.25</version>
         <type>test-jar</type>
       </dependency>
       <dependency>
@@ -249,6 +252,7 @@
                 <suffixes>
                   Suite
                 </suffixes>
+                <skipTests>${skipUTs}</skipTests>
               </configuration>
             </execution>
             <execution>
@@ -261,6 +265,7 @@
                 <suffixes>
                   SuiteIT
                 </suffixes>
+                <skipTests>${skipITs}</skipTests>
               </configuration>
             </execution>
           </executions>

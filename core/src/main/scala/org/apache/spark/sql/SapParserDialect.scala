@@ -1,6 +1,6 @@
 package org.apache.spark.sql
 
-import org.apache.spark.sql.catalyst.SqlParser
+import org.apache.spark.sql.catalyst.{ParserDialect, SqlParser}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedFunction, UnresolvedAttribute}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Subquery, Hierarchy, LogicalPlan}
@@ -11,6 +11,12 @@ import org.apache.spark.sql.types.DoubleType
 
 import scala.util.parsing.input.Position
 
+private[sql] class SapParserDialect extends ParserDialect {
+
+  override def parse(sqlText: String): LogicalPlan = SapSqlParser.parse(sqlText)
+
+}
+
 /**
  * SQL parser based on [[org.apache.spark.sql.catalyst.SqlParser]] with
  * extended syntax and fixes.
@@ -18,7 +24,7 @@ import scala.util.parsing.input.Position
  * This parser covers only SELECT and CREATE VIEW statements.
  * For DML statements see [[org.apache.spark.sql.sources.SapDDLParser]].
  */
-class SapSqlParser extends SqlParser {
+private object SapSqlParser extends SqlParser {
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")

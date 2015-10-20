@@ -27,7 +27,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
 
   def analyzer: Analyzer = new Analyzer(catalog, EmptyFunctionRegistry, SimpleCatalystConf(true))
   test("basic case") {
-    val parser = new SapSqlParser
+    val parser = new SapParserDialect
     val result = parser.parse(
       """
         |SELECT * FROM HIERARCHY (
@@ -54,7 +54,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
   }
 
   test("search by with multiple search by expressions") {
-    val parser = new SapSqlParser
+    val parser = new SapParserDialect
     val result = parser.parse(
       """
         |SELECT * FROM HIERARCHY (
@@ -82,7 +82,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
   }
 
     test("search by with no search by") {
-      val parser = new SapSqlParser
+      val parser = new SapParserDialect
       val result = parser.parse(
         """
           |SELECT * FROM HIERARCHY (
@@ -108,7 +108,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
   }
 
   test("create view") {
-    val parser = new SapSqlParser
+    val parser = new SapParserDialect
     val result = parser.parse("CREATE VIEW myview AS SELECT * FROM mytable")
     val expected = CreateViewCommand("myview",
       Project(UnresolvedStar(None) :: Nil, UnresolvedRelation("mytable" :: Nil))
@@ -117,7 +117,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
   }
 
   test("create view of a hierarchy") {
-    val parser = new SapSqlParser
+    val parser = new SapParserDialect
     val result = parser.parse("""
                               CREATE VIEW HV AS SELECT * FROM HIERARCHY (
                                  USING T1 AS v
@@ -140,7 +140,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
   }
 
   test("parse IF statement") {
-    val sapParser = new SapSqlParser
+    val sapParser = new SapParserDialect
 
     val sql = "SELECT IF(column > 1, 1, NULL) FROM T1"
 

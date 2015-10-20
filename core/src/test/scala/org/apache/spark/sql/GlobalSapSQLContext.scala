@@ -2,10 +2,12 @@ package org.apache.spark.sql
 
 import java.io.File
 
+import com.sap.spark.util.TestUtils
 import com.sap.spark.{GlobalSparkContext, WithSQLContext}
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.catalyst.expressions.{BoundReference, Cast}
-import org.apache.spark.sql.types.{UTF8String, StringType, StructType}
+import org.apache.spark.sql.hive.SapHiveContext
+import org.apache.spark.sql.types.{StringType, StructType, UTF8String}
 import org.scalatest.Suite
 
 import scala.io.Source
@@ -37,52 +39,17 @@ trait GlobalSapSQLContext extends GlobalSparkContext with WithSQLContext {
   }
 }
 
-
-
 object GlobalSapSQLContext {
 
-  private var _sqlc: SapSQLContext = _
+  private var _sqlc: SQLContext = _
 
-  private def init(sc: SparkContext): Unit = {
+  private def init(sc: SparkContext): Unit =
     if (_sqlc == null) {
-      _sqlc = new SapSQLContext(sc)
+      _sqlc = TestUtils.newSQLContext(sc)
     }
-  }
 
   private def reset(): Unit = {
     _sqlc.catalog.unregisterAllTables()
   }
 
 }
-
-
-trait GlobalVelocitySQLContext extends GlobalSparkContext with WithSQLContext {
-  self: Suite =>
-  override def sqlContext: SQLContext = GlobalVelocitySQLContext._sqlc
-
-  override protected def setUpSQLContext(): Unit =
-    GlobalVelocitySQLContext.init(sc)
-
-  override protected def tearDownSQLContext(): Unit =
-    GlobalVelocitySQLContext.reset()
-}
-
-object GlobalVelocitySQLContext {
-
-  private var _sqlc: SapSQLContext = _
-
-  private def init(sc: SparkContext): Unit = {
-    if (_sqlc == null) {
-      _sqlc = new SapSQLContext(sc)
-    }
-  }
-
-  private def reset(): Unit = {
-    _sqlc.catalog.unregisterAllTables()
-  }
-
-}
-
-
-
-

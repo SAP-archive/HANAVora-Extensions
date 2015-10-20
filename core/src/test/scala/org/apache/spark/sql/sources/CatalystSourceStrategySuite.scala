@@ -2,14 +2,14 @@ package org.apache.spark.sql.sources
 
 import com.sap.spark.{GlobalSparkContext, PlanTest}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
+import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.types.{NodeType, IntegerType, StructField, StructType}
-import org.apache.spark.sql.{GlobalVelocitySQLContext, SQLContext}
+import org.apache.spark.sql.types.{IntegerType, NodeType, StructField, StructType}
+import org.apache.spark.sql.{GlobalSapSQLContext, SQLContext}
 import org.apache.spark.{SparkContext, TaskContext}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
@@ -17,7 +17,7 @@ class CatalystSourceStrategySuite
   extends FunSuite
   with PlanTest
   with GlobalSparkContext
-  with GlobalVelocitySQLContext
+  with GlobalSapSQLContext
   with BeforeAndAfterEach {
 
   private abstract class CatalystRelation extends BaseRelation with CatalystSource

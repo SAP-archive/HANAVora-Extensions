@@ -1,9 +1,11 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.hierarchy
 
+import org.apache.spark.sql.Strategy
 import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
-import org.apache.spark.sql.execution.{SparkPlan, HierarchyPhysicalPlan}
+import org.apache.spark.sql.execution.{HierarchyPhysicalPlan, SparkPlan}
+import org.apache.spark.sql.extension.ExtendedPlanner
 
-case class HierarchyStrategy(planner: ExtendedPlanner) extends Strategy {
+private[sql] case class HierarchyStrategy(planner: ExtendedPlanner) extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
     case h @ Hierarchy(relation, childAlias, parenthoodExp, searchBy, startWhere, _) =>
       HierarchyPhysicalPlan(
