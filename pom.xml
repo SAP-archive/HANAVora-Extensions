@@ -51,6 +51,9 @@
     <dependency.locations.enabled>false</dependency.locations.enabled>
     <!-- Workaround to fix a bug related to report plugin -->
     <topSiteURL>http://sap.corp/</topSiteURL>
+    <skipTests>false</skipTests>
+    <skipUTs>${skipTests}</skipUTs>
+    <skipITs>${skipTests}</skipITs>
   </properties>
 
   <distributionManagement>
@@ -249,6 +252,7 @@
                 <suffixes>
                   Suite
                 </suffixes>
+                <skipTests>${skipUTs}</skipTests>
               </configuration>
             </execution>
             <execution>
@@ -261,6 +265,7 @@
                 <suffixes>
                   SuiteIT
                 </suffixes>
+                <skipTests>${skipITs}</skipTests>
               </configuration>
             </execution>
           </executions>
