@@ -3,6 +3,7 @@ package org.apache.spark.sql.extension
 import org.apache.spark.Logging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 
@@ -13,6 +14,14 @@ private[sql] trait ExtendedPlanner extends Logging {
   def planLaterExt(p: LogicalPlan): SparkPlan = self.planLater(p)
 
   def optimizedPlan(p: LogicalPlan): LogicalPlan = self.sqlContext.executePlan(p).optimizedPlan
+
+  def optimizedRelationLookup(u: UnresolvedRelation): Option[LogicalPlan] = {
+    if (self.sqlContext.catalog.tableExists(u.tableIdentifier)) {
+      Some(optimizedPlan(u))
+    } else {
+      None
+    }
+  }
 
   override def plan(p: LogicalPlan): Iterator[SparkPlan] = {
     val iter = strategies.view.flatMap({ strategy =>

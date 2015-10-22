@@ -1,6 +1,7 @@
 package org.apache.spark.sql.execution
 
 import org.apache.spark.sql.Strategy
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
@@ -12,10 +13,11 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
       val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
       val appendRelation = logicalRelation.relation.asInstanceOf[AppendRelation]
       ExecutedCommand(AppendRunnableCommand(appendRelation, options)) :: Nil
-    case DropCommand(table, cascade) =>
-      val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
-      val dropRelation = logicalRelation.relation.asInstanceOf[DropRelation]
-      ExecutedCommand(DropRunnableCommand(dropRelation, cascade)) :: Nil
+    case DropCommand(allowNotExisting, table, cascade) =>
+      val dropRelation = planner.optimizedRelationLookup(table)
+                                .map(_.asInstanceOf[LogicalRelation]
+                                      .relation.asInstanceOf[DropRelation])
+      ExecutedCommand(DropRunnableCommand(allowNotExisting, dropRelation, cascade)) :: Nil
     case ShowDatasourceTablesCommand(provider, options) =>
       ExecutedCommand(ShowDataSourceTablesRunnableCommand(provider, options)) :: Nil
     case RegisterAllTablesUsing(provider, options, ignoreConflicts) =>

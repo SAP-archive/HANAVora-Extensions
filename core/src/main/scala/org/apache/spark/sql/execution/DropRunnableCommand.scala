@@ -5,9 +5,23 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.sources.{LogicalRelation, DropRelation}
 import scala.util.control.Breaks._
 
-case class DropRunnableCommand(relation: DropRelation, cascade: Boolean) extends RunnableCommand {
+case class DropRunnableCommand(
+    allowNotExisting: Boolean,
+    relation: Option[DropRelation],
+    cascade: Boolean)
+  extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
+    relation match {
+      case None => allowNotExisting match {
+        case false => sys.error("Could not find any matching tables to drop.")
+        case true => Seq.empty[Row]
+      }
+      case Some(existingRelation) => executeDrop(sqlContext, existingRelation)
+    }
+  }
+
+  private def executeDrop(sqlContext: SQLContext, relation: DropRelation): Seq[Row] =
     getReferencingRelations(sqlContext, relation) match {
       case tablesToDelete if tablesToDelete.isEmpty =>
         sys.error("Could not find any matching tables to drop.")
@@ -26,7 +40,6 @@ case class DropRunnableCommand(relation: DropRelation, cascade: Boolean) extends
             s"to force drop use 'CASCADE'.")
         }
     }
-  }
 
   private def getReferencingRelations(sqlContext: SQLContext,
                                       relation: DropRelation): Seq[String] = {
