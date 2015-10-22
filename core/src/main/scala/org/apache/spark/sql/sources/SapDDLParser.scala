@@ -104,15 +104,16 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
    * `DROP TABLE tableName`
    */
   protected lazy val dropTable: Parser[LogicalPlan] =
-    DROP ~> TABLE ~> (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
-      case db ~ tbl ~ cascade =>
+    DROP ~> TABLE ~> (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
+      case allowNotExisting ~ db ~ tbl ~ cascade =>
         val tblIdentifier = db match {
           case Some(dbName) =>
             Seq(dbName, tbl)
           case None =>
             Seq(tbl)
         }
-        DropCommand(UnresolvedRelation(tblIdentifier, None), cascade.isDefined)
+        DropCommand(allowNotExisting.isDefined,
+          UnresolvedRelation(tblIdentifier, None), cascade.isDefined)
     }
 
   /**
@@ -230,7 +231,8 @@ private[sql] case class AppendCommand(
  * @param table The table to be dropped
  */
 private[sql] case class DropCommand(
-    table: LogicalPlan,
+    allowNotExisting: Boolean,
+    table: UnresolvedRelation,
     cascade: Boolean)
   extends LogicalPlan
   with Command {
