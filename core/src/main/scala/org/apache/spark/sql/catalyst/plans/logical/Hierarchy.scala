@@ -59,7 +59,7 @@ case class Hierarchy(
 
   private[sql] def resolveParenthoodExpression(nameParts: Seq[String], resolver: Resolver)
     : Option[NamedExpression] =
-    resolve(nameParts, candidateAttributesForParenthoodExpression(), resolver, true)
+    resolve(nameParts, candidateAttributesForParenthoodExpression(), resolver, throwErrors = true)
 
   private[sql] def resolveNodeAttribute(): Option[Attribute] =
     relation.resolved && parenthoodExpression.resolved match {

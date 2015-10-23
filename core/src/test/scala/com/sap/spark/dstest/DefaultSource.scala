@@ -57,7 +57,7 @@ with RegisterAllTableRelations {
  */
 object DefaultSource {
 
-  private val standardSchema = StructType(Seq(StructField("field", IntegerType, true)))
+  private val standardSchema = StructType(Seq(StructField("field", IntegerType, nullable = true)))
 
   private var relations = Seq.empty[String]
 

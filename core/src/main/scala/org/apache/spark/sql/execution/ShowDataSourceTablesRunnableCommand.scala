@@ -17,7 +17,7 @@ case class ShowDataSourceTablesRunnableCommand(
   // The result of SHOW TABLES has one column: tableName
   override val output: Seq[Attribute] = {
     val schema = StructType(
-      StructField("tableName", StringType, false) :: Nil)
+      StructField("tableName", StringType, nullable = false) :: Nil)
     schema.toAttributes
   }
 

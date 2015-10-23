@@ -47,7 +47,7 @@ case class HierarchyJoinBuilder[T: ClassTag, O: ClassTag, K: ClassTag]
     val left0 = (rdd filter startWhere) keyBy pk mapValues(x =>
       init(x, getOrd(x))
       ) persist()
-    if(left0.isEmpty) {
+    if(left0.isEmpty()) {
       sys.error("The hierarchy does not have any roots.")
     }
     val right = (rdd keyBy pred) persist()
@@ -176,15 +176,12 @@ private[hierarchy] object HierarchyRowFunctions {
 
       var node: Node = null  // Node(path, ordPath = myOrdPath)
       myord match {
-        case Some(ord) => {
-          val parentOrdPath = {
-            myNode.ordPath match {
-              case x: Seq[Long] => x
-              case _ => List()
-            }
+        case Some(ord) =>
+          val parentOrdPath = myNode.ordPath match {
+            case x: Seq[Long] => x
+            case _ => List()
           }
           node = Node(path, ordPath = parentOrdPath ++ List(ord))
-        }
         case None => node = Node(path)
       }
       Row(right.toSeq :+ node: _*)

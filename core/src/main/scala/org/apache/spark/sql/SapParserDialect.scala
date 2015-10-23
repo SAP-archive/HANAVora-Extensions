@@ -199,10 +199,8 @@ private object SapSqlParser extends SqlParser {
    * source as they are.
    */
   protected lazy val dataSourceFunctions: Parser[Expression] =
-     (
-      "$" ~> ident ~ ("(" ~> repsep(expression,",") <~ ")") ^^
-        { case udf~expr => DataSourceExpression(udf.toLowerCase,expr) }
-      )
+    "$" ~> ident ~ ("(" ~> repsep(expression, ",") <~ ")") ^^
+      { case udf ~ expr => DataSourceExpression(udf.toLowerCase, expr) }
 
   // scalastyle:off
   /**

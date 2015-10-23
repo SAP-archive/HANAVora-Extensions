@@ -196,7 +196,7 @@ case class IsFollowing(left: Expression, right: Expression) extends NodePredicat
     val u: java.lang.Integer = PreRank(left).eval(input)
     val v: java.lang.Integer = PreRank(right).eval(input)
     /** node u follows node v in pre-order and is not a descendant of v */
-    (u > v && !IsDescendant(left, right).eval(input).asInstanceOf[Boolean])
+    u > v && !IsDescendant(left, right).eval(input).asInstanceOf[Boolean]
   }
 
   check()

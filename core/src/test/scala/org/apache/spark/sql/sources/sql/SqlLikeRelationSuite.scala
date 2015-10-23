@@ -10,8 +10,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
   test("Prepare single attribute aggregation and single attribute group expressions") {
     /* Data preparation */
-    val attr1 = AttributeReference("attr1", StringType, false)()
-    val attr2 = AttributeReference("attr2", StringType, false)()
+    val attr1 = AttributeReference("attr1", StringType, nullable = false)()
+    val attr2 = AttributeReference("attr2", StringType, nullable = false)()
 
     /* Execution */
     val (preparedAgg, preparedGroup) = Test.prepareAggregationsUsingAliases(Seq(attr1), Seq(attr2))
@@ -29,7 +29,7 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
   test("Prepare single alias aggregation and group expressions") {
     /* Data preparation */
-    val attr1 = AttributeReference("attr1", StringType, false)()
+    val attr1 = AttributeReference("attr1", StringType, nullable = false)()
     val alias1 = Alias(attr1, "alias1")()
 
     /* Execution */
@@ -48,7 +48,7 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
   test("Prepare single alias aggregation and single attribute group expressions") {
     /* Data preparation */
-    val attr1 = AttributeReference("attr1", StringType, false)()
+    val attr1 = AttributeReference("attr1", StringType, nullable = false)()
     val alias1 = Alias(attr1, "alias1")()
 
     /* Execution */
@@ -67,7 +67,7 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
   test("Prepare SUM aggregation and single attribute group expressions") {
     /* Data preparation */
-    val attr1 = AttributeReference("attr1", IntegerType, false)()
+    val attr1 = AttributeReference("attr1", IntegerType, nullable = false)()
     val sumAttr1 = Sum(attr1)
     val aliasSumAttr1 = Alias(attr1, "SumAlias")()
 
@@ -88,7 +88,7 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
 
   test("Prepare SUM aggregation and group expressions") {
     /* Data preparation */
-    val attr1 = AttributeReference("attr1", IntegerType, false)()
+    val attr1 = AttributeReference("attr1", IntegerType, nullable = false)()
     val sumAttr1 = Sum(attr1)
     val aliasSumAttr1 = Alias(sumAttr1, "SumAlias")()
 

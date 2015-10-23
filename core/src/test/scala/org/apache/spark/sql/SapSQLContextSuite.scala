@@ -69,7 +69,7 @@ class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
     // Remember that all class references in SapSQLContext must be serializable!
     val oos = new ObjectOutputStream(new ByteArrayOutputStream())
     oos.writeObject(sqlContext)
-    oos.close
+    oos.close()
   }
 
 }

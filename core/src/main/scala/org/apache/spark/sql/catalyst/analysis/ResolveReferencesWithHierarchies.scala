@@ -91,8 +91,8 @@ case class ResolveReferencesWithHierarchies(analyzer: Analyzer) extends Rule[Log
             .nonEmpty =>
           (oldVersion, oldVersion.copy(windowExpressions = newAliases(windowExpressions)))
         case oldVersion@Hierarchy(relation, childAlias, parenthoodExpression,
-        searchBy, startWhere, nodeAttr) if (conflictingAttributes.contains(nodeAttr)) =>
-          (oldVersion, oldVersion.copy(nodeAttribute = nodeAttr.newInstance))
+        searchBy, startWhere, nodeAttr) if conflictingAttributes.contains(nodeAttr) =>
+          (oldVersion, oldVersion.copy(nodeAttribute = nodeAttr.newInstance()))
       }.headOption.getOrElse {
         // Only handle first case, others will be fixed on the next pass.
         sys.error(

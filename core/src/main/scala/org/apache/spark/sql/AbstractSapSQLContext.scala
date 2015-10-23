@@ -14,13 +14,12 @@ private[sql] trait AbstractSapSQLContext
   // check if we have to automatically register tables
   sparkContext.getConf.getOption(AbstractSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
     case None => // do nothing
-    case conf: Some[String] => {
-      conf.get.split(",").foreach(ds => {
+    case Some(conf) =>
+      conf.split(",").foreach(ds => {
         logInfo("Auto-Registering tables from Datasource '" + ds + "'")
         AbstractSapSQLContext
-          .registerTablesFromDs(ds, this, Map.empty[String,String], ignoreConflicts = true)
+          .registerTablesFromDs(ds, this, Map.empty[String, String], ignoreConflicts = true)
       })
-    }
   }
 
   def logProjectVersion(): Unit = {

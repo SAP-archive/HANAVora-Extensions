@@ -197,7 +197,7 @@ class HierarchySuite
       Row("Minion 3", "Senior Developer", true, true, true)
     )
     val names = organizationHierarchy map (_.name)
-    val allPairNames: Set[(String, String)] = (names cross names) toSet
+    val allPairNames: Set[(String, String)] = (names cross names).toSet
     val positivePairNames: Set[(String, String)] =
       expectedPositives.map(r => r.getString(0) -> r.getString(1))
     val expectedNonPositives: Set[Row] = (allPairNames -- positivePairNames) map {
@@ -413,8 +413,8 @@ class HierarchySuite
       val result = builder.buildFromAdjacencyList(hSrc.rdd)
 
       // TODO(Weidner): workaround, implement prerank for join builder!
-      val is_join = builder.getClass.getName.contains("JoinBuilder")
-      val expected = if(is_join == true) {
+      val isJoin = builder.getClass.getName.contains("JoinBuilder")
+      val expected = if (isJoin) {
         Set(
           Row("THE BOSS", null, 1L, 1, Node(List(1L))),
           Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
