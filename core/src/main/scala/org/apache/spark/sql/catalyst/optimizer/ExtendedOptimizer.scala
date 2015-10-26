@@ -26,6 +26,7 @@ object ExtendedOptimizer extends Optimizer {
         ConstantFolding,
         LikeSimplification,
         BooleanSimplification,
+        FiltersReduction,
         SimplifyFilters,
         SimplifyCasts,
         SimplifyCaseConversionExpressions) ::
