@@ -338,7 +338,7 @@ class SqlBuilder {
   // scalastyle:on cyclomatic.complexity
 
   protected def flagToSql(flag: expr.Expression): String = {
-    flag.toString
+    flag.toString()
   }
 
 }

@@ -285,7 +285,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
        |SELECT "c1", "c2" FROM "t2") AS "__subquery3"
        |ORDER BY "__subquery3"."c1" DESC"""
       .stripMargin
-  )(t1.unionAll(t2).orderBy(c1 desc))
+  )(t1.unionAll(t2).orderBy(c1.desc))
 
   testLogicalPlan(
     s"""SELECT "c1", "c2" FROM "t1" EXCEPT SELECT "c1", "c2" FROM "t2""""
@@ -298,7 +298,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
        |SELECT "c1", "c2" FROM "t2") AS "__subquery3"
        |ORDER BY "__subquery3"."c1" DESC"""
       .stripMargin
-  )(Except(t1, t2).orderBy(c1 desc))
+  )(Except(t1, t2).orderBy(c1.desc))
 
   testLogicalPlan(
     s"""SELECT "c1", "c2" FROM "t1" INTERSECT SELECT "c1", "c2" FROM "t2""""
@@ -311,7 +311,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
        |SELECT "c1", "c2" FROM "t2") AS "__subquery3"
        |ORDER BY "__subquery3"."c1" DESC"""
       .stripMargin
-  )(Intersect(t1, t2).orderBy(c1 desc))
+  )(Intersect(t1, t2).orderBy(c1.desc))
 
   testLogicalPlan(
     s"""

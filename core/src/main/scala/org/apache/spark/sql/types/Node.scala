@@ -51,14 +51,13 @@ case class Node(
       case (true, true) => 0    // both are equal
       case (true, false) => -1  // left is smaller than right
       case (false, true) => 1   // right is smaller than right
-      case (false, false) => {
+      case (false, false) =>
         if(left.head == right.head) {
           compareToRecursive(left.tail, right.tail)
         } else {
           left.head.compareTo(right.head)
         }
       }
-    }
   }
 
   def compareTo(that: Node): Int = compareToRecursive(ordPath, that.ordPath)

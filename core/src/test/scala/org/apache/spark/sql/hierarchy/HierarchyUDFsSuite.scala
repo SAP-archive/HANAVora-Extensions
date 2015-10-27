@@ -35,16 +35,16 @@ class HierarchyUDFsSuite
 
     val hierarchy = sqlContext.sql(queryString)
     hierarchy.registerTempTable("h")
-    val query = s"SELECT l.name, r.name, ${udf}(l.node, r.node) FROM h l, h r"
+    val query = s"SELECT l.name, r.name, $udf(l.node, r.node) FROM h l, h r"
     val result = sqlContext.sql(query).collect().toSet
     assertResult(expected)(result)
   }
 
   def testBinaryUdfWithBuilders(udf: String, expected: Set[Row]): Unit = {
-    test(s"test ${udf} using broadcast builder") {
+    test(s"test $udf using broadcast builder") {
       testBinaryUdf(udf, expected, "broadcast")
     }
-    test(s"test ${udf} using join builder") {
+    test(s"test $udf using join builder") {
       testBinaryUdf(udf, expected, "join")
     }
   }
@@ -65,7 +65,7 @@ class HierarchyUDFsSuite
 
     val hierarchy = sqlContext.sql(queryString)
     hierarchy.registerTempTable("h10")
-    val query = s"SELECT name, ${udf}(node) FROM h10"
+    val query = s"SELECT name, $udf(node) FROM h10"
     val result = sqlContext.sql(query).collect().toSet
     assertResult(expected)(result)
   }
@@ -73,12 +73,12 @@ class HierarchyUDFsSuite
   /* TODO(Weidner): test_join argument will be removed asap prerank is set correctly with join buil
   der */
   def testUnaryUdfWithBuilders(udf: String, expected: Set[Row],
-                               test_join: Boolean = true): Unit = {
-    test(s"test ${udf} using broadcast builder") {
+                               testJoin: Boolean = true): Unit = {
+    test(s"test $udf using broadcast builder") {
       testUnaryUdf(udf, expected, "broadcast")
     }
-    if(test_join){
-      test(s"test ${udf} using join builder") {
+    if(testJoin){
+      test(s"test $udf using join builder") {
         testUnaryUdf(udf, expected, "join")
       }
     }
@@ -332,14 +332,14 @@ class HierarchyUDFsSuite
     Row("Mammal", 2),
     Row("Carnivores", 3),
     Row("Herbivores", 4),
-    Row("Oviparous", 5)), false)
+    Row("Oviparous", 5)), testJoin = false)
 
   testUnaryUdfWithBuilders("POST_RANK", Set(
     Row("Animal", 5),
     Row("Mammal", 3),
     Row("Carnivores", 1),
     Row("Herbivores", 2),
-    Row("Oviparous", 4)), false)
+    Row("Oviparous", 4)), testJoin = false)
 
   testBinaryUdfWithBuilders("IS_FOLLOWING", Set(
     Row("Animal", "Animal", false),

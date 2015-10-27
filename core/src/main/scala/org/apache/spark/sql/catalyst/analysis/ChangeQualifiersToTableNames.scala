@@ -32,8 +32,8 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
     override def output: Seq[Attribute] = child.output
   }
 
-  private def removeDummyPlans(p: LogicalPlan): LogicalPlan =
-    p transformUp {
+  private def removeDummyPlans(plan: LogicalPlan): LogicalPlan =
+    plan transformUp {
       /* TODO: This is duplicated here */
       case Subquery(name, Subquery(innerName, child)) =>
         /* If multiple subqueries, preserve the outer one */
