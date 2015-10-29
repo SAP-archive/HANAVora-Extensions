@@ -1,6 +1,6 @@
 package org.apache.spark.sql.extension
 
-import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
+import org.apache.spark.sql.catalyst.optimizer.{ExtendedOptimizer, Optimizer}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 
@@ -19,7 +19,7 @@ private[extension] class ExtendableOptimizer(extendedRules: Seq[Rule[LogicalPlan
    * See: https://issues.apache.org/jira/browse/SPARK-7727
    */
   // scalastyle:off structural.type
-  private def transformBatchType(b: DefaultOptimizer.Batch): Batch = {
+  private def transformBatchType(b: ExtendedOptimizer.Batch): Batch = {
     val strategy = b.strategy.maxIterations match {
       case 1 => Once
       case n => FixedPoint(n)
@@ -29,7 +29,7 @@ private[extension] class ExtendableOptimizer(extendedRules: Seq[Rule[LogicalPlan
 
   // scalastyle:on structural.type
 
-  private val baseBatches = DefaultOptimizer.batches.map(transformBatchType)
+  private val baseBatches = ExtendedOptimizer.batches.map(transformBatchType)
 
   override protected val batches: Seq[Batch] = if (extendedOptimizerRules.isEmpty) {
     baseBatches
