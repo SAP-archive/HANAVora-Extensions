@@ -4,11 +4,13 @@ import org.apache.spark.sql.catalyst.analysis.EliminateSubQueries
 
 object ExtendedOptimizer extends Optimizer {
   private val MAX_ITERATIONS = 100
+  private val SINGLE_ITERATION = 1
 
   override val batches =
   // SubQueries are only needed for analysis and can be removed before execution.
     Batch("Remove SubQueries", FixedPoint(MAX_ITERATIONS),
       EliminateSubQueries) ::
+      Batch("", FixedPoint(SINGLE_ITERATION), RedundantDownPushableFilters) ::
       Batch("Operator Reordering", FixedPoint(MAX_ITERATIONS),
         UnionPushdown,
         CombineFilters,
@@ -17,8 +19,7 @@ object ExtendedOptimizer extends Optimizer {
         PushPredicateThroughGenerate,
         ColumnPruning,
         ProjectCollapsing,
-        CombineLimits,
-        ExtraBooleanSimplification
+        CombineLimits
       ) ::
       Batch("ConstantFolding", FixedPoint(MAX_ITERATIONS),
         NullPropagation,
