@@ -34,6 +34,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
 
   override protected def registerFunctions(registry: FunctionRegistry): Unit = {
     RegisterHierarchyFunctions(registry)
+    RegisterCustomFunctions(registry)
   }
 
 }

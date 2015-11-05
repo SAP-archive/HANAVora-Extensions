@@ -72,4 +72,18 @@ class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
     oos.close()
   }
 
+  test("Rand function") {
+    sqlContext.sql(
+      s"""
+         |CREATE TABLE test (name varchar(20), age integer)
+         |USING com.sap.spark.dstest
+         |OPTIONS (
+         |tableName "test",
+         |local "true",
+         |hosts "localhost"
+         |)
+       """.stripMargin)
+
+    sqlContext.sql("SELECT * FROM test WHERE rand() < 0.1")
+  }
 }
