@@ -19,6 +19,8 @@
 
 # starts a spark shell with the distribution assembly
 
+export FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
+
 function usage {
   echo "Usage: ./bin/start-spark-shell [spark options]\n"
   pattern="usage\n"
@@ -39,8 +41,5 @@ fi
 : ${SPARK_HOME:?"Need to set SPARK_HOME non-empty"}
 
 SPARKBIN=$SPARK_HOME/bin
-BASE_DIR="$(dirname $0)/../"
-cd $BASE_DIR
 
-
-$SPARKBIN/spark-shell --jars lib/*.jar $*
+$SPARKBIN/spark-shell --jars "$FWDIR"/lib/*.jar $*
