@@ -38,7 +38,7 @@
     <spark.version>1.4.1</spark.version>
     <scalacheck.version>1.11.3</scalacheck.version>
     <scalaz.version>7.1.1</scalaz.version>
-    <hadoop.version>2.4.1</hadoop.version>
+    <hadoop.version>2.6.0</hadoop.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <minimum.code.covered.ratio>0.80</minimum.code.covered.ratio>
