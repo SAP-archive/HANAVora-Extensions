@@ -4,7 +4,7 @@ import java.io.InputStream
 import java.util.Properties
 
 import org.apache.spark.sql.extension._
-import org.apache.spark.sql.sources.RegisterAllTablesUsing
+import org.apache.spark.sql.sources.commands.RegisterAllTablesUsing
 
 private[sql] trait AbstractSapSQLContext
   extends SapSQLContextExtension {
