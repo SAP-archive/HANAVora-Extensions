@@ -2,19 +2,24 @@ package org.apache.spark.sql.hive.sap.thriftserver
 
 import java.io.File
 
-import com.sap.spark.util.TestUtils._
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars
 import org.apache.spark.Logging
 import org.apache.spark.util.Utils
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-
-import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.{Try, Random}
-
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Promise}
+import scala.sys.process.{Process, ProcessLogger}
+/**
+ * This class is a variant of the thriftserver that can be used for testing purposes. It starts
+ * a separate thriftserver process. This class has to be extended and is by different flavors
+ * of JDBC drivers (See SapThriftJdbcTest in the same package as an example).
+ */
 // scalastyle:off magic.number
-abstract class SapThriftServer2Test extends FunSuite with BeforeAndAfterAll with Logging {
+abstract class SapThriftServer2Test(val master: String)
+  extends FunSuite with BeforeAndAfterAll with Logging {
   def mode: ServerMode.Value
 
   private var listeningPort: Int = _
@@ -26,7 +31,7 @@ abstract class SapThriftServer2Test extends FunSuite with BeforeAndAfterAll with
 
   private def metastoreJdbcUri = s"""jdbc:derby:;databaseName=$metastorePath;create=true"""
 
-  private val pidDir: File = Utils.createTempDir(namePrefix = "thriftserver-pid")
+  private lazy val pidDir: File = Utils.createTempDir(namePrefix = "thriftserver-pid")
   private var process: Process = _
 
   protected def serverStartCommand(port: Int) = {
@@ -36,29 +41,24 @@ abstract class SapThriftServer2Test extends FunSuite with BeforeAndAfterAll with
       ConfVars.HIVE_SERVER2_THRIFT_HTTP_PORT
     }
     /*
-    the variables deploy mode and master might not be necessary, however in some build
-    environments they are required. This test should only start a local thriftserver during unit
+
+    This test should only start a local thriftserver during unit
     tests (consequently: client and local) for more information on that parameters refer to the
     Spark submit documentiation
     */
     s"""java -cp ${sys.props("java.class.path")}
-       |  -Xms512m -Xmx512m -XX:MaxPermSize=128m org.apache.spark.deploy.SparkSubmit
-       |  --deploy-mode client
-       |  --master local
-       |  --class
-       |  org.apache.spark.sql.hive.thriftserver.SapThriftServer spark-internal
-       |  --hiveconf ${ConfVars.METASTORECONNECTURLKEY}=$metastoreJdbcUri
-       |  --hiveconf ${ConfVars.METASTOREWAREHOUSE}=$warehousePath
-       |  --hiveconf ${ConfVars.HIVE_SERVER2_THRIFT_BIND_HOST}=localhost
-       |  --hiveconf ${ConfVars.HIVE_SERVER2_TRANSPORT_MODE}=$mode
-       |  --hiveconf $portConf=$port
+        |  -Xms512m -Xmx512m -XX:MaxPermSize=128m org.apache.spark.deploy.SparkSubmit
+        |  --deploy-mode client
+        |  --master ${master}
+        |  --class
+        |  org.apache.spark.sql.hive.thriftserver.SapThriftServer spark-internal
+        |  --hiveconf ${ConfVars.METASTORECONNECTURLKEY}=$metastoreJdbcUri
+        |  --hiveconf ${ConfVars.METASTOREWAREHOUSE}=$warehousePath
+        |  --hiveconf ${ConfVars.HIVE_SERVER2_THRIFT_BIND_HOST}=localhost
+        |  --hiveconf ${ConfVars.HIVE_SERVER2_TRANSPORT_MODE}=$mode
+        |  --hiveconf $portConf=$port
      """.stripMargin.split("\\s+").toSeq
   }
-
-  val tableName = "mockedTable"
-  val schema = "name varchar(200), age integer"
-
-  val stds1 = getFileFromClassPath("/simpleData.json")
 
   var includedJars = Seq("/")
 

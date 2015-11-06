@@ -11,11 +11,10 @@ import org.apache.spark.Logging
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TSocket
 
-import scala.collection.mutable.ListBuffer
+class SapThriftBinaryServerSuite extends SapThriftJdbcHiveDriverTest(master = "local")
+  with Logging {
 
-class SapThriftBinaryServerSuite extends SapThriftJdbcTest2 with Logging {
-  override def mode: ServerMode.Value = ServerMode.binary
-
+  val tableName = "mockedTable"
   val filePath = getFileFromClassPath("/simpleData.json")
 
   override protected def beforeAll(): Unit = {
@@ -65,14 +64,11 @@ class SapThriftBinaryServerSuite extends SapThriftJdbcTest2 with Logging {
   }
 
   def resultSetTolist(rs: ResultSet): List[(Any, Any)] = {
-
-    val values = new ListBuffer[(Any, Any)]
-    while (rs.next())
-      values += new Tuple2(rs.getString(2), rs.getInt(1))
-    values.toList
+    Stream
+    .continually(rs)
+    .takeWhile(_.next())
+    .map(value => new Tuple2(value.getString(2), value.getInt(1))).toList
   }
-
-
 
   // scalastyle:off magic.number
   test("JDBC query execution") {
