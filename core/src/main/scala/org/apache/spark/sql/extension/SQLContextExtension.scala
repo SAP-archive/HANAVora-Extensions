@@ -24,11 +24,20 @@ private[sql] trait SQLContextExtension {
   protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]]
 
   /**
-   * Additional resolution rules for the [[org.apache.spark.sql.catalyst.optimizer.Optimizer]].
+   * Additional early optimization rules for the
+   * [[org.apache.spark.sql.catalyst.optimizer.Optimizer]].
    *
    * @return A list of optimization rules.
    */
-  protected def optimizerRules: List[Rule[LogicalPlan]]
+  protected def optimizerEarlyRules: List[Rule[LogicalPlan]]
+
+  /**
+    * Additional late optimization for the
+    * [[org.apache.spark.sql.catalyst.optimizer.Optimizer]].
+    *
+    * @return A list of optimization rules.
+    */
+  protected def optimizerLateRules: List[Rule[LogicalPlan]]
 
   /**
    * Additional planning strategies.

@@ -85,34 +85,11 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
     }
 
   @transient
-  override protected[sql] lazy val optimizer: Optimizer = new Optimizer {
-
-    private val extendedOptimizerRules = self.optimizerRules
-    private val MAX_ITERATIONS = 100
-
-    /* TODO: This should be gone in Spark 1.5+
-     * See: https://issues.apache.org/jira/browse/SPARK-7727
-     */
-    // scalastyle:off structural.type
-    private def transformBatchType(b: DefaultOptimizer.Batch): Batch = {
-      val strategy = b.strategy.maxIterations match {
-        case 1 => Once
-        case n => FixedPoint(n)
-      }
-      Batch(b.name, strategy, b.rules: _*)
-    }
-
-    // scalastyle:on structural.type
-
-    private val baseBatches = DefaultOptimizer.batches.map(transformBatchType)
-
-    override protected val batches: Seq[Batch] = if (extendedOptimizerRules.isEmpty) {
-      baseBatches
-    } else {
-      baseBatches :+
-        Batch("Extended Optimization Rules", FixedPoint(MAX_ITERATIONS), extendedOptimizerRules: _*)
-    }
-  }
+  override protected[sql] lazy val optimizer: Optimizer =
+    new ExtendableOptimizer(
+      earlyRules = optimizerEarlyRules,
+      lateRules = optimizerLateRules
+    )
 
   @transient
   override protected[sql] val planner: SparkPlanner with HiveStrategies =
