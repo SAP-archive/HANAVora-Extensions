@@ -1,5 +1,7 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
+import java.util.Locale
+
 import org.apache.spark.sql.catalyst.analysis.Resolver
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DataType, NodeType}
@@ -12,6 +14,20 @@ case class Hierarchy(
     startWhere: Option[Expression],
     nodeAttribute: Attribute)
   extends UnaryNode {
+
+  /**
+   * Calculate an ad-hoc unique identifier of a hierarchy based
+   * on its defining clauses.
+   */
+  lazy val identifier: String = relation.simpleString
+    .concat(parenthoodExpression.toString())
+    .concat("SB")
+    .concat(searchBy.mkString("."))
+    .concat("SW")
+    .concat(startWhere.mkString("."))
+    .toLowerCase(Locale.ENGLISH)
+    .replaceAll("#\\d+", "")
+    .replaceAll("[^a-z0-9]+", "_")
 
   override def child: LogicalPlan = relation
 

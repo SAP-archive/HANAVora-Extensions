@@ -1,7 +1,7 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.{GlobalSapSQLContext, Row, GlobalSapSQLContext$}
+import org.apache.spark.sql.{AnalysisException, GlobalSapSQLContext, Row}
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import scala.util.Random
@@ -87,6 +87,31 @@ class HierarchyViewsSuite
     assertResult(expected)(result.toSet)
   }
 
+  test("I can use a view as a source table for the hierarchy") {
+    val rdd = sc.parallelize(animalsHierarchy.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("animals_src")
+
+    sqlContext.sql(s"""CREATE VIEW AnimalsView AS SELECT * FROM animals_src""".stripMargin)
+
+    sqlContext.sql(
+      s"""
+         | CREATE VIEW HV AS SELECT * FROM HIERARCHY (
+         | USING AnimalsView AS v
+         | JOIN PARENT u ON v.pred = u.succ
+         | START WHERE pred IS NULL
+         | SET Node
+         | ) AS H""".stripMargin)
+
+    val result = sqlContext.sql(
+        s"""
+           | SELECT A.name
+           | FROM HV A
+           | WHERE IS_ROOT(A.Node) = true""".stripMargin).collect()
+
+    assertResult(Set(Row("Animal")))(result.toSet)
+  }
+
   test("I can reuse hierarchy view") {
     sqlContext.sql(
       s"""
@@ -121,8 +146,7 @@ class HierarchyViewsSuite
     assertResult(expected)(result.toSet)
   }
 
-  // (YH) This might be the funniest test I have ever written! :-)
-  test("I can join different hierarchies together") {
+  test("I can not join different hierarchies together") {
     val rdd = sc.parallelize(animalsHierarchy.sortBy(x => Random.nextDouble()))
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("animals_src")
@@ -145,25 +169,16 @@ class HierarchyViewsSuite
          | SET Node
          | ) AS H""".stripMargin)
 
-    val result = sqlContext.sql(
-    s"""
-       | SELECT A.name, B.name
-       | FROM AnimalsView A FULL OUTER JOIN OrgView B
-       | ON IS_CHILD(A.Node, B.Node)
+    val ex = intercept[AnalysisException] {
+      sqlContext.sql(
+        s"""
+           | SELECT A.name, B.name
+           | FROM AnimalsView A FULL OUTER JOIN OrgView B
+           | ON IS_CHILD(A.Node, B.Node)
      """.stripMargin
-    ).collect()
-
-    val expected = Set(
-      Row(null,"Minion 3"),
-      Row("Carnivores","The Middle Manager"),
-      Row("Herbivores","The Middle Manager"),
-      Row(null,"Minion 1"),
-      Row(null,"Senior Developer"),
-      Row(null,"The Other Middle Manager"),
-      Row("Mammal","THE BOSS"),
-      Row("Oviparous","THE BOSS"),
-      Row("Animal",null),
-      Row(null,"Minion 2"))
-    assertResult(expected)(result.toSet)
+      ).collect()
+    }
+    assert(ex.getMessage().contains("It is not allowed to use Node columns " +
+      "from different hierarchies"))
   }
 }

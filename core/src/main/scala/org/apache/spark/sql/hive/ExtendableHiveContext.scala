@@ -78,7 +78,9 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
           Nil)
 
       override val extendedCheckRules = Seq(
-        sources.PreWriteCheck(catalog)
+        sources.PreWriteCheck(catalog),
+        // TODO: Move this once bug #95571 is fixed.
+        HierarchyUDFAnalysis(catalog)
       )
     }
 
