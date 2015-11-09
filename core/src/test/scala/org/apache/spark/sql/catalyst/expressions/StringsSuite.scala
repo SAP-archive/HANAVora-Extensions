@@ -1,7 +1,7 @@
 package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.{GlobalSapSQLContext, GlobalSapSQLContext$}
+import org.apache.spark.sql.GlobalSapSQLContext
 import org.scalatest.FunSuite
 
 class StringsSuite
@@ -69,5 +69,3 @@ class StringsSuite
       Row(rowE.name, null, null) :: Nil)(result5)
   }
 }
-
-case class StringRow(name: String)

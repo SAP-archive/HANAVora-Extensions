@@ -2,9 +2,8 @@ package org.apache.spark.sql.catalyst.expressions
 
 import java.sql
 import java.util.{Calendar, Locale, TimeZone}
-import com.sap.spark.GlobalSparkContext
 import org.apache.spark.Logging
-import org.apache.spark.sql.{GlobalSapSQLContext, GlobalSapSQLContext$, SapSQLContext}
+import org.apache.spark.sql.GlobalSapSQLContext
 import org.scalatest.FunSuite
 
 class DateSuite
@@ -100,5 +99,3 @@ class DateSuite
     new sql.Date(cal.getTimeInMillis)
   }
 }
-
-case class DateRow(name: String, d: sql.Date)

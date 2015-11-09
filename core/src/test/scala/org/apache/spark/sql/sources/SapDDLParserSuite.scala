@@ -1,7 +1,8 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.{SapParserDialect, SapParserException, SapSqlParser}
+import org.apache.spark.sql.sources.commands._
+import org.apache.spark.sql.{SapParserDialect, SapParserException}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}
 
