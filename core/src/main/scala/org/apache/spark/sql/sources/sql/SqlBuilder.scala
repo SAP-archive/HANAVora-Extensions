@@ -168,22 +168,26 @@ class SqlBuilder {
       case logical.Subquery(alias, child) =>
         s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
 
-      case _:logical.Join if noProject =>
-        sys.error(s"Join not allowed in this context")
+      case join: logical.Join if noProject =>
+        s"SELECT * FROM ${joinToSql(join)}"
       case join@logical.Join(left, right, joinType, conditionOpt) =>
-        val leftSql = internalLogicalPlanToSql(left, noProject = false)
-        val rightSql = internalLogicalPlanToSql(right, noProject = false)
-        val condition = conditionOpt match {
-          case None => ""
-          case Some(cond) => s" ON ${expressionToSql(cond)}"
-        }
-        s"$leftSql ${joinTypeToSql(join)} $rightSql$condition"
+        joinToSql(join)
 
       case _ =>
         sys.error("Unsupported logical plan: " + plan)
     }
   // scalastyle:on method.length
   // scalastyle:on cyclomatic.complexity
+
+  private def joinToSql(join: logical.Join): String = {
+    val leftSql = internalLogicalPlanToSql(join.left, noProject = false)
+    val rightSql = internalLogicalPlanToSql(join.right, noProject = false)
+    val condition = join.condition match {
+      case None => ""
+      case Some(cond) => s" ON ${expressionToSql(cond)}"
+    }
+    s"$leftSql ${joinTypeToSql(join)} $rightSql$condition"
+  }
 
   /**
    * If the given plan is a [SingleQuery], returns the evaluation of [logicalPlanToSql].
