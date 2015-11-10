@@ -42,7 +42,7 @@ object RedundantDownPushableFilters extends Rule[LogicalPlan] with PredicateHelp
   @tailrec
   private def retrieveChildrenAttributes(plan: LogicalPlan): Seq[AttributeSet] =
     if (plan.children.length == 1) retrieveChildrenAttributes(plan.children.head)
-    else if (plan.children.length > 1) plan.children.map(_.references)
+    else if (plan.children.length > 1) plan.children.map(_.outputSet)
     else Seq()
 
   /**

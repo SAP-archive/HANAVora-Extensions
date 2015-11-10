@@ -51,7 +51,7 @@ private[sql] class ExtendableOptimizer(
     rules match {
       case Nil => None
       case _ =>
-        Some(Batch(name, FixedPoint(MAX_ITERATIONS), rules: _*))
+        Some(Batch(name, Once, rules: _*))
     }
 
   private def appendToBatch(
