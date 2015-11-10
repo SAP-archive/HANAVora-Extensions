@@ -5,23 +5,25 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 
 /**
- * [[Optimizer]] that can be extended with more rules.
- *
- * @param earlyRules Extended rules to be executed early.
- * @param lateRules Extended rules to be executed late.
- */
-private[sql] class ExtendableOptimizer(
-    earlyRules: Seq[Rule[LogicalPlan]] = Nil,
-    lateRules: Seq[Rule[LogicalPlan]] = Nil)
+  * [[Optimizer]] that can be extended with more rules.
+  *
+  * @param earlyBatches Batches to be prepended to the optimizer.
+  * @param mainBatchRules Rules to include in the main optimizer batch (e.g. constant folding)
+  */
+private[sql] class ExtendableOptimizer(earlyBatches: Seq[ExtendableOptimizerBatch] = Nil,
+                                       mainBatchRules: Seq[Rule[LogicalPlan]] = Nil)
   extends Optimizer {
-
-  private val MAX_ITERATIONS = 100
 
   private val baseBatches = DefaultOptimizer.batches.map(transformBatchType)
 
-  private val earlyBatch = optionalBatch("Early extended optimizations", earlyRules)
+  private val preMainBatches = earlyBatches.map {
+    b => b.iterations match {
+      case 1 => Batch(b.name, Once, b.rules: _*)
+      case _ => Batch(b.name, FixedPoint(b.iterations), b.rules: _*)
+    }
+  }
 
-  private val constantFoldingBatchName = org.apache.spark.SPARK_VERSION match {
+  private val mainOptimizationsBatchName = org.apache.spark.SPARK_VERSION match {
     case v if v startsWith "1.4." => "ConstantFolding"
     case v => sys.error(s"Unsupported Spark version: $v")
   }
@@ -30,8 +32,9 @@ private[sql] class ExtendableOptimizer(
     baseBatches match {
       case removeSubQueriesBatch :: otherBatches =>
         removeSubQueriesBatch ::
-          earlyBatch.toList ++
-            appendToBatch(constantFoldingBatchName, otherBatches, lateRules)
+          preMainBatches.toList ++
+            appendToBatch(mainOptimizationsBatchName, otherBatches, mainBatchRules)
+      case otherBatches => sys.error("Impossible to add the extended optimizer rules")
     }
 
   /* TODO: This might be gone in Spark 1.6+
@@ -46,13 +49,6 @@ private[sql] class ExtendableOptimizer(
     Batch(b.name, strategy, b.rules: _*)
   }
   // scalastyle:on structural.type
-
-  private def optionalBatch(name: String, rules: Seq[Rule[LogicalPlan]]): Option[Batch] =
-    rules match {
-      case Nil => None
-      case _ =>
-        Some(Batch(name, Once, rules: _*))
-    }
 
   private def appendToBatch(
       name: String,
@@ -70,3 +66,7 @@ private[sql] class ExtendableOptimizer(
   }
 
 }
+
+private[sql] case class ExtendableOptimizerBatch(name: String,
+                                                 iterations: Int,
+                                                 rules: Seq[Rule[LogicalPlan]])

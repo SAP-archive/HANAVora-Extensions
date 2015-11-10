@@ -19,12 +19,12 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveHierarchy(analyzer)
   )
 
-  override protected def optimizerEarlyRules: List[Rule[LogicalPlan]] = List(
-    BooleanSimplification,
-    RedundantDownPushableFilters
+  override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] = List(
+    ExtendableOptimizerBatch("Redundant pushable filters", 1,
+      BooleanSimplification :: RedundantDownPushableFilters :: Nil)
   )
 
-  override protected def optimizerLateRules: List[Rule[LogicalPlan]] = List(
+  override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] = List(
     FiltersReduction
   )
 

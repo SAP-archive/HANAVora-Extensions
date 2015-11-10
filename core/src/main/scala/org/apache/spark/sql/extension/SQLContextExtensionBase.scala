@@ -18,9 +18,9 @@ private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
 
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] = Nil
 
-  override protected def optimizerEarlyRules: List[Rule[LogicalPlan]] = Nil
+  override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] = Nil
 
-  override protected def optimizerLateRules: List[Rule[LogicalPlan]] = Nil
+  override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] = Nil
 
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] = Nil
 
