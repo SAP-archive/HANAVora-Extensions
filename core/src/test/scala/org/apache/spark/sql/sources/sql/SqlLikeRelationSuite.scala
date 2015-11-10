@@ -14,7 +14,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
     val attr2 = AttributeReference("attr2", StringType, nullable = false)()
 
     /* Execution */
-    val (preparedAgg, preparedGroup) = Test.prepareAggregationsUsingAliases(Seq(attr1), Seq(attr2))
+    val (preparedAgg, preparedGroup) = SqlLikeRelationSuiteHelper
+      .prepareAggregationsUsingAliases(Seq(attr1), Seq(attr2))
 
     /* Expected data preparation */
     val expAttr1 = attr1.copy(attr1.name, attr1.dataType, nullable = true,
@@ -33,7 +34,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
     val alias1 = Alias(attr1, "alias1")()
 
     /* Execution */
-    val (preparedAgg, preparedGroup) = Test.prepareAggregationsUsingAliases(Seq(alias1),
+    val (preparedAgg, preparedGroup) = SqlLikeRelationSuiteHelper
+      .prepareAggregationsUsingAliases(Seq(alias1),
       Seq(alias1.toAttribute))
 
     /* Expected data preparation */
@@ -52,7 +54,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
     val alias1 = Alias(attr1, "alias1")()
 
     /* Execution */
-    val (preparedAgg, preparedGroup) = Test.prepareAggregationsUsingAliases(Seq(alias1),
+    val (preparedAgg, preparedGroup) = SqlLikeRelationSuiteHelper
+      .prepareAggregationsUsingAliases(Seq(alias1),
       Seq(attr1))
 
     /* Expected data preparation */
@@ -72,7 +75,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
     val aliasSumAttr1 = Alias(attr1, "SumAlias")()
 
     /* Execution */
-    val (preparedAgg, preparedGroup) = Test.prepareAggregationsUsingAliases(Seq(aliasSumAttr1),
+    val (preparedAgg, preparedGroup) = SqlLikeRelationSuiteHelper
+      .prepareAggregationsUsingAliases(Seq(aliasSumAttr1),
       Seq(attr1))
 
     /* Expected data preparation */
@@ -93,7 +97,8 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
     val aliasSumAttr1 = Alias(sumAttr1, "SumAlias")()
 
     /* Execution */
-    val (preparedAgg, preparedGroup) = Test.prepareAggregationsUsingAliases(Seq(aliasSumAttr1),
+    val (preparedAgg, preparedGroup) = SqlLikeRelationSuiteHelper
+      .prepareAggregationsUsingAliases(Seq(aliasSumAttr1),
       Seq(sumAttr1))
 
     /* Expected data preparation */
@@ -106,19 +111,5 @@ class SqlLikeRelationSuite extends FunSuite with Logging {
     /* Assertions */
     assertResult(expAlias1)(preparedAgg(0))
     assertResult(expAttr1)(preparedGroup(0))
-  }
-}
-
-/* Helper to test the trait */
-object Test extends SqlLikeRelation {
-
-  override def tableName: String = "table"
-
-  /* Wrapper to call the protected function */
-  override def prepareAggregationsUsingAliases(aggregationExpressions:
-                                               Seq[NamedExpression],
-                                               groupingExpressions: Seq[Expression]):
-  (Seq[NamedExpression], Seq[Expression]) = {
-    super.prepareAggregationsUsingAliases(aggregationExpressions, groupingExpressions)
   }
 }

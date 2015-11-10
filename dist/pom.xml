@@ -5,7 +5,7 @@
   <parent>
     <artifactId>spark-sap-parent</artifactId>
     <groupId>com.sap.spark</groupId>
-    <version>1.1.36</version>
+    <version>1.1.37</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <name>Spark SAP Extensions Distribution</name>
@@ -126,15 +126,29 @@
             <version>1.4.0</version>
             <executions>
               <execution>
+              <configuration>
+                <executable>./run-tests</executable>
+                <workingDirectory>src/main/resources/python</workingDirectory>
+                <environmentVariables>
+                  <PYTHONPATH>../../main/python:$PYTHONPATH</PYTHONPATH>
+                  <SKIP_TESTS>${skipTests}</SKIP_TESTS>
+                </environmentVariables>
+              </configuration>
+              <id>python-test</id>
+              <phase>test</phase>
+              <goals>
+                <goal>exec</goal>
+              </goals>
+            </execution>
+              <execution>
                 <configuration>
                   <executable>./run-tests</executable>
-                  <workingDirectory>src/main/resources/python</workingDirectory>
+                  <workingDirectory>src/main/resources/R</workingDirectory>
                   <environmentVariables>
-                    <PYTHONPATH>../../main/python:$PYTHONPATH</PYTHONPATH>
                     <SKIP_TESTS>${skipTests}</SKIP_TESTS>
                   </environmentVariables>
                 </configuration>
-                <id>python-test</id>
+                <id>R-test</id>
                 <phase>test</phase>
                 <goals>
                   <goal>exec</goal>

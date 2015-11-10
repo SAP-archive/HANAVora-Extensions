@@ -8,8 +8,6 @@ import org.scalatest.FunSuite
 
 import scala.util.Random
 
-case class ComponentRow(extraField: String, name: String, pred: Long, succ: Long, ord: Long)
-
 // scalastyle:off magic.number
 // scalastyle:off file.size.limit
 class HierarchySuite
@@ -691,4 +689,5 @@ class HierarchySuite
     assertSetEqual(Set(
       Row("All Sensors")))(result.toSet)
   }
+
 }

@@ -2,7 +2,7 @@ package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.commons.math3.util.FastMath
 import org.apache.spark.Logging
-import org.apache.spark.sql.{GlobalSapSQLContext, GlobalSapSQLContext$}
+import org.apache.spark.sql.GlobalSapSQLContext
 import org.scalatest.FunSuite
 
 class MathsSuite
@@ -69,6 +69,3 @@ class MathsSuite
         FastMath.tan(rowD.d), 1.1, -1.1, -1.1) :: Nil)(result1)
   }
 }
-
-case class DoubleRow(name: String, d: Double)
-

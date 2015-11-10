@@ -1,12 +1,9 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.{SapSQLContext, SQLContext, SapParserException}
+import org.apache.spark.sql.sources.commands._
+import org.apache.spark.sql.SapParserException
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
-import org.apache.spark.sql.execution.RunnableCommand
-import org.apache.spark.sql.types.{MetadataBuilder, StringType}
-import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
 import scala.util.parsing.input.Position
 
@@ -184,105 +181,5 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
         val pos: Position = failureOrError.next.pos
         throw new SapParserException(input, pos.line, pos.column, failureOrError.toString)
     }
-  }
-}
-
-private[sql] case class RegisterAllTablesUsing(
-    provider: String,
-    options: Map[String, String],
-    ignoreConflicts: Boolean)
-  extends LogicalPlan
-  with Command {
-  override def output: Seq[Attribute] = Seq.empty
-
-  override def children: Seq[LogicalPlan] = Seq.empty
-}
-
-private[sql] case class RegisterTableUsing(
-    tableName: String,
-    provider: String,
-    options: Map[String, String],
-    ignoreConflict: Boolean)
-  extends LogicalPlan
-  with Command {
-  override def output: Seq[Attribute] = Seq.empty
-
-  override def children: Seq[LogicalPlan] = Seq.empty
-}
-
-/**
- * Returned for the "APPEND TABLE [dbName.]tableName" command.
- * @param table The table where the file is going to be appended
- * @param options The options map with the append configuration
- */
-private[sql] case class AppendCommand(
-    table: LogicalPlan,
-    options: Map[String, String])
-  extends LogicalPlan
-  with Command {
-
-  override def output: Seq[Attribute] = Seq.empty
-
-  override def children: Seq[LogicalPlan] = Seq.empty
-}
-
-/**
- * Returned for the "DROP TABLE [dbName.]tableName" command.
- * @param table The table to be dropped
- */
-private[sql] case class DropCommand(
-    allowNotExisting: Boolean,
-    table: UnresolvedRelation,
-    cascade: Boolean)
-  extends LogicalPlan
-  with Command {
-
-  override def output: Seq[Attribute] = Seq.empty
-
-  override def children: Seq[LogicalPlan] = Seq.empty
-}
-
-/**
- * Returned for the "SHOW DATASOURCETABLES" command.
- */
-private[sql] case class ShowDatasourceTablesCommand(
-    classIdentifier: String,
-    options: Map[String, String])
-  extends LogicalPlan
-  with Command {
-
-  override def output: Seq[Attribute] = Seq(AttributeReference("tbl_name", StringType,
-    nullable = false, new MetadataBuilder()
-      .putString("comment", "identifier of the table").build())())
-
-  override def children: Seq[LogicalPlan] = Seq.empty
-}
-
-
-/**
- * Returned for "USE xyz" statements.
- *
- * Currently used to ignore any such statements
- * if "sql.ignore_use_statments=true",
- * else, an exception is thrown.
- *
- * @param input The "USE xyz" input statement
- */
-private[sql] case class UseStatementCommand(input: String) extends RunnableCommand {
-
-  override def run(sqlContext: SQLContext): Seq[Row] = {
-    val confValue = sqlContext.sparkContext
-      .getConf.getBoolean(AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
-        defaultValue = false)
-    val sqlConfValue = sqlContext
-      .getConf(AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
-        defaultValue = confValue.toString)
-      .toBoolean
-    if (sqlConfValue) {
-      log.info(s"Ignoring statement:\n$input")
-    } else {
-      throw new SapParserException(input, 1, 1, "USE statement is not supported")
-    }
-    Nil
   }
 }

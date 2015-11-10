@@ -9,36 +9,6 @@ import org.apache.spark.sql.types.Node
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-private[hierarchy] class Forest[T](
-                                    val refs: mutable.Map[T,Tree[T]],
-                                    val trees: Seq[Tree[T]]
-                                    ) extends Serializable {
-
-  def findTree(id: T): Option[Tree[T]] = refs.get(id)
-
-}
-
-private[hierarchy] class Tree[T](
-                                  val parent: Option[Tree[T]],
-                                  val root: T,
-                                  var preRank: Int = 0,
-                                  var postRank: Int = 0,
-                                  var isLeaf: Boolean = false)
-  extends Serializable {
-
-  override def toString: String =
-    s"Tree(root=$root)"
-
-  def prefix: Seq[T] =
-    parent match {
-      case None => root :: Nil
-      case Some(p) => p.prefix :+ root
-    }
-
-}
-
-private[hierarchy] case class Ranks(var pre: Int, var post: Int)
-
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
 (pred: I => C,
  succ: I => C,
@@ -192,3 +162,33 @@ object HierarchyRowBroadcastBuilder {
 }
 
 private case class HRow[C](pred: C, succ: C, ord: Long, isRoot: Option[Boolean])
+
+private[hierarchy] case class Ranks(var pre: Int, var post: Int)
+
+private[hierarchy] class Forest[T](
+                                    val refs: mutable.Map[T,Tree[T]],
+                                    val trees: Seq[Tree[T]]
+                                    ) extends Serializable {
+
+  def findTree(id: T): Option[Tree[T]] = refs.get(id)
+
+}
+
+private[hierarchy] class Tree[T](
+                                  val parent: Option[Tree[T]],
+                                  val root: T,
+                                  var preRank: Int = 0,
+                                  var postRank: Int = 0,
+                                  var isLeaf: Boolean = false)
+  extends Serializable {
+
+  override def toString: String =
+    s"Tree(root=$root)"
+
+  def prefix: Seq[T] =
+    parent match {
+      case None => root :: Nil
+      case Some(p) => p.prefix :+ root
+    }
+
+}

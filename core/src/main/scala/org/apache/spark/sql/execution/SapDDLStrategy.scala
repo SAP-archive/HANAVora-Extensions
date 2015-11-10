@@ -1,10 +1,10 @@
 package org.apache.spark.sql.execution
 
 import org.apache.spark.sql.Strategy
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
+import org.apache.spark.sql.sources.commands._
 
 private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strategy {
 
