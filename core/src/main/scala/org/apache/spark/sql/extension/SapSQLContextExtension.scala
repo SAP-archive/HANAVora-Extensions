@@ -4,7 +4,7 @@ import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.optimizer.{FiltersReduction, RedundantDownPushableFilters}
+import org.apache.spark.sql.catalyst.optimizer.{BooleanSimplification, FiltersReduction, RedundantDownPushableFilters}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.SapDDLStrategy
@@ -20,6 +20,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
   )
 
   override protected def optimizerEarlyRules: List[Rule[LogicalPlan]] = List(
+    BooleanSimplification,
     RedundantDownPushableFilters
   )
 
