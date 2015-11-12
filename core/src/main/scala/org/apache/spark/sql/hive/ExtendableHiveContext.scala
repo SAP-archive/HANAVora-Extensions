@@ -3,8 +3,9 @@ package org.apache.spark.sql.hive
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.analysis.compat._
 import org.apache.spark.sql.catalyst.analysis.{Analyzer, _}
-import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
+import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.{CatalystConf, ParserDialect}
 import org.apache.spark.sql.execution.ExtractPythonUdfs
 import org.apache.spark.sql.extension._
@@ -42,6 +43,7 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
 
       override def conf: CatalystConf = currentSession().conf
     }
+    registry.registerBuiltins()
     registerFunctions(registry)
     registry
   }

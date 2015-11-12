@@ -2,6 +2,7 @@ package org.apache.spark.sql.extension
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.analysis.compat._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, ParserDialect}
 import org.apache.spark.sql.catalyst.analysis.{Analyzer, SimpleCatalog, SimpleFunctionRegistry}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
@@ -36,6 +37,7 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
   @transient
   override protected[sql] lazy val functionRegistry = {
     val registry = new SimpleFunctionRegistry(catalystConf)
+    registry.registerBuiltins()
     registerFunctions(registry)
     registry
   }

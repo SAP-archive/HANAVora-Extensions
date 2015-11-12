@@ -1,13 +1,11 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.SqlParser
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedFunction, UnresolvedAttribute}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedFunction}
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.mathfuncs._
-import org.apache.spark.sql.catalyst.plans.logical.{Subquery, Hierarchy, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan, Subquery}
 import org.apache.spark.sql.execution.CreateViewCommand
-import org.apache.spark.sql.types.{IntegerType, StringType, DoubleType}
-import java.util.Calendar
+import org.apache.spark.sql.types.StringType
 
 import scala.util.parsing.input.Position
 
@@ -32,52 +30,8 @@ private object SapSqlParser extends SqlParser {
   protected val CREATE = Keyword("CREATE")
   protected val VIEW = Keyword("VIEW")
 
-  /* EXTRACT keywords */
+  /* Extract keywords */
   protected val EXTRACT = Keyword("EXTRACT")
-  protected val DAY = Keyword("DAY")
-  protected val MONTH = Keyword("MONTH")
-  protected val YEAR = Keyword("YEAR")
-  protected val HOUR = Keyword("HOUR")
-  protected val MINUTE = Keyword("MINUTE")
-  protected val SECOND = Keyword("SECOND")
-
-  /* Other function keywords */
-  protected val DAYOFMONTH = Keyword("DAYOFMONTH")
-  protected val WEEKDAY = Keyword("WEEKDAY")
-  protected val ADD_DAYS = Keyword("ADD_DAYS")
-  protected val ADD_MONTHS = Keyword("ADD_MONTHS")
-  protected val ADD_YEARS = Keyword("ADD_YEARS")
-  protected val DAYS_BETWEEN = Keyword("DAYS_BETWEEN")
-  protected val CURRENT_DATE = Keyword("CURRENT_DATE")
-  protected val CURDATE = Keyword("CURDATE")
-  protected val TRIM = Keyword("TRIM")
-  protected val LTRIM = Keyword("LTRIM")
-  protected val RTRIM = Keyword("RTRIM")
-  protected val LPAD = Keyword("LPAD")
-  protected val RPAD = Keyword("RPAD")
-  protected val LENGTH = Keyword("LENGTH")
-  protected val CONCAT = Keyword("CONCAT")
-  protected val LOCATE = Keyword("LOCATE")
-  protected val REPLACE = Keyword("REPLACE")
-  protected val REVERSE = Keyword("REVERSE")
-
-  protected val LN = Keyword("LN")
-  protected val LOG = Keyword("LOG")
-  protected val COS = Keyword("COS")
-  protected val SIN = Keyword("SIN")
-  protected val TAN = Keyword("TAN")
-  protected val ACOS = Keyword("ACOS")
-  protected val ASIN = Keyword("ASIN")
-  protected val ATAN = Keyword("ATAN")
-  protected val CEIL = Keyword("CEIL")
-  protected val FLOOR = Keyword("FLOOR")
-  protected val POWER = Keyword("POWER")
-  protected val ROUND = Keyword("ROUND")
-  protected val SIGN = Keyword("SIGN")
-  protected val MOD = Keyword("MOD")
-  protected val TO_DOUBLE = Keyword("TO_DOUBLE")
-  protected val TO_INTEGER = Keyword("TO_INTEGER")
-  protected val TO_VARCHAR = Keyword("TO_VARCHAR")
 
   lexical.delimiters += "$"
 
@@ -96,10 +50,15 @@ private object SapSqlParser extends SqlParser {
     hierarchy | joinedRelation | relationFactor
 
   /**
-   * Every function / expression parsing is hooked here.
-   */
+    * Every function / expression parsing is hooked here.
+    *
+    * @note Do not add rules to parse new functions here unless
+    *       they have special syntax. Functions with standard
+    *       syntax should be registered with [[SQLContext.functionRegistry]].
+    *       See [[RegisterCustomFunctions]].
+    */
   override protected lazy val function: Parser[Expression] =
-    extract | sparkFunctions | sapFunctions | dataSourceFunctions
+    extract | sparkFunctions | dataSourceFunctions
 
   // scalastyle:off
   /**
@@ -178,12 +137,12 @@ private object SapSqlParser extends SqlParser {
   /** @see [[extract]] */
   protected lazy val extractPart: Parser[Expression => Expression] =
     (
-      DAY ^^^ { e: Expression => DayOfMonth(e) }
-      | MONTH ^^^ { e: Expression => Month(e) }
-      | YEAR ^^^ { e: Expression => Year(e) }
-      | HOUR ^^^  { e: Expression => Hour(e) }
-      | MINUTE ^^^ { e: Expression => Minute(e) }
-      | SECOND ^^^ { e: Expression => Second(e) }
+      "(?i)DAY".r ^^^ { e: Expression => DayOfMonth(e) }
+      | "(?i)MONTH".r ^^^ { e: Expression => Month(e) }
+      | "(?i)YEAR".r ^^^ { e: Expression => Year(e) }
+      | "(?i)HOUR".r ^^^  { e: Expression => Hour(e) }
+      | "(?i)MINUTE".r ^^^ { e: Expression => Minute(e) }
+      | "(?i)SECOND".r ^^^ { e: Expression => Second(e) }
       )
 
   /**
@@ -194,78 +153,6 @@ private object SapSqlParser extends SqlParser {
   protected lazy val dataSourceFunctions: Parser[Expression] =
     "$" ~> ident ~ ("(" ~> repsep(expression, ",") <~ ")") ^^
       { case udf ~ expr => DataSourceExpression(udf.toLowerCase, expr) }
-
-  // scalastyle:off
-  /**
-   * Miscelaneous functions added by us.
-   */
-  protected lazy val sapFunctions: Parser[Expression] =
-    (LENGTH ~ "(" ~> expression <~ ")" ^^ { case exp => Length(exp) }
-      | TRIM  ~ "(" ~> expression <~ ")" ^^ { case exp => StringTrim(exp) }
-      | LTRIM ~ "(" ~> expression <~ ")" ^^ { case exp => StringTrimLeft(exp) }
-      | RTRIM ~ "(" ~> expression <~ ")" ^^ { case exp => StringTrimRight(exp) }
-      | LPAD ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l ~ p => StringLPad(s,l,p) }
-      | LPAD ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l => StringLPad(s,l,null) }
-      | RPAD ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l ~ p => StringRPad(s,l,p) }
-      | RPAD ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l => StringRPad(s,l,null) }
-      | TO_DOUBLE ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, DoubleType) }
-      | TO_INTEGER ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, IntegerType) }
-      | CONCAT ~ "(" ~> repsep(expression, ",") <~ ")" ^^ { case es => Concat(es) }
-      | LOCATE ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-        { case s ~ p => new StringLocate(s, p) }
-      | LOCATE ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ p ~ o => StringLocate(s, p, o) }
-      | REPLACE ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ f ~ p => Replace(s,f,p) }
-      | REVERSE ~ "(" ~> expression <~ ")" ^^ { case s => StringReverse(s) }
-      | TO_VARCHAR ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, StringType) }
-      | LOG   ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case exp ~ base => Logarithm(exp, base) }
-      | LOG   ~ "(" ~> expression <~ ")" ^^ { case exp => Log(exp) }
-      | LN   ~ "(" ~> expression <~ ")" ^^ { case exp => Log(exp) }
-      | COS   ~ "(" ~> expression <~ ")" ^^ { case exp => Cos(exp) }
-      | SIN   ~ "(" ~> expression <~ ")" ^^ { case exp => Sin(exp) }
-      | TAN   ~ "(" ~> expression <~ ")" ^^ { case exp => Tan(exp) }
-      | ACOS   ~ "(" ~> expression <~ ")" ^^ { case exp => Acos(exp) }
-      | ASIN   ~ "(" ~> expression <~ ")" ^^ { case exp => Asin(exp) }
-      | ATAN   ~ "(" ~> expression <~ ")" ^^ { case exp => Atan(exp) }
-      | CEIL   ~ "(" ~> expression <~ ")" ^^ { case exp => Ceil(exp) }
-      | ROUND  ~ "(" ~> expression ~ ("," ~> expression)  <~ ")" ^^
-      { case e ~ d => Round(e,d) }
-      | POWER  ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e ~ p => Pow(e,p) }
-      | MOD    ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e ~ m => Remainder(e,m) }
-      | SIGN   ~ "(" ~> expression <~ ")" ^^ { case exp => Signum(exp) }
-      | FLOOR   ~ "(" ~> expression <~ ")" ^^ { case exp => Floor(exp) }
-
-      | (CURDATE | CURRENT_DATE) ~ "(" ~ ")" ^^ { case exp => CurrentDate() }
-      | DAYOFMONTH ~ "(" ~> expression <~ ")" ^^
-      { case exp => DayOfMonth(exp) }
-      | MONTH  ~ "(" ~> expression <~ ")" ^^
-      { case exp => Month(exp) }
-      | YEAR   ~ "(" ~> expression <~ ")" ^^
-      { case exp => Year(exp) }
-      | HOUR   ~ "(" ~> expression <~ ")" ^^
-      { case exp => Hour(exp) }
-      | MINUTE ~ "(" ~> expression <~ ")" ^^
-      { case exp => Minute(exp) }
-      | SECOND ~ "(" ~> expression <~ ")" ^^
-      { case exp => Second(exp) }
-      | ADD_DAYS ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e ~ d => DateAdd(e,d) }
-      | ADD_MONTHS ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e ~ m => AddMonths(e,m) }
-      | ADD_YEARS ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e ~ y => AddYears(e,y) }
-      | DAYS_BETWEEN ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case d1 ~ d2 => Abs(DateDiff(d1,d2)) }
-      )
-  // scalastyle:on
 
   /*
    * TODO: Remove in Spark 1.4.1/1.5.0. This fixes NOT operator precendence, which we
