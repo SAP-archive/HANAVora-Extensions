@@ -3,11 +3,11 @@ package org.apache.spark.sql
 import org.apache.spark.sql.catalyst.SqlParser
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedFunction, UnresolvedAttribute}
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.mathfuncs._
 import org.apache.spark.sql.catalyst.plans.logical.{Subquery, Hierarchy, LogicalPlan}
 import org.apache.spark.sql.execution.CreateViewCommand
-import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.types.{IntegerType, StringType, DoubleType}
 import java.util.Calendar
-import org.apache.spark.sql.types.DoubleType
 
 import scala.util.parsing.input.Position
 
@@ -214,7 +214,7 @@ private object SapSqlParser extends SqlParser {
       | RPAD ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
       { case s ~ l => StringRPad(s,l,null) }
       | TO_DOUBLE ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, DoubleType) }
-      | TO_INTEGER ~ "(" ~> expression <~ ")" ^^ { case exp => ToInteger(exp) }
+      | TO_INTEGER ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, IntegerType) }
       | CONCAT ~ "(" ~> repsep(expression, ",") <~ ")" ^^ { case es => Concat(es) }
       | LOCATE ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
         { case s ~ p => new StringLocate(s, p) }
@@ -224,8 +224,10 @@ private object SapSqlParser extends SqlParser {
       { case s ~ f ~ p => Replace(s,f,p) }
       | REVERSE ~ "(" ~> expression <~ ")" ^^ { case s => StringReverse(s) }
       | TO_VARCHAR ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, StringType) }
-      | LN   ~ "(" ~> expression <~ ")" ^^ { case exp => Ln(exp) }
+      | LOG   ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
+      { case exp ~ base => Logarithm(exp, base) }
       | LOG   ~ "(" ~> expression <~ ")" ^^ { case exp => Log(exp) }
+      | LN   ~ "(" ~> expression <~ ")" ^^ { case exp => Log(exp) }
       | COS   ~ "(" ~> expression <~ ")" ^^ { case exp => Cos(exp) }
       | SIN   ~ "(" ~> expression <~ ")" ^^ { case exp => Sin(exp) }
       | TAN   ~ "(" ~> expression <~ ")" ^^ { case exp => Tan(exp) }
@@ -236,10 +238,10 @@ private object SapSqlParser extends SqlParser {
       | ROUND  ~ "(" ~> expression ~ ("," ~> expression)  <~ ")" ^^
       { case e ~ d => Round(e,d) }
       | POWER  ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e ~ p => Power(e,p) }
+      { case e ~ p => Pow(e,p) }
       | MOD    ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
       { case e ~ m => Remainder(e,m) }
-      | SIGN   ~ "(" ~> expression <~ ")" ^^ { case exp => Sign(exp) }
+      | SIGN   ~ "(" ~> expression <~ ")" ^^ { case exp => Signum(exp) }
       | FLOOR   ~ "(" ~> expression <~ ")" ^^ { case exp => Floor(exp) }
 
       | (CURDATE | CURRENT_DATE) ~ "(" ~ ")" ^^ { case exp => CurDate() }

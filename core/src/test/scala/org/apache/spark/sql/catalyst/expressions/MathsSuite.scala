@@ -28,12 +28,12 @@ class MathsSuite
     val result1 = sqlContext.sql("SELECT name,d,LN(d) FROM src").collect()
 
     assertResult(Row(rowA.name, rowA.d, 0.0) ::
-      Row(rowB.name, rowB.d, FastMath.log(2.0)) :: Nil)(result1)
+      Row(rowB.name, rowB.d, scala.math.log(2.0)) :: Nil)(result1)
 
-    val result2 = sqlContext.sql("SELECT name,d,LOG(d) FROM src").collect()
+    val result2 = sqlContext.sql("SELECT name,d,LOG(10, d) FROM src").collect()
 
     assertResult(Row(rowA.name, rowA.d, 0.0) ::
-      Row(rowB.name, rowB.d, FastMath.log10(2.0)) :: Nil)(result2)
+      Row(rowB.name, rowB.d, scala.math.log(rowB.d) / scala.math.log(10)) :: Nil)(result2)
 
     val result3 = sqlContext.sql("SELECT name,d,POWER(d,2) FROM src").collect()
 

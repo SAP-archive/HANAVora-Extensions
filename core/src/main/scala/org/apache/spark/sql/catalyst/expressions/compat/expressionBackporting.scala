@@ -28,6 +28,13 @@ private[expressions] trait BackportedExpression extends Expression {
 
 }
 
+private[expressions] trait BackportedLeafExpression
+  extends LeafExpression
+  with BackportedExpression {
+  self: Product =>
+
+}
+
 private[expressions] trait BackportedUnaryExpression
   extends UnaryExpression
   with BackportedExpression {
