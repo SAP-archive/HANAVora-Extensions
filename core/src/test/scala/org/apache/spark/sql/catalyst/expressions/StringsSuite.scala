@@ -43,13 +43,13 @@ class StringsSuite
       Row(rowE.name, null, null) :: Nil)(result2)
 
     val result3 =
-      sqlContext.sql("SELECT name, LENGTH(name), LOCATE(name,'B') FROM src").collect()
+      sqlContext.sql("SELECT name, LENGTH(name), LOCATE('B', name) FROM src").collect()
 
-    assertResult(Row(rowA.name, 4, -1) ::
-      Row(rowB.name, 4, 0) ::
-      Row(rowC.name, 5, -1) ::
-      Row(rowD.name, 7, -1) ::
-      Row(rowE.name, 0, -1) :: Nil)(result3)
+    assertResult(Row(rowA.name, 4, 0) ::
+      Row(rowB.name, 4, 1) ::
+      Row(rowC.name, 5, 0) ::
+      Row(rowD.name, 7, 0) ::
+      Row(rowE.name, null, null) :: Nil)(result3)
 
     val result4 = sqlContext.sql("SELECT name, CONCAT(name,'aa') FROM src").collect()
 

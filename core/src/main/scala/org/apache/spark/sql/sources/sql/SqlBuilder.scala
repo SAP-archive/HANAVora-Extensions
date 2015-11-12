@@ -267,7 +267,6 @@ class SqlBuilder {
       case expr.Literal(value, _) => literalToSql(value)
       case expr.Cast(child, dataType) =>
         s"CAST(${expressionToSql(child)} AS ${typeToSql(dataType)})"
-      case expr.ToVarChar(child) => s"TO_VARCHAR(${expressionToSql(child)})"
       case expr.CountDistinct(children) => s"COUNT(DISTINCT ${expressionsToSql(children, ",")})"
       case expr.Coalesce(children) => s"COALESCE(${expressionsToSql(children, ",")})"
       case expr.Extract(flag,date) => s"EXTRACT(${flagToSql(flag)} FROM " +
