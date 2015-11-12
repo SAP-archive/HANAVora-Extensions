@@ -173,18 +173,17 @@ private object SapSqlParser extends SqlParser {
 
   /** EXTRACT function. */
   protected lazy val extract: Parser[Expression] =
-    EXTRACT ~ "(" ~> dateIdLiteral ~ (FROM ~> expression) <~ ")" ^^ {
-      case dFlag ~ d => Extract(dFlag, d)
-    }
+    EXTRACT ~ "(" ~> extractPart ~ (FROM ~> expression) <~ ")" ^^ { case f ~ d => f(d) }
 
   /** @see [[extract]] */
-  protected lazy val dateIdLiteral: Parser[Literal] =
-    (DAY ^^^ Literal.create(DAY.str, StringType)
-      | MONTH ^^^ Literal.create(MONTH.str, StringType)
-      | YEAR ^^^ Literal.create(YEAR.str, StringType)
-      | HOUR ^^^ Literal.create(HOUR.str, StringType)
-      | MINUTE ^^^ Literal.create(MINUTE.str, StringType)
-      | SECOND ^^^ Literal.create(SECOND.str, StringType)
+  protected lazy val extractPart: Parser[Expression => Expression] =
+    (
+      DAY ^^^ { e: Expression => DayOfMonth(e) }
+      | MONTH ^^^ { e: Expression => Month(e) }
+      | YEAR ^^^ { e: Expression => Year(e) }
+      | HOUR ^^^  { e: Expression => Hour(e) }
+      | MINUTE ^^^ { e: Expression => Minute(e) }
+      | SECOND ^^^ { e: Expression => Second(e) }
       )
 
   /**
@@ -244,27 +243,27 @@ private object SapSqlParser extends SqlParser {
       | SIGN   ~ "(" ~> expression <~ ")" ^^ { case exp => Signum(exp) }
       | FLOOR   ~ "(" ~> expression <~ ")" ^^ { case exp => Floor(exp) }
 
-      | (CURDATE | CURRENT_DATE) ~ "(" ~ ")" ^^ { case exp => CurDate() }
+      | (CURDATE | CURRENT_DATE) ~ "(" ~ ")" ^^ { case exp => CurrentDate() }
       | DAYOFMONTH ~ "(" ~> expression <~ ")" ^^
-      { case exp => DatePart(exp, Calendar.DAY_OF_MONTH) }
+      { case exp => DayOfMonth(exp) }
       | MONTH  ~ "(" ~> expression <~ ")" ^^
-      { case exp => DatePart(exp, Calendar.MONTH) }
+      { case exp => Month(exp) }
       | YEAR   ~ "(" ~> expression <~ ")" ^^
-      { case exp => DatePart(exp, Calendar.YEAR) }
+      { case exp => Year(exp) }
       | HOUR   ~ "(" ~> expression <~ ")" ^^
-      { case exp => DatePart(exp, Calendar.HOUR_OF_DAY) }
+      { case exp => Hour(exp) }
       | MINUTE ~ "(" ~> expression <~ ")" ^^
-      { case exp => DatePart(exp, Calendar.MINUTE) }
+      { case exp => Minute(exp) }
       | SECOND ~ "(" ~> expression <~ ")" ^^
-      { case exp => DatePart(exp, Calendar.SECOND) }
+      { case exp => Second(exp) }
       | ADD_DAYS ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e ~ d => AddDays(e,d) }
+      { case e ~ d => DateAdd(e,d) }
       | ADD_MONTHS ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
       { case e ~ m => AddMonths(e,m) }
       | ADD_YEARS ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
       { case e ~ y => AddYears(e,y) }
       | DAYS_BETWEEN ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case d1 ~ d2 => DaysBetween(d1,d2) }
+      { case d1 ~ d2 => Abs(DateDiff(d1,d2)) }
       )
   // scalastyle:on
 

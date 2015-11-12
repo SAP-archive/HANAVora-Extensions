@@ -17,19 +17,19 @@ class ExtractSQLParserSuite extends FunSuite with PlanTest with Logging {
 
   test("Parse EXTRACT in SELECT") {
     val result = parser.parse("SELECT a, EXTRACT(YEAR FROM a) FROM T1")
-    val expected = t1.select('a, Extract("YEAR", 'a).as("c1"))
+    val expected = t1.select('a, Year('a).as("c1"))
     comparePlans(expected, result)
   }
 
   test("Parse EXTRACT in WHERE") {
-    val result = parser.parse("SELECT * FROM T1 WHERE EXTRACT(YEAR FROM a) = 2015")
-    val expected = t1.where(Extract("YEAR", 'a) === 2015).select(UnresolvedStar(None))
+    val result = parser.parse("SELECT * FROM T1 WHERE EXTRACT(MONTH FROM a) = 2015")
+    val expected = t1.where(Month('a) === 2015).select(UnresolvedStar(None))
     comparePlans(expected, result)
   }
 
   test("Parse EXTRACT in GROUP BY") {
-    val result = parser.parse("SELECT * FROM T1 GROUP BY EXTRACT(YEAR FROM a)")
-    val expected = t1.groupBy(Extract("YEAR", 'a))(UnresolvedStar(None))
+    val result = parser.parse("SELECT * FROM T1 GROUP BY EXTRACT(DAY FROM a)")
+    val expected = t1.groupBy(DayOfMonth('a))(UnresolvedStar(None))
     comparePlans(expected, result)
   }
 

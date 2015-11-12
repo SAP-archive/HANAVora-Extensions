@@ -4,4 +4,5 @@ import org.apache.spark.sql.Row
 
 package object compat {
   type InternalRow = Row
+  val InternalRow = Row
 }

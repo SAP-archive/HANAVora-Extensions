@@ -275,9 +275,13 @@ class SqlBuilder {
         s"CAST(${expressionToSql(child)} AS ${typeToSql(dataType)})"
       case expr.CountDistinct(children) => s"COUNT(DISTINCT ${expressionsToSql(children, ",")})"
       case expr.Coalesce(children) => s"COALESCE(${expressionsToSql(children, ",")})"
-      case expr.Extract(flag,date) => s"EXTRACT(${flagToSql(flag)} FROM " +
-        s"${expressionToSql(date)})"
-      case expr.CurDate() => s"CURRENT_DATE()"
+      case expr.DayOfMonth(date) => s"EXTRACT(DAY FROM ${expressionToSql(date)})"
+      case expr.Month(date) => s"EXTRACT(MONTH FROM ${expressionToSql(date)})"
+      case expr.Year(date) => s"EXTRACT(YEAR FROM ${expressionToSql(date)})"
+      case expr.Hour(date) => s"EXTRACT(HOUR FROM ${expressionToSql(date)})"
+      case expr.Minute(date) => s"EXTRACT(MINUTE FROM ${expressionToSql(date)})"
+      case expr.Second(date) => s"EXTRACT(SECOND FROM ${expressionToSql(date)})"
+      case expr.CurrentDate() => s"CURRENT_DATE()"
       case expr.Substring(str, pos, len) =>
         s"SUBSTRING(${expressionToSql(str)}, $pos, $len)"
       case expr.Average(child) => s"AVG(${expressionToSql(child)})"

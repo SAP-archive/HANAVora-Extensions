@@ -80,7 +80,7 @@ class DateSuite
       Row(rowC.name, 30) :: Nil)(result4)
 
     val result5 =
-      sqlContext.sql("SELECT name, DAYS_BETWEEN(CURDATE(), " +
+      sqlContext.sql("SELECT name, DAYS_BETWEEN(CURRENT_DATE(), " +
         "ADD_DAYS(CURRENT_DATE(),1)) FROM src").collect()
 
     assertResult(Row(rowA.name, 1) ::
@@ -91,11 +91,12 @@ class DateSuite
 
   private def getDate(day: Int, month: Int, year: Int): sql.Date = {
     val cal =
-      Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"), Locale.ENGLISH)
+      Calendar.getInstance(Locale.ENGLISH)
     cal.clear()
     cal.set(Calendar.DAY_OF_MONTH, day)
     cal.set(Calendar.MONTH, month - 1)
     cal.set(Calendar.YEAR, year)
+    cal.set(Calendar.HOUR, 0)
     new sql.Date(cal.getTimeInMillis)
   }
 }
