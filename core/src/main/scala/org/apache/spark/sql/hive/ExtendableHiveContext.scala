@@ -87,8 +87,8 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
   @transient
   override protected[sql] lazy val optimizer: Optimizer =
     new ExtendableOptimizer(
-      earlyRules = optimizerEarlyRules,
-      lateRules = optimizerLateRules
+      earlyBatches = optimizerEarlyBatches,
+      mainBatchRules = optimizerMainBatchRules
     )
 
   @transient
