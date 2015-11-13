@@ -31,13 +31,15 @@
         </dependency>
         <dependency>
             <groupId>com.sap.spark</groupId>
-            <artifactId>core</artifactId>
-            <version>${project.version}</version>
+            <artifactId>${compat.artifact.id}</artifactId>
         </dependency>
         <dependency>
             <groupId>com.sap.spark</groupId>
             <artifactId>core</artifactId>
-            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sap.spark</groupId>
+            <artifactId>core</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

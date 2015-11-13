@@ -3,7 +3,7 @@ package org.apache.spark.sql
 import org.apache.spark.sql.catalyst.analysis.Catalog
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.Node
 
 /**
  * A rule to do checks on [[Hierarchy]] UDFs.

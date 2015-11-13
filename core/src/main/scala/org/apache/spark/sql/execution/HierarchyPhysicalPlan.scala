@@ -2,16 +2,17 @@ package org.apache.spark.sql.execution
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.CatalystTypeConverters
+import org.apache.spark.sql.catalyst.compat._
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
-import org.apache.spark.sql.hierarchy.{HierarchyBuilder, HierarchyRowBroadcastBuilder}
-import org.apache.spark.sql.types.{Node, NodeType, StructField, StructType}
+import org.apache.spark.sql.hierarchy._
 import org.apache.spark.sql.catalyst.plans.logical.Hierarchy
+import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types.NodeType
 
 /**
   * Execution for hierarchies.
   *
-  * @param childAlias [[Hierarchy.childAlias]].
+  * @param childAlias [[org.apache.spark.sql.catalyst.plans.logical.Hierarchy.childAlias]].
   * @param parenthoodExpression [[Hierarchy.parenthoodExpression]].
   * @param searchBy [[Hierarchy.searchBy]].
   * @param startWhere [[Hierarchy.startWhere]].
@@ -41,35 +42,25 @@ private[sql] case class HierarchyPhysicalPlan(
       searchBy
     )
 
-  override def doExecute(): RDD[Row] = {
+  override def doExecute(): RDD[InternalRow] = {
     val rdd = child.execute()
 
     val childSchema = child.schema
 
     /** Copy to prevent weird duplicated rows. See SPARK-4775. */
-    val mappedRDD = rdd.mapPartitions({ iter =>
-      iter.map({ case r => Row.fromSeq(r.toSeq) })
-    })
+    val mappedRDD = CompatRDDConversions.rowRddToRdd(rdd, childSchema)
 
     /** Build the hierarchy */
     val resultRdd = hierarchyBuilder.buildFromAdjacencyList(mappedRDD)
 
-    /** Transform the result to Catalyst types */
-    val catalystResultRdd = resultRdd
-      .mapPartitions({ iter =>
-      val schemaWithNode =
-        StructType(childSchema.fields ++ Seq(StructField("", NodeType, nullable = false)))
-      val converter = CatalystTypeConverters.createToCatalystConverter(schemaWithNode)
-      iter.map({ row =>
-        val node = row.getAs[Node](row.length - 1)
-        val rowWithoutNode = Row(row.toSeq.take(row.length - 1): _*)
-        val convertedRowWithoutNode = converter(rowWithoutNode).asInstanceOf[Row]
-        Row.fromSeq(convertedRowWithoutNode.toSeq :+ node)
-      })
-    })
+    val cachedResultRdd = resultRdd.cache()
 
-    /** Return the cached result */
-    catalystResultRdd.cache()
+    /** Transform the result to Catalyst types */
+    val schemaWithNode =
+      StructType(childSchema.fields ++ Seq(StructField("", NodeType, nullable = false)))
+    val resultInternalRdd = CompatRDDConversions.rddToRowRdd(cachedResultRdd, schemaWithNode)
+
+    resultInternalRdd
   }
 
 }

@@ -6,9 +6,10 @@ import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{CreateLogicalRelation, SQLContext, sources}
+import org.apache.spark.sql.execution.datasources.{LogicalRelation, CreateLogicalRelation}
+import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.{SQLContext, sources}
 import org.mockito.Mockito
 import org.scalatest.FunSuite
 

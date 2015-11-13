@@ -1,12 +1,14 @@
 package org.apache.spark.sql.catalyst.expressions
 
+import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.expressions.compat._
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
-import org.apache.spark.sql.types.{DataType, DateType, IntegerType}
+import org.apache.spark.sql.types.compat._
 
 /** Return ed plus en years as new date */
 case class AddYears(date: Expression, years: Expression)
-  extends BackportedBinaryExpression with ImplicitCastInputTypes {
+  extends BackportedBinaryExpression
+  with ImplicitCastInputTypes with CodegenFallback {
 
   override def inputTypes: Seq[AbstractDataType] = Seq(DateType, IntegerType)
 

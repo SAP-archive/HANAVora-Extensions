@@ -3,11 +3,12 @@ package org.apache.spark.sql.extension
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.compat._
-import org.apache.spark.sql.catalyst.{SimpleCatalystConf, ParserDialect}
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, SimpleCatalog, SimpleFunctionRegistry}
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, SimpleCatalog}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
-import org.apache.spark.sql.execution.ExtractPythonUdfs
-import org.apache.spark.sql.sources.{DDLParser, PreInsertCastAndRename}
+import org.apache.spark.sql.catalyst.{ParserDialect, SimpleCatalystConf}
+import org.apache.spark.sql.execution.BaseSparkPlanner
+import org.apache.spark.sql.execution.compat.ExtractPythonUDFs
+import org.apache.spark.sql.execution.datasources._
 
 /**
   * An [[SQLContext]] that eases extensions by mixin [[SQLContextExtension]].
@@ -36,24 +37,10 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
     */
   @transient
   override protected[sql] lazy val functionRegistry = {
-    val registry = new SimpleFunctionRegistry(catalystConf)
+    val registry = newSimpleFunctionRegistry(catalystConf)
     registry.registerBuiltins()
     registerFunctions(registry)
     registry
-  }
-
-  /**
-    * Override default SQL session to enforce different behavior
-    * on some settings.
-    *
-    * This is needed in the case of Hive, but it could be
-    * removed for this case in the future.
-    */
-  protected class SQLSession extends super.SQLSession {
-    override protected[sql] lazy val conf: SQLConf = new SQLConf {
-      override def caseSensitiveAnalysis: Boolean =
-        getConf(SQLConf.CASE_SENSITIVE, "true").toBoolean
-    }
   }
 
   /**
@@ -73,13 +60,13 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
     new Analyzer(catalog, functionRegistry, conf) {
       override val extendedResolutionRules =
         resolutionRules(this) ++
-          (ExtractPythonUdfs ::
+          (ExtractPythonUDFs ::
           PreInsertCastAndRename ::
           Nil)
 
       override val extendedCheckRules = Seq(
-        sources.PreWriteCheck(catalog),
-        /* TODO: This belongs to SQLContextExtension. See bug #95571. */
+        PreWriteCheck(catalog),
+        // TODO: Move this once bug #95571 is fixed.
         HierarchyUDFAnalysis(catalog)
       )
     }
@@ -104,9 +91,11 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
     */
   @transient
   override protected[sql] val planner =
-    // HiveStrategies defines its own strategies, we should be back to SparkPlanner strategies
-    new SparkPlanner with ExtendedPlanner {
+  // HiveStrategies defines its own strategies, we should be back to SparkPlanner strategies
+    new SparkPlanner with ExtendedPlanner with BaseSparkPlanner {
       override def strategies: Seq[Strategy] =
-        self.strategies(this) ++ super.strategies
+        self.strategies(this) ++
+          experimental.extraStrategies ++
+          baseStrategies
     }
 }

@@ -4,9 +4,10 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.{Attribute, EqualTo}
-import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
-import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation}
-import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import org.apache.spark.sql.catalyst.plans.logical.Hierarchy
+import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.types.compat._
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
 
@@ -41,10 +42,16 @@ class ResolveHierarchySuite extends FunSuite with MockitoSugar {
     val resolveHierarchy = ResolveHierarchy(SimpleAnalyzer)
     val resolveReferences = ResolveReferencesWithHierarchies(SimpleAnalyzer)
 
-    val resolvedHierarchy = (0 to 10).foldLeft(hierarchy: LogicalPlan) { (h, _) =>
-      resolveReferences(resolveHierarchy(h))
+    val resolvedHierarchy = (0 to 10).foldLeft(hierarchy: Hierarchy) { (h, _) =>
+      SimpleAnalyzer.ResolveReferences(
+        resolveReferences(resolveHierarchy(h))
+      ).asInstanceOf[Hierarchy]
     }
 
+    assert(resolvedHierarchy.nodeAttribute.resolved)
+    assert(resolvedHierarchy.parenthoodExpression.resolved)
+    assert(resolvedHierarchy.startWhere.map(_.resolved).getOrElse(true))
+    assert(resolvedHierarchy.childrenResolved)
     assert(resolvedHierarchy.resolved)
 
     val parenthoodExpression = resolvedHierarchy

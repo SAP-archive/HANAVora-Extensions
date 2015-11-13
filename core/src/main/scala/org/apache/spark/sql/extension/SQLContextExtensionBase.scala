@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
 import org.apache.spark.sql.catalyst.errors.DialectException
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.sources.DDLParser
+import org.apache.spark.sql.execution.datasources.DDLParser
 import org.apache.spark.util.Utils
 
 import scala.util.control.NonFatal

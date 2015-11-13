@@ -16,6 +16,10 @@
   </properties>
   <dependencies>
     <dependency>
+      <groupId>com.sap.spark</groupId>
+      <artifactId>${compat.artifact.id}</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-hive_${scala.binary.version}</artifactId>
     </dependency>
@@ -112,6 +116,7 @@
         <version>2.6</version>
         <executions>
           <execution>
+            <id>test-jar</id>
             <goals>
               <goal>test-jar</goal>
             </goals>

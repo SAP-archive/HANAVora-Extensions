@@ -138,25 +138,26 @@ object HierarchyRowBroadcastBuilder {
     val predIdx = predSuccIndexes._1
     val succIdx = predSuccIndexes._2
 
-    val succ = HierarchyRowFunctions.rowGet[java.lang.Long](succIdx)
-    val pred = HierarchyRowFunctions.rowGet[java.lang.Long](predIdx)
+    val rowFunctions = HierarchyRowFunctions(attributes.map(_.dataType))
+    val succ = rowFunctions.rowGet[java.lang.Long](succIdx)
+    val pred = rowFunctions.rowGet[java.lang.Long](predIdx)
 
     val startsWhere = startWhere map {
-      case s => HierarchyRowFunctions.rowStartWhere(
-        HierarchyRowFunctions.bindExpression(s, attributes))
+      case s => rowFunctions.rowStartWhere(
+        rowFunctions.bindExpression(s, attributes))
     }
 
     // Todo(Weidner): currently, only first ordering rule is applied:
     val ord = searchBy.isEmpty match{
       case true => null
       case false =>
-        HierarchyRowFunctions.rowGet[java.lang.Long](
+        rowFunctions.rowGet[java.lang.Long](
           attributes.indexWhere(_.name ==
             searchBy.head.child.asInstanceOf[AttributeReference].name))
     }
 
     new HierarchyBroadcastBuilder[Row,Row,Any, Node](
-      pred, succ, startsWhere, ord, HierarchyRowFunctions.rowAppend
+      pred, succ, startsWhere, ord, rowFunctions.rowAppend
     )
   }
 }

@@ -1,13 +1,15 @@
 package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.sql.catalyst.compat.InternalRow
-import org.apache.spark.sql.types.{DataType, StringType}
+import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.expressions.compat._
 import org.apache.spark.unsafe.types.compat._
+import org.apache.spark.sql.types.compat._
 
 /** Return the se with all found sub-strings fe replaced by pe */
 case class Replace(se: Expression, fe: Expression, pe: Expression)
-  extends BackportedTernaryExpression with ImplicitCastInputTypes {
+  extends BackportedTernaryExpression
+  with ImplicitCastInputTypes with CodegenFallback {
 
   override def inputTypes: Seq[AbstractDataType] = Seq.fill(3)(StringType)
 

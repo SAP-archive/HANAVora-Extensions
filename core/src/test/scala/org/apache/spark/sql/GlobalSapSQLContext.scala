@@ -5,9 +5,10 @@ import java.io.File
 import com.sap.spark.util.TestUtils
 import com.sap.spark.{GlobalSparkContext, WithSQLContext}
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.catalyst.compat.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{BoundReference, Cast}
-import org.apache.spark.sql.hive.SapHiveContext
-import org.apache.spark.sql.types.{StringType, StructType, UTF8String}
+import org.apache.spark.unsafe.types.compat._
+import org.apache.spark.sql.types.compat._
 import org.scalatest.Suite
 
 import scala.io.Source
@@ -31,7 +32,7 @@ trait GlobalSapSQLContext extends GlobalSparkContext with WithSQLContext {
     val data = Source.fromFile(path)
       .getLines()
       .map({ line =>
-      val stringRow = Row.fromSeq(line.split(",", -1).map(UTF8String(_)))
+      val stringRow = InternalRow.fromSeq(line.split(",", -1).map(UTF8String.fromString))
       Row.fromSeq(conversions.map({ c => c.eval(stringRow) }))
     })
     val rdd = sc.parallelize(data.toSeq, numberOfSparkWorkers)
@@ -49,7 +50,9 @@ object GlobalSapSQLContext {
     }
 
   private def reset(): Unit = {
-    _sqlc.catalog.unregisterAllTables()
+    if (_sqlc != null) {
+      _sqlc.catalog.unregisterAllTables()
+    }
   }
 
 }

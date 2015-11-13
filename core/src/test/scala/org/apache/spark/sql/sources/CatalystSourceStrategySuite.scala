@@ -2,15 +2,16 @@ package org.apache.spark.sql.sources
 
 import com.sap.spark.{GlobalSparkContext, PlanTest}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.GlobalSapSQLContext
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.types.{IntegerType, NodeType, StructField, StructType}
-import org.apache.spark.sql.{GlobalSapSQLContext, SQLContext}
-import org.apache.spark.{SparkContext, TaskContext}
+import org.apache.spark.sql.execution.datasources.{CatalystSourceStrategy, CreateLogicalRelation}
+import org.apache.spark.sql.types.NodeType
+import org.apache.spark.sql.types.compat._
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class CatalystSourceStrategySuite
@@ -30,10 +31,10 @@ class CatalystSourceStrategySuite
     }
 
   private var nonCatalystRelation: BaseRelation = _
-  private var lncr: LogicalRelation = _
+  private var lncr: LogicalPlan = _
   private def lncrCInt: Attribute = lncr.output.find(_.name == "c_int").get
   private var catalystRelation: DummyCatalystRelation = _
-  private var lcr: LogicalRelation = _
+  private var lcr: LogicalPlan = _
   private val schema = StructType(Seq(
     StructField("c_int", IntegerType)
   ))
@@ -45,10 +46,10 @@ class CatalystSourceStrategySuite
     SparkPlan.currentContext.set(sqlContext)
 
     nonCatalystRelation = new DummyRelation(schema, sqlc)
-    lncr = LogicalRelation(nonCatalystRelation)
+    lncr = CreateLogicalRelation(nonCatalystRelation)
 
     catalystRelation = new DummyCatalystRelation(schema, sqlc)
-    lcr = LogicalRelation(catalystRelation)
+    lcr = CreateLogicalRelation(catalystRelation)
   }
 
 
@@ -59,12 +60,12 @@ class CatalystSourceStrategySuite
     var plan: LogicalPlan = lcr
     var physicals = CatalystSourceStrategy(plan)
     assert(physicals.nonEmpty)
-    comparePlans(plan, physicals.head.execute().asInstanceOf[LogicalPlanRDD].plan)
+    comparePlans(plan, getLogicalPlans(physicals.head.execute()).head)
 
     plan = lcr.groupBy(lcrCInt)(lcrCInt)
     physicals = CatalystSourceStrategy(plan)
     assert(physicals.nonEmpty)
-    comparePlans(plan, physicals.head.execute().asInstanceOf[LogicalPlanRDD].plan)
+    comparePlans(plan, getLogicalPlans(physicals.head.execute()).head)
   }
 
   test("Non-partitioned unsupported reject") {

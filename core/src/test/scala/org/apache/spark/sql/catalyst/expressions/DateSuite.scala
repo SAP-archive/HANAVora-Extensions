@@ -3,7 +3,7 @@ package org.apache.spark.sql.catalyst.expressions
 import java.sql
 import java.util.{Calendar, Locale, TimeZone}
 import org.apache.spark.Logging
-import org.apache.spark.sql.GlobalSapSQLContext
+import org.apache.spark.sql.{Row, GlobalSapSQLContext}
 import org.scalatest.FunSuite
 
 class DateSuite

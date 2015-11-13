@@ -2,7 +2,7 @@ package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.commons.math3.util.FastMath
 import org.apache.spark.Logging
-import org.apache.spark.sql.GlobalSapSQLContext
+import org.apache.spark.sql.{Row, GlobalSapSQLContext}
 import org.scalatest.FunSuite
 
 class MathsSuite

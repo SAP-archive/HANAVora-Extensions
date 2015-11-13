@@ -119,7 +119,7 @@ class SapSqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     val ret = sqli.interpret(query, context)
 
     assertResult(InterpreterResult.Code.ERROR)(ret.code())
-    assert(ret.message().contains("Input path does not exist"))
+    assert(ret.message().contains("path"))
   }
 
   test("Bad query") {

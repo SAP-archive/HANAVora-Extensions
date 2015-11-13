@@ -1,5 +1,6 @@
 package org.apache.spark.sql.catalyst.expressions
 
+import org.apache.spark.sql.catalyst.compat.InternalRow
 import org.apache.spark.test.HierarchyGen._
 import org.apache.spark.sql.types.{Node, NodeType}
 import org.scalatest.{MustMatchers, PropSpec}
@@ -13,7 +14,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
     forAll(node, minSuccessful(100), maxDiscarded(1000), maxSize(20)) {
       (node: Node) => {
         val ref = BoundReference(0, NodeType, nullable = false)
-        val row = Row(node)
+        val row = InternalRow(node)
         val level = Level(ref).eval(row)
         val isLeaf = IsLeaf(ref).eval(row)
         assert(level == node.path.size)
@@ -27,7 +28,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
       (node: Node) => {
         val leftRef = BoundReference(0, NodeType, nullable = false)
         val rightRef = BoundReference(1, NodeType, nullable = false)
-        val row = Row(node, node)
+        val row = InternalRow(node, node)
         val leftLevel = Level(leftRef).eval(row)
         val rightLevel = Level(rightRef).eval(row)
         val isDescendantLeftRight = IsDescendant(leftRef, rightRef).eval(row)
@@ -58,7 +59,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
         val child = nodePair._2
         val leftRef = BoundReference(0, NodeType, nullable = false)
         val rightRef = BoundReference(1, NodeType, nullable = false)
-        val row = Row(parent, child)
+        val row = InternalRow(parent, child)
         val leftLevel = Level(leftRef).eval(row).asInstanceOf[Int]
         val rightLevel = Level(rightRef).eval(row).asInstanceOf[Int]
         val isDescendantLeftRight = IsDescendant(leftRef, rightRef).eval(row)
@@ -89,7 +90,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
         val right = nodePair._2
         val leftRef = BoundReference(0, NodeType, nullable = false)
         val rightRef = BoundReference(1, NodeType, nullable = false)
-        val row = Row(left, right)
+        val row = InternalRow(left, right)
         val leftLevel = Level(leftRef).eval(row)
         val rightLevel = Level(rightRef).eval(row)
         val isDescendantLeftRight = IsDescendant(leftRef, rightRef).eval(row)
@@ -118,7 +119,7 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
       (nodePair: (Node, Node)) => {
         val leftRef = BoundReference(0, NodeType, nullable = false)
         val rightRef = BoundReference(1, NodeType, nullable = false)
-        val row = Row(nodePair._1, nodePair._2)
+        val row = InternalRow(nodePair._1, nodePair._2)
         val leftLevel = Level(leftRef).eval(row).asInstanceOf[Int]
         val rightLevel = Level(rightRef).eval(row).asInstanceOf[Int]
         val isDescendantLeftRight = IsDescendant(leftRef, rightRef).eval(row)

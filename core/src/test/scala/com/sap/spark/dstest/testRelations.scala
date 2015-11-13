@@ -2,7 +2,7 @@ package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.sources.{DropRelation, TemporaryFlagRelation, BaseRelation}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.compat._
 
 /**
  * Test relation with the temporary and non temporary flags

@@ -1,6 +1,6 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import org.apache.spark.sql.types.Decimal
+import org.apache.spark.sql.types.compat._
 
 import scala.annotation.tailrec
 

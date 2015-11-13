@@ -105,12 +105,13 @@ class SapThriftServer2Test(val master: String = "local",
     val serverStarted = Promise[Unit]()
 
     process = Some(Process(command, None, env: _*).run(ProcessLogger(
-      (stdout: String) => {
-        logInfo(s"[SAPThriftServer] $stdout")
-        if (stdout.contains("ThriftBinaryCLIService listening on") ||
-          stdout.contains("Started ThriftHttpCLIService in http")) {
+      (line: String) => {
+        logInfo(s"[SAPThriftServer] $line")
+        if (line.contains("ThriftBinaryCLIService listening on") ||
+          line.contains("ThriftBinaryCLIService on port") ||
+          line.contains("Started ThriftHttpCLIService in http")) {
           serverStarted.trySuccess(())
-        } else if (stdout.contains("HiveServer2 is stopped")) {
+        } else if (line.contains("HiveServer2 is stopped")) {
           // This log line appears when the server fails to start and terminates gracefully (e.g.
           // because of port contention).
           serverStarted.tryFailure(new RuntimeException("Failed to start HiveThriftServer2"))

@@ -23,6 +23,7 @@ trait MockitoSparkContext extends WithSparkContext with MockitoSugar {
     _sc = mock[SparkContext](withSettings().stubOnly())
     when(_sc.conf).thenReturn(_sparkConf)
     when(_sc.getConf).thenReturn(_sparkConf)
+    when(_sc.ui).thenReturn(None)
   }
 
   override protected def tearDownSparkContext(): Unit = {

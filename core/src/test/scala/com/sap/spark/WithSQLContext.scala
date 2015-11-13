@@ -1,6 +1,9 @@
 package com.sap.spark
 
+import java.util.Locale
+
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.hive.HiveContext
 import org.scalatest.{BeforeAndAfterEach, Suite}
 
 trait WithSQLContext extends BeforeAndAfterEach {
@@ -36,6 +39,13 @@ trait WithSQLContext extends BeforeAndAfterEach {
 
   protected def tearDownSQLContext(): Unit =
     _sqlContext = null
+
+  protected def tableName(name: String): String =
+    sqlc match {
+      /* Hive tables are all lower case */
+      case _: HiveContext => name.toLowerCase(Locale.ENGLISH)
+      case _ => name
+    }
 
 }
 

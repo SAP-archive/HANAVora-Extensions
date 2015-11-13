@@ -3,22 +3,27 @@ package org.apache.spark.sql.hierarchy
 import org.apache.spark.SparkConf
 import org.apache.spark.serializer.JavaSerializer
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.compat._
 import org.apache.spark.sql.types.Node
 import org.scalatest.FunSuite
 
 class HierarchyBuilderSuite extends FunSuite {
 
+  val N = 5
+  val rowFunctions = HierarchyRowFunctions(Seq.fill(N)(StringType))
+
   test("HierarchyRowFunctions.rowGet") {
     for (i <- 0 to 5) {
       val row = Row((0 to 5).map(_.toString): _*)
-      assertResult(i.toString)(HierarchyRowFunctions.rowGet(i)(row))
+      assertResult(i.toString)(rowFunctions.rowGet(i)(row))
     }
   }
 
   test("HierarchyRowFunctions.rowInit") {
     for (i <- 0 to 5) {
       val row = Row((0 to 5).map(_.toString): _*)
-      val result = HierarchyRowFunctions.rowInit(HierarchyRowFunctions.rowGet(i))(row, None)
+
+      val result = rowFunctions.rowInit(rowFunctions.rowGet(i))(row, None)
       val expected = Row(row.toSeq :+ Node(List(i.toString)): _*)
       assertResult(expected)(result)
     }
@@ -28,7 +33,7 @@ class HierarchyBuilderSuite extends FunSuite {
   test("HierarchyRowFunctions.rowInitWithOrder") {
     for (i <- 0 to 5) {
       val row = Row((0 to 5).map(_.toString): _*)
-      val result = HierarchyRowFunctions.rowInit(HierarchyRowFunctions.rowGet(i))(row, Some(42L))
+      val result = rowFunctions.rowInit(rowFunctions.rowGet(i))(row, Some(42L))
       val expected = Row(row.toSeq :+ Node(List(i.toString), ordPath = List(42L)): _*)
       assertResult(expected)(result)
     }
@@ -39,8 +44,8 @@ class HierarchyBuilderSuite extends FunSuite {
     for (i <- 0 to 5) {
       val rightRow = Row(0 to 5: _*)
       val leftRow = Row("foo", 0, "bar", Node(List(0)))
-      val result = HierarchyRowFunctions.rowModify(
-        HierarchyRowFunctions.rowGet(i)
+      val result = rowFunctions.rowModify(
+        rowFunctions.rowGet(i)
       )(leftRow, rightRow)
       val expected = Row((0 to 5) :+ Node(List(0, i)): _*)
       assertResult(expected)(result)
@@ -52,8 +57,8 @@ class HierarchyBuilderSuite extends FunSuite {
     for (i <- 0 to 5) {
       val rightRow = Row(0 to 5: _*)
       val leftRow = Row("foo", 0, "bar", Node(List(0)))
-      val result = HierarchyRowFunctions.rowModifyAndOrder(
-        HierarchyRowFunctions.rowGet(i)
+      val result = rowFunctions.rowModifyAndOrder(
+        rowFunctions.rowGet(i)
       )(leftRow, rightRow, Some(42L))
       val expected = Row((0 to 5) :+ Node(List(0, i), ordPath = List(42L)): _*)
       assertResult(expected)(result)

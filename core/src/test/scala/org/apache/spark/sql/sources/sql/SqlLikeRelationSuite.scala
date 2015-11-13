@@ -2,7 +2,7 @@ package org.apache.spark.sql.sources.sql
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.compat._
 import org.scalatest.FunSuite
 
 class SqlLikeRelationSuite extends FunSuite with Logging {

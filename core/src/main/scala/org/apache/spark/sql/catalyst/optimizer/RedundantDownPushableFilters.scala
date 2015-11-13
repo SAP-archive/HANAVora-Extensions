@@ -1,6 +1,7 @@
 package org.apache.spark.sql.catalyst.optimizer
 
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.compat.ScalaUDF
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.Rule
 
@@ -111,7 +112,7 @@ object RedundantDownPushableFilters extends Rule[LogicalPlan] with PredicateHelp
   // TODO Adapt this function when we migrate to Spark 1.5.X. There is a non deterministic
   // trait extended by every non deterministic expression
   private def isNonDeterministicExpression(exp: Expression): Boolean = exp match {
-    case Rand(_) | Randn(_) | ScalaUdf(_, _, _) => true
+    case Rand(_) | Randn(_) | _: ScalaUDF => true
     case _ => false
   }
 }

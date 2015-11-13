@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
-import org.apache.spark.sql.types.Decimal
+import org.apache.spark.sql.types.compat._
 import org.scalatest.FunSuite
 
 class FiltersReductionSuite
@@ -71,12 +71,12 @@ class FiltersReductionSuite
   }
 
   test("Reducing redundant greater than filters with Int and Decimal") {
-    val originalAnalyzedQuery = testRelation.where("a".attr > 3 &&
-    "a".attr > Decimal("214.9")).analyze
+    val originalAnalyzedQuery = testRelation.where('a.attr > 3 &&
+    'a.attr > Decimal("214.9")).analyze
 
     val optimized = Optimize.execute(originalAnalyzedQuery)
 
-    val correctAnswer = testRelation.where("a".attr > Decimal("214.9")).analyze
+    val correctAnswer = testRelation.where('a.attr > Decimal("214.9")).analyze
 
     comparePlans(optimized, correctAnswer)
   }

@@ -26,20 +26,21 @@ object HierarchyRowJoinBuilder {
     val predIdx = predSuccIndexes._1
     val pkIdx = predSuccIndexes._2
 
-    val pk = HierarchyRowFunctions.rowGet[java.lang.Long](pkIdx)
-    val pred = HierarchyRowFunctions.rowGet[java.lang.Long](predIdx)
-    val startsWhere = HierarchyRowFunctions.rowStartWhere(
-      HierarchyRowFunctions.bindExpression(startWhere, attributes))
+    val rowFunctions = HierarchyRowFunctions(attributes.map(_.dataType))
+    val pk = rowFunctions.rowGet[java.lang.Long](pkIdx)
+    val pred = rowFunctions.rowGet[java.lang.Long](predIdx)
+    val startsWhere = rowFunctions.rowStartWhere(
+      rowFunctions.bindExpression(startWhere, attributes))
     // Todo(Weidner): currently, only first ordering rule is applied:
     val ord = searchBy.isEmpty match{
       case true => null
       case false =>
-        HierarchyRowFunctions.rowGet[java.lang.Long](
+        rowFunctions.rowGet[java.lang.Long](
           attributes.indexWhere(_.name ==
             searchBy.head.child.asInstanceOf[AttributeReference].name))
     }
-    val init = HierarchyRowFunctions.rowInit(pk)
-    val modify = HierarchyRowFunctions.rowModifyAndOrder(pk)
+    val init = rowFunctions.rowInit(pk)
+    val modify = rowFunctions.rowModifyAndOrder(pk)
 
     new HierarchyJoinBuilder[Row,Row,Any](startsWhere, pk, pred, init, ord, modify)
   }

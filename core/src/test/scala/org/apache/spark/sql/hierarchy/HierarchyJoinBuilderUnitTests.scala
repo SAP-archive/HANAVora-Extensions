@@ -1,6 +1,7 @@
 package org.apache.spark.sql.hierarchy
 
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types.Node
 import org.apache.spark.Logging
 import org.apache.spark.sql.Row
 

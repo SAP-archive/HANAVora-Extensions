@@ -1,9 +1,9 @@
 package org.apache.spark.sql.catalyst.analysis
 
-import org.apache.spark.sql.catalyst.expressions.{ExprId, Attribute, AttributeReference}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, ExprId}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.sources.LogicalRelation
+import org.apache.spark.sql.execution.datasources.IsLogicalRelation
 import org.apache.spark.sql.sources.sql.SqlLikeRelation
 
 /**
@@ -16,7 +16,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
 
   override def apply(plan: LogicalPlan): LogicalPlan = {
     val transformedPlan = plan transformUp {
-      case lr: LogicalRelation => lr
+      case lr@IsLogicalRelation(_) => lr
       case lp: LogicalPlan with Product =>
 
         /** Get a mapping from [[ExprId]] to qualifier */
@@ -61,7 +61,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
         subquery.output.map({ attr => (attr.exprId, alias) })
 
       /** If the node is a [[SqlLikeRelation]], use its table name. */
-      case lr@LogicalRelation(r: SqlLikeRelation) =>
+      case lr@IsLogicalRelation(r: SqlLikeRelation) =>
         lr.output.map({ attr => (attr.exprId, r.tableName) })
 
       /**

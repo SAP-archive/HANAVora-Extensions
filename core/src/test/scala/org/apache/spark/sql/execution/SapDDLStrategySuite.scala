@@ -1,11 +1,12 @@
 package org.apache.spark.sql.execution
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.sources._
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.execution.datasources.{DescribeDatasourceCommand, LogicalRelation}
 import org.apache.spark.sql.extension.ExtendedPlanner
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.commands.DescribeDatasource
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.compat._
 import org.mockito.Mockito
 import org.scalatest.FunSuite
 

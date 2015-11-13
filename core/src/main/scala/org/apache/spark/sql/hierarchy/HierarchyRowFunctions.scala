@@ -1,10 +1,13 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.compat.InternalRow
+import org.apache.spark.sql.catalyst.CatalystTypeConverters
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.types.compat._
 import org.apache.spark.sql.types.Node
 
-private[hierarchy] object HierarchyRowFunctions {
+private[hierarchy]  case class HierarchyRowFunctions(inputTypes: Seq[DataType]) {
 
   private[hierarchy] def rowGet[K](i: Int): Row => K = (row: Row) => row.getAs[K](i)
 
@@ -50,7 +53,13 @@ private[hierarchy] object HierarchyRowFunctions {
   }
 
   private[hierarchy] def rowStartWhere[K](exp: Expression): Row => Boolean = { row =>
-    exp.eval(row).asInstanceOf[Boolean]
+    val numColumns = inputTypes.length
+    val converters = inputTypes.map(CatalystTypeConverters.createToCatalystConverter)
+    val values = Stream.from(0).takeWhile(_ < numColumns).map({ i =>
+      converters(i)(row(i))
+    })
+    val newRow = InternalRow.fromSeq(values)
+    exp.eval(newRow).asInstanceOf[Boolean]
   }
 
   private[hierarchy] def bindExpression(exp: Expression, attributes: Seq[Attribute])

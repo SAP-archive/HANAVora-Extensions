@@ -1,9 +1,9 @@
 package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
-import org.apache.spark.sql.catalyst.expressions.compat.AbstractDataType
-import org.apache.spark.sql.catalyst.expressions.compat._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.catalyst.expressions.compat.{AbstractDataType, _}
+import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types.{Node, NodeType}
 
 abstract class UnaryNodeExpression
   extends BackportedUnaryExpression
@@ -17,7 +17,7 @@ abstract class UnaryNodeExpression
   override def inputTypes: Seq[AbstractDataType] = NodeType :: Nil
 
   override def nullSafeEval(input: Any): Any =
-    nullSafeNodeEval(input.asInstanceOf[Node])
+    nullSafeNodeEval(NodeType.deserialize(input))
 
   def nullSafeNodeEval(node: Node): Any
 }
@@ -30,9 +30,10 @@ abstract class NodePredicate
 
   override def dataType: DataType = BooleanType
   override def inputTypes: Seq[AbstractDataType] = Seq.fill(2)(NodeType)
+  def symbol: String
 
   override def nullSafeEval(input1: Any, input2: Any): Any =
-    nullSafeNodeEval(input1.asInstanceOf[Node], input2.asInstanceOf[Node])
+    nullSafeNodeEval(NodeType.deserialize(input1), NodeType.deserialize(input2))
 
   def nullSafeNodeEval(node1: Node, node2: Node): Any
 }

@@ -26,6 +26,9 @@
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
+    <module>compat</module>
+    <module>compat-1.4</module>
+    <module>compat-1.5</module>
     <module>core</module>
     <module>zeppelin</module>
     <module>sap-thriftserver</module>
@@ -36,10 +39,14 @@
     <mockito.version>1.10.19</mockito.version>
     <scala.version>2.10.4</scala.version>
     <scala.binary.version>2.10</scala.binary.version>
-    <spark.version>1.4.1</spark.version>
+    <spark14.version>1.4.1</spark14.version>
+    <spark15.version>1.5.2</spark15.version>
+    <spark.version>${spark14.version}</spark.version>
+    <compat.artifact.id>compat-1.4</compat.artifact.id>
     <scalacheck.version>1.11.3</scalacheck.version>
     <scalaz.version>7.1.1</scalaz.version>
     <hadoop.version>2.6.0</hadoop.version>
+    <apache.curator.version>2.4.0</apache.curator.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <minimum.code.covered.ratio>0.80</minimum.code.covered.ratio>
@@ -167,6 +174,21 @@
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
+        <artifactId>compat</artifactId>
+        <version>1.2.5</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sap.spark</groupId>
+        <artifactId>compat-1.4</artifactId>
+        <version>1.2.5</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sap.spark</groupId>
+        <artifactId>compat-1.5</artifactId>
+        <version>1.2.5</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
         <version>1.2.5</version>
       </dependency>
@@ -184,6 +206,16 @@
         <scope>test</scope>
       </dependency>
 
+      <dependency>
+        <!--
+          XXX: Tachyon depends on an older version of curator-client,
+               which causes NoClassDefFoundError: org/apache/curator/utils/InternalACLProvider
+               now this matches spark-core dependency.
+        -->
+        <groupId>org.apache.curator</groupId>
+        <artifactId>curator-client</artifactId>
+        <version>${apache.curator.version}</version>
+      </dependency>
 
       <dependency>
         <groupId>org.pegdown</groupId> <!-- required to create html test results output -->
@@ -215,11 +247,6 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>versions-maven-plugin</artifactId>
           <version>2.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>build-helper-maven-plugin</artifactId>
-          <version>1.9.1</version>
         </plugin>
 
         <plugin>
@@ -292,6 +319,12 @@
         </plugin>
 
         <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>1.9.1</version>
+        </plugin>
+
+        <plugin>
           <groupId>org.scalastyle</groupId>
           <artifactId>scalastyle-maven-plugin</artifactId>
           <version>0.4.0</version>
@@ -323,6 +356,12 @@
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>${jacoco.maven.plugin.version}</version>
+        <configuration>
+          <!-- XXX: JaCoCo fails to instrument Hive parser classes -->
+          <excludes>
+            <exclude>**/hive/ql/parse/**</exclude>
+          </excludes>
+        </configuration>
         <executions>
           <execution>
             <id>default-prepare-agent</id>
@@ -413,6 +452,37 @@
   </build>
 
   <profiles>
+    <profile>
+      <id>spark-1.5</id>
+      <properties>
+        <spark.version>${spark15.version}</spark.version>
+        <compat.artifact.id>compat-1.5</compat.artifact.id>
+      </properties>
+      <!--
+        XXX: We need to work around the issue of other modules not picking the
+        transitive dependencies from the profile. See MNG-1388.
+      -->
+      <dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>com.sap.spark</groupId>
+            <artifactId>core</artifactId>
+            <version>1.2.5</version>
+            <exclusions>
+              <exclusion>
+                <groupId>com.sap.spark</groupId>
+                <artifactId>compat-1.4</artifactId>
+              </exclusion>
+            </exclusions>
+          </dependency>
+          <dependency>
+            <groupId>com.sap.spark</groupId>
+            <artifactId>compat-1.5</artifactId>
+            <version>1.2.5</version>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
+    </profile>
     <profile>
       <id>release.build</id>
       <activation>

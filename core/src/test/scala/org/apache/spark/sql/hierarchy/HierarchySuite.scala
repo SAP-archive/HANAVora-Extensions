@@ -1,9 +1,10 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.{Row, _}
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{IntegerType, LongType, Node, StringType}
+import org.apache.spark.sql.catalyst.expressions.{IsNull, EqualTo, AttributeReference}
+import org.apache.spark.sql.types.Node
+import org.apache.spark.sql.{GlobalSapSQLContext, Row}
+import org.apache.spark.sql.types.compat._
 import org.scalatest.FunSuite
 
 import scala.util.Random

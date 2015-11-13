@@ -3,8 +3,8 @@ package org.apache.spark.sql
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry
 import org.apache.spark.sql.catalyst.analysis.compat._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.mathfuncs.Log
-import org.apache.spark.sql.types.{IntegerType, StringType, DoubleType}
+import org.apache.spark.sql.catalyst.expressions.compat._
+import org.apache.spark.sql.types.compat._
 
 /**
  * Register custom functions in a function registry.

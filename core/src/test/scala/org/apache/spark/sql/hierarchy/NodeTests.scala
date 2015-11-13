@@ -1,8 +1,9 @@
 package org.apache.spark.sql.hierarchy
 
-import org.apache.spark.sql.types._
-import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.Logging
+import org.apache.spark.sql.types.{Node, NodeHelpers}
+
+import scala.collection.mutable.ArrayBuffer
 
 // scalastyle:off magic.number
 // scalastyle:off file.size.limit

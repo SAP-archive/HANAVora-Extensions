@@ -3,7 +3,7 @@ package org.apache.spark.sql.catalyst.analysis
 import org.apache.spark.sql.catalyst.expressions.And
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.sources.LogicalRelation
+import org.apache.spark.sql.execution.datasources.IsLogicalRelation
 import org.apache.spark.sql.sources.sql.{SingleQuery, SqlLikeRelation}
 
 /**
@@ -47,7 +47,7 @@ object AddSubqueries extends Rule[LogicalPlan] {
     plan match {
 
       /** End recursion at leaves */
-      case relation@LogicalRelation(_: SqlLikeRelation) =>
+      case relation@IsLogicalRelation(_: SqlLikeRelation) =>
         relation
 
       /** Subqueries are preserved as they are */
@@ -186,7 +186,7 @@ object AddSubqueries extends Rule[LogicalPlan] {
     */
   private[this] def getName(plan: LogicalPlan): Option[String] =
     plan match {
-      case LogicalRelation(table: SqlLikeRelation) => Some(table.tableName)
+      case IsLogicalRelation(table: SqlLikeRelation) => Some(table.tableName)
       case Subquery(alias, child) => Some(alias)
       case _ => None
     }

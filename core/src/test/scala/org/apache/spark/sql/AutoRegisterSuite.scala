@@ -7,7 +7,7 @@ import org.scalatest.FunSuite
 class AutoRegisterSuite extends FunSuite with MockitoSparkContext {
 
   test("Auto-registering Feature ON") {
-    val relationName = "TestRelation"
+    val relationName = "testrelation"
     com.sap.spark.dstest.DefaultSource.addRelation(relationName)
     mockSparkConf.set(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES,
       "com.sap.spark.dstest")

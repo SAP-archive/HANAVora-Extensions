@@ -50,7 +50,7 @@ trait CatalystSource {
   def supportsExpression(expr: Expression): Boolean
 
   /**
-   * Takes a logical plan and returns an RDD[Row].
+   * Takes a logical plan and returns an RDD[InternalRow].
    *
    * Implementations can assume that [[CatalystSource.supportsLogicalPlan()]]
    * was called before this method.

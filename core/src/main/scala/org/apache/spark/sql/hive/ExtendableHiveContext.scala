@@ -7,9 +7,9 @@ import org.apache.spark.sql.catalyst.analysis.compat._
 import org.apache.spark.sql.catalyst.analysis.{Analyzer, _}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.{CatalystConf, ParserDialect}
-import org.apache.spark.sql.execution.ExtractPythonUdfs
+import org.apache.spark.sql.execution.compat.ExtractPythonUDFs
+import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension._
-import org.apache.spark.sql.sources.{DDLParser, DataSourceStrategy}
 
 /**
  * Extendable [[HiveContext]]. This context is composable with traits
@@ -36,27 +36,12 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
   }
 
   @transient
-  override protected[sql] lazy val functionRegistry = {
-    val registry = new HiveFunctionRegistry with OverrideFunctionRegistry {
-
-      override val functionBuilders = StringKeyHashMap[FunctionBuilder](caseSensitive = false)
-
-      override def conf: CatalystConf = currentSession().conf
-    }
+  override protected[sql]
+  lazy val functionRegistry = {
+    val registry = CompatHiveFunctionRegistry(conf)
     registry.registerBuiltins()
     registerFunctions(registry)
     registry
-  }
-
-  override protected[sql] def createSession(): SQLSession = {
-    new this.SQLSession()
-  }
-
-  protected class SQLSession extends super.SQLSession {
-    override protected[sql] lazy val conf: SQLConf = new SQLConf {
-      override def caseSensitiveAnalysis: Boolean =
-        getConf(SQLConf.CASE_SENSITIVE, "true").toBoolean
-    }
   }
 
   @transient
@@ -74,13 +59,13 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
         (catalog.ParquetConversions ::
           catalog.CreateTables ::
           catalog.PreInsertionCasts ::
-          ExtractPythonUdfs ::
+          ExtractPythonUDFs ::
           ResolveHiveWindowFunction ::
-          sources.PreInsertCastAndRename ::
+          PreInsertCastAndRename ::
           Nil)
 
       override val extendedCheckRules = Seq(
-        sources.PreWriteCheck(catalog),
+        PreWriteCheck(catalog),
         // TODO: Move this once bug #95571 is fixed.
         HierarchyUDFAnalysis(catalog)
       )
@@ -95,22 +80,11 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
 
   @transient
   override protected[sql] val planner: SparkPlanner with HiveStrategies =
-  // HiveStrategies defines its own strategies, we should be back to SparkPlanner strategies
-    new SparkPlanner with HiveStrategies with ExtendedPlanner {
-      override def strategies: Seq[Strategy] = self.strategies(this) ++
-        experimental.extraStrategies ++ (
-        DataSourceStrategy ::
-          DDLStrategy ::
-          TakeOrdered ::
-          HashAggregation ::
-          LeftSemiJoin ::
-          HashJoin ::
-          InMemoryScans ::
-          ParquetOperations ::
-          BasicOperators ::
-          CartesianProduct ::
-          BroadcastNestedLoopJoin ::
-          HiveTableScans :: Nil)
+    new SparkPlanner with BaseHivePlanner with ExtendedPlanner {
+      override def strategies: Seq[Strategy] =
+        self.strategies(this) ++
+          experimental.extraStrategies ++
+          baseStrategies(self)
 
       override val hiveContext = self
     }

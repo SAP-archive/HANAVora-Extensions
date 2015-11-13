@@ -1,7 +1,7 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.compat._
 
 /**
  * In general SQL terms temporary tables go away when the context closes (i.e. user session)

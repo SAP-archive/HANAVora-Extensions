@@ -1,14 +1,16 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import org.apache.spark.sql.types.{DataType, StringType}
+import org.apache.spark.sql.catalyst.compat.InternalRow
+import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
+import org.apache.spark.sql.catalyst.expressions.compat._
+import org.apache.spark.sql.types.compat._
 
 
-case class DataSourceExpression(name: String, child: Seq[Expression]) extends Expression {
-  override type EvaluatedType = StringType
-  override def eval(input: Row): EvaluatedType = {
+case class DataSourceExpression(name: String, children: Seq[Expression])
+  extends BackportedExpression with CodegenFallback {
+  override def eval(input: InternalRow): Any = {
     sys.error(s"Data source functions cannot be evaluated in Spark")
     }
-  override def nullable: Boolean = true
   override def dataType: DataType = StringType
-  override def children: Seq[Expression] = child
+  override def nullable: Boolean = true
 }

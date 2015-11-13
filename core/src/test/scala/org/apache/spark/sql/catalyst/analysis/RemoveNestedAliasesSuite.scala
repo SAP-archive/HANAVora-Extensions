@@ -5,8 +5,9 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.Alias
-import org.apache.spark.sql.sources.{BaseRelation, LogicalRelation}
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
+import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.types.compat._
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
 

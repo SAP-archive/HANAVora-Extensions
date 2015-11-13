@@ -4,10 +4,11 @@ import com.sap.spark.PlanTest
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.analysis.compat._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.CreateViewCommand
-import org.apache.spark.sql.types.{Metadata, StringType}
+import org.apache.spark.sql.execution.datasources.CreateViewCommand
+import org.apache.spark.sql.types.compat._
 import org.scalatest.FunSuite
 
 class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
@@ -30,7 +31,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
     val parser = new SapParserDialect
     val result = parser.parse(
       """
-        |SELECT * FROM HIERARCHY (
+        |SELECT 1 FROM HIERARCHY (
         | USING T1 AS v
         | JOIN PARENT u ON v.pred = u.succ
         | SEARCH BY ord
@@ -39,7 +40,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         |) AS H
       """.stripMargin)
 
-    val expected = Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
+    val expected = Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
       relation = UnresolvedRelation("T1" :: Nil, Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
@@ -47,7 +48,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
       searchBy = SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,
       nodeAttribute = UnresolvedAttribute("Node")
     )))
-    assertResult(expected)(result)
+    comparePlans(expected, result)
 
     val analyzed = analyzer.execute(result)
     log.info(s"$analyzed")
@@ -57,7 +58,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
     val parser = new SapParserDialect
     val result = parser.parse(
       """
-        |SELECT * FROM HIERARCHY (
+        |SELECT 1 FROM HIERARCHY (
         | USING T1 AS v
         | JOIN PARENT u ON v.pred = u.succ
         | SEARCH BY myAttr ASC, otherAttr DESC, yetAnotherAttr
@@ -65,7 +66,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         | SET Node
         |) AS H
       """.stripMargin)
-    val expected = Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
+    val expected = Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
       relation = UnresolvedRelation("T1" :: Nil, Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
@@ -75,7 +76,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         SortOrder(UnresolvedAttribute("yetAnotherAttr"), Ascending) :: Nil,
       nodeAttribute = UnresolvedAttribute("Node")
     )))
-    assertResult(expected)(result)
+    comparePlans(expected, result)
 
     val analyzed = analyzer.execute(result)
     log.info(s"$analyzed")
@@ -85,14 +86,14 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
       val parser = new SapParserDialect
       val result = parser.parse(
         """
-          |SELECT * FROM HIERARCHY (
+          |SELECT 1 FROM HIERARCHY (
           | USING T1 AS v
           | JOIN PARENT u ON v.pred = u.succ
           | START WHERE pred IS NULL
           | SET Node
           |) AS H
         """.stripMargin)
-      val expected = Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
+      val expected = Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
@@ -101,7 +102,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         searchBy = Nil,
         nodeAttribute = UnresolvedAttribute("Node")
       )))
-      assertResult(expected)(result)
+      comparePlans(expected, result)
 
       val analyzed = analyzer.execute(result)
       log.info(s"$analyzed")
@@ -109,17 +110,17 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
 
   test("create view") {
     val parser = new SapParserDialect
-    val result = parser.parse("CREATE VIEW myview AS SELECT * FROM mytable")
+    val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateViewCommand("myview",
-      Project(UnresolvedStar(None) :: Nil, UnresolvedRelation("mytable" :: Nil))
+      Project(unresolvedAliases(Literal(1)), UnresolvedRelation("mytable" :: Nil))
     )
-    assertResult(expected)(result)
+    comparePlans(expected, result)
   }
 
   test("create view of a hierarchy") {
     val parser = new SapParserDialect
     val result = parser.parse("""
-                              CREATE VIEW HV AS SELECT * FROM HIERARCHY (
+                              CREATE VIEW HV AS SELECT 1 FROM HIERARCHY (
                                  USING T1 AS v
                                  JOIN PARENT u ON v.pred = u.succ
                                  START WHERE pred IS NULL
@@ -127,7 +128,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
                                 ) AS H
                               """.stripMargin)
     val expected = CreateViewCommand("HV",
-      Project(UnresolvedStar(None) :: Nil, Subquery("H", Hierarchy(
+      Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
@@ -136,29 +137,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         searchBy = Nil,
         nodeAttribute = UnresolvedAttribute("Node")
       ))))
-    assertResult(expected)(result)
-  }
-
-  test("parse IF statement") {
-    val sapParser = new SapParserDialect
-
-    val sql = "SELECT IF(column > 1, 1, NULL) FROM T1"
-
-    val result = sapParser.parse(sql)
-    val expected = Project(
-      Alias(
-        FixedIf(
-          GreaterThan(
-            UnresolvedAttribute("column"),
-            Literal(1)
-          ),
-          Literal(1),
-          Literal(null)
-        ), "c0"
-      )() :: Nil,
-      UnresolvedRelation("T1" :: Nil, None)
-    )
-
     comparePlans(expected, result)
   }
+
 }

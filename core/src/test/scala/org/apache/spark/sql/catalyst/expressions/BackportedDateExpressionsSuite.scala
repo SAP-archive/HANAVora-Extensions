@@ -3,8 +3,9 @@ package org.apache.spark.sql.catalyst.expressions
 import java.sql.{Date, Timestamp}
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import org.apache.spark.sql.catalyst.compat.InternalRow
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.compat._
 import org.scalatest.FunSuite
 
 //
@@ -23,16 +24,17 @@ class BackportedDateExpressionsSuite extends FunSuite with ExpressionEvalHelper 
   val sdfDate = new SimpleDateFormat("yyyy-MM-dd")
   val d = new Date(sdf.parse("2015-04-08 13:10:15").getTime)
   val ts = new Timestamp(sdf.parse("2013-11-08 13:10:15").getTime)
+  val emptyRow: InternalRow = EmptyRow /* XXX: Spark 1.4/1.5 compat quirk */
 
   test("datetime function current_date") {
     val d0 = DateTimeUtils.millisToDays(System.currentTimeMillis())
-    val cd = CurrentDate().eval(EmptyRow).asInstanceOf[Int]
+    val cd = CurrentDate().eval(emptyRow).asInstanceOf[Int]
     val d1 = DateTimeUtils.millisToDays(System.currentTimeMillis())
     assert(d0 <= cd && cd <= d1 && d1 - d0 <= 1)
   }
 
   test("datetime function current_timestamp") {
-    val ct = DateTimeUtils.toJavaTimestamp(CurrentTimestamp().eval(EmptyRow).asInstanceOf[Long])
+    val ct = DateTimeUtils.toJavaTimestamp(CurrentTimestamp().eval(emptyRow).asInstanceOf[Long])
     val t1 = System.currentTimeMillis()
     assert(math.abs(t1 - ct.getTime) < 5000)
   }

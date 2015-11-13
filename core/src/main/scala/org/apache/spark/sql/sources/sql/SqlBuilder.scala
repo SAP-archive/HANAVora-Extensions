@@ -3,14 +3,16 @@ package org.apache.spark.sql.sources.sql
 import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 
-import org.apache.spark.sql.catalyst.analysis.{RemoveNestedAliases, AddSubqueries, ChangeQualifiersToTableNames}
-import org.apache.spark.sql.catalyst.expressions.Ascending
+import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.expressions.{BinarySymbolExpression, Ascending}
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.{analysis, expressions => expr}
+import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.Filter
-import org.apache.spark.sql.types._
 import org.apache.spark.sql.{sources => src}
+import org.apache.spark.unsafe.types.compat._
+import org.apache.spark.sql.types.compat._
 
 /**
  * SQL builder class.
@@ -126,11 +128,11 @@ class SqlBuilder {
        * E.g. if the logical plan consists only of a relation, or as the only member inside
        *      a subquery.
        */
-      case src.LogicalRelation(base: SqlLikeRelation) if noProject =>
+      case IsLogicalRelation(base: SqlLikeRelation) if noProject =>
         buildQuery(formatRelation(base), plan.output.map(expressionToSql))
-      case src.LogicalRelation(base: SqlLikeRelation) => formatRelation(base)
+      case IsLogicalRelation(base: SqlLikeRelation) => formatRelation(base)
       case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
-      case _: src.LogicalRelation =>
+      case _: LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
 
       case logical.Distinct(logical.Union(left, right)) =>
@@ -158,12 +160,12 @@ class SqlBuilder {
           distinct = distinct
         )
 
-      case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) if noProject =>
+      case logical.Subquery(alias, IsLogicalRelation(relation: SqlLikeRelation)) if noProject =>
         val generatedQuery = buildQuery(
           formatRelation(relation),
           plan.output.map(expressionToSql))
         s"""$generatedQuery AS "$alias""""
-      case logical.Subquery(alias, src.LogicalRelation(relation: SqlLikeRelation)) =>
+      case logical.Subquery(alias, IsLogicalRelation(relation: SqlLikeRelation)) =>
         s"""${formatRelation(relation)} AS "$alias""""
       case logical.Subquery(alias, child) =>
         s"""(${internalLogicalPlanToSql(child)}) AS "$alias""""
@@ -261,9 +263,6 @@ class SqlBuilder {
       case expr.And(left, right) => s"(${expressionToSql(left)} AND ${expressionToSql(right)})"
       case expr.Or(left, right) => s"(${expressionToSql(left)} OR ${expressionToSql(right)})"
       case expr.Remainder(child, div) => s"MOD(${expressionToSql(child)}, ${expressionToSql(div)})"
-      case be: expr.BinaryExpression =>
-        s"(${expressionToSql(be.left)} ${be.symbol} " +
-          s"${expressionToSql(be.right)})"
       case expr.UnaryMinus(child) => s"-(${expressionToSql(child)})"
       case expr.IsNull(child) => s"${expressionToSql(child)} IS NULL"
       case expr.IsNotNull(child) => s"${expressionToSql(child)} IS NOT NULL"
@@ -296,7 +295,8 @@ class SqlBuilder {
       case analysis.UnresolvedAttribute(name) =>
         formatAttributeWithQualifiers(name.reverse.tail.reverse, name.last)
       case a: analysis.Star => "*"
-
+      case BinarySymbolExpression(left, symbol, right) =>
+        s"(${expressionToSql(left)} $symbol ${expressionToSql(right)})"
       case x =>
         generalExpressionToSql(x)
     }
