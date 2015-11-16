@@ -59,8 +59,8 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
         val leftRef = BoundReference(0, NodeType, nullable = false)
         val rightRef = BoundReference(1, NodeType, nullable = false)
         val row = Row(parent, child)
-        val leftLevel = Level(leftRef).eval(row)
-        val rightLevel = Level(rightRef).eval(row)
+        val leftLevel = Level(leftRef).eval(row).asInstanceOf[Int]
+        val rightLevel = Level(rightRef).eval(row).asInstanceOf[Int]
         val isDescendantLeftRight = IsDescendant(leftRef, rightRef).eval(row)
         val isDescendantRightLeft = IsDescendant(rightRef, leftRef).eval(row)
         val isDescendantOrSelfLeftRight = IsDescendantOrSelf(leftRef, rightRef).eval(row)
@@ -119,8 +119,8 @@ class HierarchyExpressionsSuite extends PropSpec with PropertyChecks with MustMa
         val leftRef = BoundReference(0, NodeType, nullable = false)
         val rightRef = BoundReference(1, NodeType, nullable = false)
         val row = Row(nodePair._1, nodePair._2)
-        val leftLevel = Level(leftRef).eval(row)
-        val rightLevel = Level(rightRef).eval(row)
+        val leftLevel = Level(leftRef).eval(row).asInstanceOf[Int]
+        val rightLevel = Level(rightRef).eval(row).asInstanceOf[Int]
         val isDescendantLeftRight = IsDescendant(leftRef, rightRef).eval(row)
         val isDescendantRightLeft = IsDescendant(rightRef, leftRef).eval(row)
         val isDescendantOrSelfLeftRight = IsDescendantOrSelf(leftRef, rightRef).eval(row)
