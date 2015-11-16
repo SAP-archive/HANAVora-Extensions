@@ -19,6 +19,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
       showTables |
       registerAllTables |
       registerTable |
+      describeDatasource |
       useStatement
 
   protected val APPEND = Keyword("APPEND")
@@ -34,6 +35,13 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
   protected val IGNORING = Keyword("IGNORING")
   protected val CONFLICTS = Keyword("CONFLICTS")
   protected val USE = Keyword("USE")
+  protected val DATASOURCE = Keyword("DATASOURCE")
+
+  protected lazy val describeDatasource: Parser[LogicalPlan] =
+    DESCRIBE ~> DATASOURCE ~> ident ^^ {
+      case tableName =>
+        DescribeDatasource(new UnresolvedRelation(Seq(tableName)))
+    }
 
   /**
    * Resolves the REGISTER ALL TABLES statements:
