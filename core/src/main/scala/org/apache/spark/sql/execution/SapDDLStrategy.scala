@@ -24,6 +24,11 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
       ExecutedCommand(RegisterAllTablesCommand(provider, options, ignoreConflicts)) :: Nil
     case RegisterTableUsing(tableName, provider, options, ignoreConflicts) =>
       ExecutedCommand(RegisterTableCommand(tableName, provider, options, ignoreConflicts)) :: Nil
+    case DescribeDatasource(unresolvedRelation) =>
+      val relation = planner.optimizedRelationLookup(unresolvedRelation)
+                            .map(_.asInstanceOf[LogicalRelation]
+                                  .relation.asInstanceOf[DescribableRelation])
+      ExecutedCommand(DescribeDatasourceCommand(relation)) :: Nil
     case cv@CreateViewCommand(name, query) =>
       ExecutedCommand(cv) :: Nil
     case cmd@UseStatementCommand(input) =>

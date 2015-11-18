@@ -1,6 +1,7 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.Logging
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -14,6 +15,11 @@ class SapDDLParserSuite
 
   val sqlParser = new SapParserDialect
   val ddlParser = new SapDDLParser(sqlParser.parse)
+
+  test("DESCRIBE DATASOURCE command") {
+    val parsed = ddlParser.parse("DESCRIBE DATASOURCE test")
+    assert(parsed == DescribeDatasource(UnresolvedRelation(Seq("test"))))
+  }
 
   val showDatasourceTablesPermutations = Table(
     ("sql", "provider", "options", "willFail"),
