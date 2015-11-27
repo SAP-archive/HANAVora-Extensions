@@ -240,10 +240,16 @@ class SqlBuilder {
   }
 
   def generalExpressionToSql(expression: expr.Expression): String = {
-    val name = expression.getClass.getSimpleName
+    val clazz = expression.getClass
+    val name = try {
+      clazz.getDeclaredMethod("prettyName").invoke(expression).asInstanceOf[String]
+    } catch {
+      case _: NoSuchMethodException =>
+        toUnderscoreUpper(clazz.getSimpleName)
+    }
     val children = expression.children
     val childStr = children.map(expressionToSql).mkString(", ")
-    s"${toUnderscoreUpper(name)}($childStr)"
+    s"$name($childStr)"
   }
 
   // scalastyle:on cyclomatic.complexity
