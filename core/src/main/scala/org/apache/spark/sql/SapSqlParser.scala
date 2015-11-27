@@ -202,28 +202,28 @@ private object SapSqlParser extends SqlParser {
    */
   protected lazy val sapFunctions: Parser[Expression] =
     (LENGTH ~ "(" ~> expression <~ ")" ^^ { case exp => Length(exp) }
-      | TRIM  ~ "(" ~> expression <~ ")" ^^ { case exp => Trim(exp) }
-      | LTRIM ~ "(" ~> expression <~ ")" ^^ { case exp => LTrim(exp) }
-      | RTRIM ~ "(" ~> expression <~ ")" ^^ { case exp => RTrim(exp) }
+      | TRIM  ~ "(" ~> expression <~ ")" ^^ { case exp => StringTrim(exp) }
+      | LTRIM ~ "(" ~> expression <~ ")" ^^ { case exp => StringTrimLeft(exp) }
+      | RTRIM ~ "(" ~> expression <~ ")" ^^ { case exp => StringTrimRight(exp) }
       | LPAD ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l ~ p => LPad(s,l,p) }
+      { case s ~ l ~ p => StringLPad(s,l,p) }
       | LPAD ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l => LPad(s,l,null) }
+      { case s ~ l => StringLPad(s,l,null) }
       | RPAD ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l ~ p => RPad(s,l,p) }
+      { case s ~ l ~ p => StringRPad(s,l,p) }
       | RPAD ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ l => RPad(s,l,null) }
+      { case s ~ l => StringRPad(s,l,null) }
       | TO_DOUBLE ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, DoubleType) }
       | TO_INTEGER ~ "(" ~> expression <~ ")" ^^ { case exp => ToInteger(exp) }
-      | CONCAT ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case e1 ~ e2 => Concat(e1,e2) }
+      | CONCAT ~ "(" ~> repsep(expression, ",") <~ ")" ^^ { case es => Concat(es) }
       | LOCATE ~ "(" ~> expression ~ ("," ~> expression) <~ ")" ^^
-      { case s ~ p => Locate(s,p) }
+        { case s ~ p => new StringLocate(s, p) }
+      | LOCATE ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
+      { case s ~ p ~ o => StringLocate(s, p, o) }
       | REPLACE ~ "(" ~> expression ~ ("," ~> expression) ~ ("," ~> expression) <~ ")" ^^
       { case s ~ f ~ p => Replace(s,f,p) }
-      | REVERSE ~ "(" ~> expression <~ ")" ^^ { case s => Reverse(s) }
-
-      | TO_VARCHAR ~ "(" ~> expression <~ ")" ^^ { case exp => ToVarChar(exp) }
+      | REVERSE ~ "(" ~> expression <~ ")" ^^ { case s => StringReverse(s) }
+      | TO_VARCHAR ~ "(" ~> expression <~ ")" ^^ { case exp => Cast(exp, StringType) }
       | LN   ~ "(" ~> expression <~ ")" ^^ { case exp => Ln(exp) }
       | LOG   ~ "(" ~> expression <~ ")" ^^ { case exp => Log(exp) }
       | COS   ~ "(" ~> expression <~ ")" ^^ { case exp => Cos(exp) }
