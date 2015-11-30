@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 
 class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
 
-  test("Drop a Spark table referencing Velocity tables removes it from Spark catalog."){
+  test("Drop a Spark table referencing Vora tables removes it from Spark catalog."){
     sqlContext.sql(s"""CREATE TABLE existingTable1 (id string)
                       |USING com.sap.spark.dstest
                       |OPTIONS ()""".stripMargin)

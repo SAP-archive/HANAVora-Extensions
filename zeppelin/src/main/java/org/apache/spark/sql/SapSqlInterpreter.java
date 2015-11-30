@@ -116,7 +116,7 @@ public class SapSqlInterpreter extends Interpreter {
             sc.setLocalProperty("spark.scheduler.pool", null);
         }
 
-        sc.setJobGroup(getJobGroup(context), "Zeppelin-Velocity", false);
+        sc.setJobGroup(getJobGroup(context), "Zeppelin-Vora", false);
 
         int viewType = 0;
         String outputParser = "%table ";
