@@ -127,7 +127,7 @@ class SapDDLParserSuite
     val testTable = """
 CREATE TEMPORARY TABLE testBaldat (field1 string, field2 string, field3 string,
   field4 string, field5 integer, field6 string, field7 integer)
-USING com.sap.spark.velocity
+USING com.sap.spark.vora
 OPTIONS (
   tableName "testBaldat",
   paths "/user/u1234/data.csv",
@@ -164,19 +164,19 @@ OPTIONS (
       ("CREATE TEMPORARY TABLE table001 (a1 int_, a2 int)", 1, 37),
       ("CREATE VIEW bla AZZ SELECT * FROM foo", 1, 17),
       ("""CREATE TEMPORARY TABL____ table001 (a1 int, a2 int)
-USING com.sap.spark.velocity
+USING com.sap.spark.vora
 OPTIONS (
   tableName "table001",
   hosts "localhost",
   local "true")""", 1, 18),
       ("""CREATE TEMPORARY TABLE table001 (a1 int, a2 int)
-USIN_ com.sap.spark.velocity
+USIN_ com.sap.spark.vora
 OPTIONS (
   tableName "table001",
   hosts "localhost",
   local "true")""", 2, 1),
       ("""CREATE TEMPORARY TABLE tab01(a int)
-USING com.sap.spark.velocity
+USING com.sap.spark.vora
 OPTIONS (
   tableName "table001",
   hosts "localhost",

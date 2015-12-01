@@ -66,38 +66,38 @@ if [[ -z $SPARK_HOME ]]; then
 fi
 
 if [[ -e $FWDIR/target ]]; then
-  SPARK_VELOCITY_ASSEMBLY_DIR=$FWDIR/target
+  SPARK_VORA_ASSEMBLY_DIR=$FWDIR/target
 elif [[ -e $FWDIR/lib ]]; then
-  SPARK_VELOCITY_ASSEMBLY_DIR=$FWDIR/lib
+  SPARK_VORA_ASSEMBLY_DIR=$FWDIR/lib
 else
-  echo Error: Spark Velocity assembly directory is not found.
+  echo Error: Spark VORA assembly directory is not found.
   exit 1
 fi
 
 
-SPARK_VELOCITY_ASSEMBLY_JAR=
+SPARK_VORA_ASSEMBLY_JAR=
 export SUBMIT_USAGE_FUNCTION=usage
 
-num_jars="$(ls -1 "$SPARK_VELOCITY_ASSEMBLY_DIR" | grep "^spark-sap-.*-assembly\.jar$" | wc -l)"
+num_jars="$(ls -1 "$SPARK_VORA_ASSEMBLY_DIR" | grep "^spark-sap-.*-assembly\.jar$" | wc -l)"
 if [ "$num_jars" -eq "0" -a -z "$SPARK_ASSEMBLY_JAR" ]; then
-  echo "Failed to find Spark SAP assembly in $SPARK_VELOCITY_ASSEMBLY_DIR." 1>&2
+  echo "Failed to find Spark SAP assembly in $SPARK_VORA_ASSEMBLY_DIR." 1>&2
   echo "You need to build Spark SAP extensions before running this program." 1>&2
   exit 1
 fi
 
-ASSEMBLY_JARS="$(ls -1 "$SPARK_VELOCITY_ASSEMBLY_DIR" | grep "^spark-sap-.*-assembly\.jar$" || true)"
+ASSEMBLY_JARS="$(ls -1 "$SPARK_VORA_ASSEMBLY_DIR" | grep "^spark-sap-.*-assembly\.jar$" || true)"
 
 if [ "$num_jars" -gt "1" ]; then
-  echo "Found multiple Spark assembly jars in $SPARK_VELOCITY_ASSEMBLY_DIR:" 1>&2
+  echo "Found multiple Spark assembly jars in $SPARK_VORA_ASSEMBLY_DIR:" 1>&2
   echo "$ASSEMBLY_JARS" 1>&2
   echo "Please remove all but one jar." 1>&2
   exit 1
 fi
 
 
-SPARK_VELOCITY_ASSEMBLY_JAR=${SPARK_VELOCITY_ASSEMBLY_DIR}/${ASSEMBLY_JARS}
+SPARK_VORA_ASSEMBLY_JAR=${SPARK_VORA_ASSEMBLY_DIR}/${ASSEMBLY_JARS}
 
 
 
 
-exec "$SPARK_HOME"/sbin/spark-daemon.sh submit $CLASS 1 $SPARK_VELOCITY_ASSEMBLY_JAR "$@"
+exec "$SPARK_HOME"/sbin/spark-daemon.sh submit $CLASS 1 $SPARK_VORA_ASSEMBLY_JAR "$@"
