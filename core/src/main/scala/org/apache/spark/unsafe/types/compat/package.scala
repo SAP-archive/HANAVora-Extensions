@@ -1,5 +1,15 @@
 package org.apache.spark.unsafe.types
 
+/**
+  * Provides compatibility shims for [[org.apache.spark.unsafe.types]].
+  *
+  * {{{
+  *   // Compatibility import.
+  *   import org.apache.spark.unsafe.types.compat._
+  * }}}
+  *
+  * Classes inside this package should NOT be imported directly.
+  */
 package object compat {
 
   type UTF8String = org.apache.spark.sql.types.UTF8String

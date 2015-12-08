@@ -3,6 +3,16 @@ package org.apache.spark.unsafe.types.compat
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.sql.catalyst.expressions.compat._
 
+/**
+  * Provides backported methods from recent versions of
+  * [[UTF8String]].
+  *
+  * DO NOT USE THIS DIRECTLY. Import
+  * org.apache.spark.sql.catalyst.expressions.compat._
+  * to use implicit conversions.
+  *
+  * @param us The underlying [[UTF8String]].
+  */
 private[spark] case class CompatUTF8String(us: UTF8String) {
 
   def numBytes: Int = us.getBytes.length
