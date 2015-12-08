@@ -6,23 +6,28 @@ import java.util.Properties
 import org.apache.spark.sql.extension._
 import org.apache.spark.sql.sources.commands.RegisterAllTablesUsing
 
-private[sql] trait AbstractSapSQLContext
+/**
+  * Mixin for [[SQLContext]] derivatives providing functionality specific to SAP Spark extensions.
+  * This trait is used both by [[SapSQLContext]] and [[org.apache.spark.sql.hive.SapHiveContext]]
+  * to share functionality.
+  */
+private[sql] trait CommonSapSQLContext
   extends SapSQLContextExtension {
   self: SQLContext =>
 
   logProjectVersion()
   // check if we have to automatically register tables
-  sparkContext.getConf.getOption(AbstractSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
+  sparkContext.getConf.getOption(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
     case None => // do nothing
     case Some(conf) =>
       conf.split(",").foreach(ds => {
         logInfo("Auto-Registering tables from Datasource '" + ds + "'")
-        AbstractSapSQLContext
+        CommonSapSQLContext
           .registerTablesFromDs(ds, this, Map.empty[String, String], ignoreConflicts = true)
       })
   }
 
-  def logProjectVersion(): Unit = {
+  private[this] def logProjectVersion(): Unit = {
     val prop = new Properties()
     var input: InputStream = null
     try {
@@ -45,7 +50,7 @@ private[sql] trait AbstractSapSQLContext
 
 }
 
-private[sql] object AbstractSapSQLContext {
+private[sql] object CommonSapSQLContext {
   val PROPERTY_IGNORE_USE_STATEMENTS = "spark.vora.ignore_use_statements"
   val PROPERTY_AUTO_REGISTER_TABLES = "spark.vora.autoregister"
 

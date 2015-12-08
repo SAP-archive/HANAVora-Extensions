@@ -1,6 +1,6 @@
 package org.apache.spark.sql.execution
 
-object ProviderUtils {
+private[execution] object ProviderUtils {
 
   /**
    * Create an instance from a specific provider class.

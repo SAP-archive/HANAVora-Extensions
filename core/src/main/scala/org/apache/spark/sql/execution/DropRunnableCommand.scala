@@ -5,7 +5,15 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.sources.{LogicalRelation, DropRelation}
 import scala.util.control.Breaks._
 
-case class DropRunnableCommand(
+/**
+  * Execution for DROP TABLE command.
+  *
+  * @see [[DropRelation]]
+  * @param allowNotExisting IF NOT EXISTS.
+  * @param relation Relation to drop.
+  * @param cascade CASCADE.
+  */
+private[sql] case class DropRunnableCommand(
     allowNotExisting: Boolean,
     relation: Option[DropRelation],
     cascade: Boolean)

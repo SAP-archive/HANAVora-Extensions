@@ -3,8 +3,14 @@ package org.apache.spark.sql.execution
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.sources.DropRelation
 
+/**
+  * Execution for CREATE VIEW commands.
+  *
+  * @param name View name.
+  * @param query The underlying query for the view.
+  */
+private[sql]
 case class CreateViewCommand(name: String, query: LogicalPlan) extends RunnableCommand {
 
   override def output: Seq[Attribute] = Nil

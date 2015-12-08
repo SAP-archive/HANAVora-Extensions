@@ -7,14 +7,17 @@ import org.apache.spark.sql.sources.DatasourceCatalog
 import org.apache.spark.sql.types._
 
 /**
- * Extracts all the table from the catalog
- */
-case class ShowDataSourceTablesRunnableCommand(
+  * Extracts all the table from the catalog. This is  used
+  * to execute SHOW TABLES statements.
+  */
+private[sql] case class ShowDataSourceTablesRunnableCommand(
     provider: String,
     options: Map[String, String])
   extends RunnableCommand {
 
-  // The result of SHOW TABLES has one column: tableName
+  /**
+    * The output of SHOW TABLES is a single columns: the table name.
+    */
   override val output: Seq[Attribute] = {
     val schema = StructType(
       StructField("tableName", StringType, nullable = false) :: Nil)
@@ -22,13 +25,9 @@ case class ShowDataSourceTablesRunnableCommand(
   }
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-
-    // try to instantiate
     val source: DatasourceCatalog = instantiateProvider(provider, "show datasource tables action")
-
-    val rows = source.getTableNames(sqlContext, options).map {
-      s => Row(s)
-    }
+    val tableNames = source.getTableNames(sqlContext, options)
+    val rows = tableNames.map({ case tableName => Row(tableName) })
     rows
   }
 }

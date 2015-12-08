@@ -1,6 +1,5 @@
 package org.apache.spark.sql.extension
 
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
@@ -12,7 +11,10 @@ import org.apache.spark.util.Utils
 
 import scala.util.control.NonFatal
 
-@DeveloperApi
+/**
+  * A default implementation for [[SQLContextExtension]]. This is always used by
+  * [[ExtendableSQLContext]] to ease the use of stackable traits.
+  */
 private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
   self: SQLContext =>
 
@@ -24,6 +26,7 @@ private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
 
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] = Nil
 
+  /** Default copied from Spark code base. */
   override protected def extendedParserDialect: ParserDialect =
     try {
       val clazz = Utils.classForName(dialectClassName)

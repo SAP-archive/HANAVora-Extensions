@@ -7,7 +7,7 @@ import org.apache.spark.sql.sources.DescribableRelation
 /**
  * Command to get debug information of a table.
  */
-case class DescribeDatasourceCommand(
+private[sql] case class DescribeDatasourceCommand(
     relation: Option[DescribableRelation])
   extends RunnableCommand {
   override def run(sqlContext: SQLContext): Seq[Row] = relation match {

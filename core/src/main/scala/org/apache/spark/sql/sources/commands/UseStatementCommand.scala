@@ -1,6 +1,6 @@
 package org.apache.spark.sql.sources.commands
 
-import org.apache.spark.sql.{SapParserException, AbstractSapSQLContext, Row, SQLContext}
+import org.apache.spark.sql._
 import org.apache.spark.sql.execution.RunnableCommand
 
 /**
@@ -16,10 +16,10 @@ private[sql] case class UseStatementCommand(input: String) extends RunnableComma
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     val confValue = sqlContext.sparkContext
-      .getConf.getBoolean(AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
+      .getConf.getBoolean(CommonSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
       defaultValue = false)
     val sqlConfValue = sqlContext
-      .getConf(AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
+      .getConf(CommonSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS,
         defaultValue = confValue.toString)
       .toBoolean
     if (sqlConfValue) {

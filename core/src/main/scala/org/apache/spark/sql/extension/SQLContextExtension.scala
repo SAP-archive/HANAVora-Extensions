@@ -1,6 +1,5 @@
 package org.apache.spark.sql.extension
 
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis.{FunctionRegistry, Analyzer}
@@ -11,8 +10,9 @@ import org.apache.spark.sql.sources.DDLParser
 /**
  * An extension for a [[SQLContext]]. This is to be used in combination
  * with [[ExtendableSQLContext]].
+ *
+ * @since 1.1
  */
-@DeveloperApi
 private[sql] trait SQLContextExtension {
 
   /**

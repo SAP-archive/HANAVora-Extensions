@@ -9,7 +9,7 @@ class AutoRegisterSuite extends FunSuite with MockitoSparkContext {
   test("Auto-registering Feature ON") {
     val relationName = "TestRelation"
     com.sap.spark.dstest.DefaultSource.addRelation(relationName)
-    mockSparkConf.set(AbstractSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES,
+    mockSparkConf.set(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES,
       "com.sap.spark.dstest")
     val sapSQLContext = TestUtils.newSQLContext(sc)
     val tables = sapSQLContext.tableNames()
@@ -17,7 +17,7 @@ class AutoRegisterSuite extends FunSuite with MockitoSparkContext {
   }
 
   test("Auto-registering Feature OFF") {
-    mockSparkConf.remove(AbstractSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES)
+    mockSparkConf.remove(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES)
     val sapSQLContext = TestUtils.newSQLContext(sc)
     val tables = sapSQLContext.tableNames()
     assert(tables.length == 0)

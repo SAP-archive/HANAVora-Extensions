@@ -1,39 +1,43 @@
 package org.apache.spark.sql.extension
 
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.optimizer.{BooleanSimplification, FiltersReduction, RedundantDownPushableFilters}
+import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.SapDDLStrategy
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
 import org.apache.spark.sql.sources._
 
-@DeveloperApi
+/**
+  * Provides every SAP Spark extension ready to be mixed in with contexts.
+  * This is used both with [[SapSQLContext]] and [[org.apache.spark.sql.hive.SapHiveContext]].
+  *
+  * @see [[SQLContextExtension]]
+  */
 private[sql] trait SapSQLContextExtension extends SQLContextExtension {
 
-  override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] = List(
-    ResolveReferencesWithHierarchies(analyzer),
-    ResolveHierarchy(analyzer)
-  )
+  override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
+    ResolveReferencesWithHierarchies(analyzer) ::
+    ResolveHierarchy(analyzer) ::
+    Nil
 
-  override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] = List(
-    ExtendableOptimizerBatch("Redundant pushable filters", 1,
-      BooleanSimplification :: RedundantDownPushableFilters :: Nil)
-  )
+  override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =
+    ExtendableOptimizerBatch(
+      name = "Redundant pushable filters",
+      iterations = 1,
+      rules = BooleanSimplification :: RedundantDownPushableFilters :: Nil
+    ) :: Nil
 
-  override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] = List(
-    FiltersReduction
-  )
+  override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] =
+    FiltersReduction :: Nil
 
-  override protected def strategies(planner: ExtendedPlanner): List[Strategy] = List(
-    SapDDLStrategy(planner),
-    CreatePersistentTableStrategy,
-    CatalystSourceStrategy,
-    HierarchyStrategy(planner)
-  )
+  override protected def strategies(planner: ExtendedPlanner): List[Strategy] =
+    SapDDLStrategy(planner) ::
+    CreatePersistentTableStrategy ::
+    CatalystSourceStrategy ::
+    HierarchyStrategy(planner) :: Nil
 
   override protected def extendedParserDialect: ParserDialect = new SapParserDialect
 

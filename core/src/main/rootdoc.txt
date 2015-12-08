@@ -7,8 +7,9 @@ part of the developer API.
 
 Here is an overview of the package structure, which mimicks the Apache Spark SQL structure:
 
-  - [[org.apache.spark.sql]]: Contains [[org.apache.spark.sql.SapSQLContext]] and
-    [[org.apache.spark.sql.ExtendableSQLContext]].
+  - [[org.apache.spark.sql]]: Contains [[org.apache.spark.sql.SapSQLContext]].
+    TODO: Move any other class in this package to a subpackage.
+  - [[org.apache.spark.sql.extension]]: Extension API, like [[org.apache.spark.sql.ExtendableSQLContext]].
   - [[org.apache.spark.sql.catalyst]]: Contains extensions to Catalyst (Apache Spark SQL's
     library that covers all aspects related to SQL at the logical level, excluding any
     execution aspect.

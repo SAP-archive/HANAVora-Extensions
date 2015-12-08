@@ -5,6 +5,7 @@ import org.apache.spark.sql.extension._
 
 /**
  * [[SapSQLContext]] is the main entry point for SAP Spark extensions.
+ * It is a drop-in replacement for [[SQLContext]].
  * Users of this class should check Apache Spark SQL official documentation.
  *
  * This context provides:
@@ -14,7 +15,11 @@ import org.apache.spark.sql.extension._
  *  - Support for a new SQL extension for hierarchy queries.
  *  - New DDL commands (e.g. REGISTER TABLE).
  *  - Support for both temporary and non-temporary tables.
+ *
+ * @see [[SQLContext]].
+ * @see [[org.apache.spark.sql.hive.SapHiveContext]]
+ * @since 1.0
  */
 class SapSQLContext(@transient override val sparkContext: SparkContext)
   extends ExtendableSQLContext(sparkContext)
-  with AbstractSapSQLContext
+  with CommonSapSQLContext

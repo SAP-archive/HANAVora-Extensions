@@ -6,6 +6,12 @@ import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.commands._
 
+/**
+ * Strategies for DDL statements execution. This handles DDL commands that
+ * are part of SAP Spark extensions.
+ *
+ * @see [[SparkStrategies#DDLStrategy]]
+ */
 private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strategy {
 
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan.flatMap({

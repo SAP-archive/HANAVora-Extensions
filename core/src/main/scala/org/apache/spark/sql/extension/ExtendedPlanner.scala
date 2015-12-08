@@ -1,16 +1,27 @@
 package org.apache.spark.sql.extension
 
 import org.apache.spark.Logging
-import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 
-@DeveloperApi
+/**
+  * Our planner exposes some methods that are needed for 3rd party strategies.
+  * See SPARK-6320.
+  *
+  * @see [[ExtendableSQLContext]]
+  */
 private[sql] trait ExtendedPlanner extends Logging {
   self: SQLContext#SparkPlanner =>
 
+  /**
+    * Calls the planner on a subtree. This is to be used by strategies
+    * internally.
+    *
+    * @param p Subtree.
+    * @return Planned subtree.
+    */
   def planLaterExt(p: LogicalPlan): SparkPlan = self.planLater(p)
 
   def optimizedPlan(p: LogicalPlan): LogicalPlan = self.sqlContext.executePlan(p).optimizedPlan

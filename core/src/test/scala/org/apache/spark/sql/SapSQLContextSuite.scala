@@ -38,7 +38,7 @@ class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
 
     // should fail if "spark.vora.ignore_use_statements" prop is "false"
     sqlContext.setConf(
-      AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "false")
+      CommonSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "false")
     valid_use_statements.foreach { stmt =>
       intercept[SapParserException] {
         sqlContext.sql(stmt)
@@ -52,7 +52,7 @@ class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
 
     // should fail if "spark.vora.ignore_use_statements" prop is "true"
     sqlContext.setConf(
-      AbstractSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "true")
+      CommonSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "true")
     valid_use_statements.foreach { stmt =>
       sqlContext.sql(stmt)
     }
