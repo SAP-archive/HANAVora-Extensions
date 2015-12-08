@@ -10,7 +10,7 @@ import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructT
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
 
-class DropUnneededAliasesSuite extends FunSuite with MockitoSugar with PlanTest {
+class RemoveNestedAliasesSuite extends FunSuite with MockitoSugar with PlanTest {
 
   val br1 = new BaseRelation {
     override def sqlContext: SQLContext = mock[SQLContext]
@@ -39,15 +39,15 @@ class DropUnneededAliasesSuite extends FunSuite with MockitoSugar with PlanTest 
 
     assertResult(
       lr1.groupBy(avgAlias.toAttribute)(avgAlias)
-    )(DropUnneededAliases(lr1.groupBy(avgAlias.toAttribute)(avgAlias)))
+    )(RemoveNestedAliases(lr1.groupBy(avgAlias.toAttribute)(avgAlias)))
 
     assertResult(
       lr1.groupBy(copiedAlias.toAttribute)(copiedAlias)
-    )(DropUnneededAliases(lr1.groupBy(aliasAlias.toAttribute)(aliasAlias)))
+    )(RemoveNestedAliases(lr1.groupBy(aliasAlias.toAttribute)(aliasAlias)))
 
     assertResult(
       lr1.groupBy(copiedAlias2.toAttribute)(copiedAlias2)
-    )(DropUnneededAliases(lr1.groupBy(aliasAliasAlias.toAttribute)(aliasAliasAlias)))
+    )(RemoveNestedAliases(lr1.groupBy(aliasAliasAlias.toAttribute)(aliasAliasAlias)))
   }
 
   test("Replace alias into expressions") {
@@ -56,7 +56,7 @@ class DropUnneededAliasesSuite extends FunSuite with MockitoSugar with PlanTest 
     val correctedAvgExpr = avg(ageAtt) as 'avgAlias
     comparePlans(
       lr1.groupBy(correctedAvgExpr.toAttribute)(correctedAvgExpr),
-      DropUnneededAliases(lr1.groupBy(avgExpr.toAttribute)(avgExpr))
+      RemoveNestedAliases(lr1.groupBy(avgExpr.toAttribute)(avgExpr))
     )
   }
 
