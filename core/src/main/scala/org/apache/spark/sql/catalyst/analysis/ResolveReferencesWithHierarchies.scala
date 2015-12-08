@@ -5,11 +5,10 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
 
 /**
- * Replaces [[UnresolvedAttribute]]s with concrete
- * [[org.apache.spark.sql.catalyst.expressions.AttributeReference AttributeReferences]]
- * from a logical plan node's children.
- * It's a copy from Spark version but adding hierarchies handling.
- */
+  * This is a copy of Spark's [[Analyzer#ResolveReferences]] adding
+  * [[Hierarchy]] handling.
+  */
+private[sql]
 case class ResolveReferencesWithHierarchies(analyzer: Analyzer) extends Rule[LogicalPlan] {
 
   // scalastyle:off cyclomatic.complexity
@@ -90,9 +89,12 @@ case class ResolveReferencesWithHierarchies(analyzer: Analyzer) extends Rule[Log
           if AttributeSet(windowExpressions.map(_.toAttribute)).intersect(conflictingAttributes)
             .nonEmpty =>
           (oldVersion, oldVersion.copy(windowExpressions = newAliases(windowExpressions)))
+
+        /** HERE IS OUR ADDED CASE */
         case oldVersion@Hierarchy(relation, childAlias, parenthoodExpression,
         searchBy, startWhere, nodeAttr) if conflictingAttributes.contains(nodeAttr) =>
           (oldVersion, oldVersion.copy(nodeAttribute = nodeAttr.newInstance()))
+
       }.headOption.getOrElse {
         // Only handle first case, others will be fixed on the next pass.
         sys.error(

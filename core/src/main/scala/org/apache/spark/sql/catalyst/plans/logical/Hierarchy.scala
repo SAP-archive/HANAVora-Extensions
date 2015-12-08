@@ -4,7 +4,6 @@ import java.util.Locale
 
 import org.apache.spark.sql.catalyst.analysis.Resolver
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DataType, NodeType}
 
 case class Hierarchy(
     relation: LogicalPlan,
@@ -33,19 +32,17 @@ case class Hierarchy(
 
   override def output: Seq[Attribute] = child.output :+ nodeAttribute
 
-  /* TODO: This will be needed if we use generic Node inner types */
-  private val joinDataType: Option[DataType] = {
+  private def checkDataTypes(): Unit = {
     parenthoodExpression match {
       case be: BinaryExpression if be.resolved && be.left.dataType.sameType(be.right.dataType) =>
-        Some(be.left.dataType)
       case x if !parenthoodExpression.resolved =>
-        None
       case _ =>
         throw new IllegalArgumentException(
           "Hierarchy only supports binary expressions on JOIN PARENT"
         )
     }
   }
+  checkDataTypes()
 
   override lazy val resolved: Boolean = !expressions.exists(!_.resolved) &&
     childrenResolved &&
@@ -65,25 +62,26 @@ case class Hierarchy(
   override def missingInput: AttributeSet =
     references -- inputSet -- referencesInParenthoodExpressionSet - nodeAttribute
 
-  private def referencesInParenthoodExpressionSet: AttributeSet =
+  private[this] def referencesInParenthoodExpressionSet: AttributeSet =
     AttributeSet(parenthoodExpression.collect({ case a: Attribute => a }))
 
-  private def candidateAttributesForParenthoodExpression(): Seq[Attribute] =
+  /**
+    * Candidate attributes for resolution in parenthood expression:
+    *   - Every attribute in the child relation.
+    *   - Every attribute in the child alias with the child alias added as qualifier.
+    * For more info, check the JOIN PARENT syntax.
+    */
+  private[this] def candidateAttributesForParenthoodExpression(): Seq[Attribute] =
     relation.output ++ relation.output.map({
       case attr => Alias(attr, attr.name)(qualifiers = childAlias :: Nil).toAttribute
     })
 
+  /**
+    * This is a replacement of the internal [[resolve()]] method which works
+    * for parenthood expression.
+    */
   private[sql] def resolveParenthoodExpression(nameParts: Seq[String], resolver: Resolver)
     : Option[NamedExpression] =
     resolve(nameParts, candidateAttributesForParenthoodExpression(), resolver, throwErrors = true)
-
-  private[sql] def resolveNodeAttribute(): Option[Attribute] =
-    relation.resolved && parenthoodExpression.resolved match {
-      case _ if nodeAttribute.resolved => Some(nodeAttribute)
-      case false => None
-      case true if joinDataType.isDefined =>
-        Some(AttributeReference(nodeAttribute.name, NodeType, nullable = false)())
-      case _ => None
-    }
 
 }
