@@ -144,12 +144,19 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
       case l ~ r => UseStatementCommand(l + " " + r.mkString(" "))
     }
 
+
+  /** Parses the content of OPTIONS and puts the result in a case insensitive map */
+  override protected lazy val options: Parser[Map[String, String]] =
+    "(" ~> repsep(pair, ",") <~ ")" ^^ {
+      case s: Seq[(String, String)] => new CaseInsensitiveMap(s.toMap)
+    }
+
   /*
-   * Overridden to appropriately decide which
-   * parser error to use in case both parsers (ddl, sql)
-   * failed. Now chooses the error of the parser
-   * that succeeded most.
-   */
+     * Overridden to appropriately decide which
+     * parser error to use in case both parsers (ddl, sql)
+     * failed. Now chooses the error of the parser
+     * that succeeded most.
+     */
   override def parse(input: String, exceptionOnError: Boolean): LogicalPlan = {
     try {
       parse(input)
