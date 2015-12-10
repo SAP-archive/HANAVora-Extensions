@@ -21,6 +21,38 @@ class SapDDLParserSuite
     assert(parsed == DescribeDatasource(UnresolvedRelation(Seq("test"))))
   }
 
+  test("OPTIONS (CONTENT) command") {
+    val optionsPermutations = Table(
+      """(
+        |a "a",
+        |b "b",
+        |C "c"
+        |)
+      """.stripMargin,
+      """(
+        |A "a",
+        |B "b",
+        |c "c"
+        |)
+      """.stripMargin
+    )
+
+    forAll(optionsPermutations) { (opts) =>
+      val statement = s"SHOW DATASOURCETABLES USING com.provider OPTIONS $opts"
+      Given(s"statement $statement")
+
+      val parsed = ddlParser.parse(statement).asInstanceOf[ShowDatasourceTablesCommand]
+      val options = parsed.options
+
+      Then("The resulting options map will have lower-cased keys")
+      assert(options == Map(
+        "a" -> "a",
+        "b" -> "b",
+        "c" -> "c"
+      ))
+    }
+  }
+
   val showDatasourceTablesPermutations = Table(
     ("sql", "provider", "options", "willFail"),
     ("SHOW DATASOURCETABLES USING com.provider", "com.provider", Map.empty[String, String], false),
@@ -60,7 +92,7 @@ class SapDDLParserSuite
       ("REGISTER ALL TABLES USING provider.name OPTIONS() IGNORING CONFLICTS",
         "provider.name", Map.empty[String, String], true),
       ("""REGISTER ALL TABLES USING provider.name OPTIONS(optionA "option")""",
-        "provider.name", Map("optionA" -> "option"), false),
+        "provider.name", Map("optiona" -> "option"), false),
       ("""REGISTER ALL TABLES USING provider.name""",
         "provider.name", Map.empty[String, String], false),
       ("""REGISTER ALL TABLES USING provider.name IGNORING CONFLICTS""",
@@ -93,7 +125,7 @@ class SapDDLParserSuite
       ("REGISTER TABLE bla USING provider.name OPTIONS() IGNORING CONFLICTS",
         "bla", "provider.name", Map.empty[String, String], true),
       ("""REGISTER TABLE bla USING provider.name OPTIONS(optionA "option")""",
-        "bla", "provider.name", Map("optionA" -> "option"), false),
+        "bla", "provider.name", Map("optiona" -> "option"), false),
       ("""REGISTER TABLE bla USING provider.name""",
         "bla", "provider.name", Map.empty[String, String], false),
       ("""REGISTER TABLE bla USING provider.name IGNORING CONFLICTS""",
