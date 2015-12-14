@@ -10,16 +10,22 @@ import org.apache.hive.service.cli.thrift.ThriftCLIServiceClient
 import org.apache.spark.Logging
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TSocket
+import org.scalatest.{FunSuite, BeforeAndAfterAll}
 
-class SapThriftBinaryServerSuite extends SapThriftJdbcHiveDriverTest(master = "local")
+class SapThriftBinaryServerSuite extends FunSuite with BeforeAndAfterAll
   with Logging {
 
   val tableName = "mockedTable"
   val filePath = getFileFromClassPath("/simpleData.json")
+  var thriftServer: SapThriftServer2Test = _
+  var thriftJdbcTest: SapThriftJdbcTest = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    withJdbcStatement { statement =>
+    thriftServer = new SapThriftServer2Test()
+    thriftServer.startThriftServer()
+    thriftJdbcTest = new SapThriftJdbcHiveDriverTest(thriftServer)
+    thriftJdbcTest.withJdbcStatement { statement =>
       val queries = Seq(
         s"""CREATE TEMPORARY TABLE $tableName
             |USING org.apache.spark.sql.json
@@ -30,9 +36,14 @@ class SapThriftBinaryServerSuite extends SapThriftJdbcHiveDriverTest(master = "l
     }
   }
 
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    thriftServer.stopThriftServer()
+  }
+
   private def withCLIServiceClient(f: ThriftCLIServiceClient => Unit): Unit = {
     // Transport creation logics below mimics HiveConnection.createBinaryTransport
-    val rawTransport = new TSocket("localhost", serverPort)
+    val rawTransport = new TSocket(thriftServer.getServerAdress(), thriftServer.getServerPort())
     val user = System.getProperty("user.name")
     val transport = PlainSaslHelper.getPlainTransport(user, "anonymous", rawTransport)
     val protocol = new TBinaryProtocol(transport)
@@ -72,7 +83,7 @@ class SapThriftBinaryServerSuite extends SapThriftJdbcHiveDriverTest(master = "l
 
   // scalastyle:off magic.number
   test("JDBC query execution") {
-    withJdbcStatement { statement =>
+    thriftJdbcTest.withJdbcStatement { statement =>
       assertResult(4, "Row count mismatch") {
         val resultSet = statement.executeQuery(s"""SELECT COUNT(*) FROM $tableName""")
         resultSet.next()
@@ -83,7 +94,7 @@ class SapThriftBinaryServerSuite extends SapThriftJdbcHiveDriverTest(master = "l
   // scalastyle:on magic.number
   // scalastyle:off magic.number
   test("Simple select query no params") {
-    withJdbcStatement { statement =>
+    thriftJdbcTest.withJdbcStatement { statement =>
       val resultSet = statement.executeQuery(s"""SELECT * FROM $tableName""")
 
       // Checking result size: 4
@@ -99,6 +110,4 @@ class SapThriftBinaryServerSuite extends SapThriftJdbcHiveDriverTest(master = "l
 
 }
 
-object ServerMode extends Enumeration {
-  val binary, http = Value
-}
+
