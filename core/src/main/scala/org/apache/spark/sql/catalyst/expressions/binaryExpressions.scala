@@ -2,22 +2,43 @@ package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.sql.types.Decimal
 
+import scala.annotation.tailrec
+
+/**
+  * Matches a [[BinaryComparison]] between an [[AttributeReference]]
+  * and a numeric [[Literal]].
+  *
+  * @see [[NumericLiteral]]
+  */
 private[sql] object BinaryComparisonWithNumericLiteral {
   type ReturnType = (AttributeReference, BigDecimal)
 
   def unapply(exp: BinaryComparison): Option[ReturnType] = (exp.left, exp.right) match {
-    case (attr: AttributeReference, literal@NumericLiteral(value)) => Some(attr, value)
-    case (literal@NumericLiteral(value), attr: AttributeReference) => Some(attr, value)
-    case (Cast(attr: AttributeReference, _), literal@NumericLiteral(value)) => Some(attr, value)
-    case (literal@NumericLiteral(value), Cast(attr: AttributeReference, _)) => Some(attr, value)
+    case (MaybeCast(attr: AttributeReference), MaybeCast(NumericLiteral(value))) =>
+      Some(attr, value)
+    case (MaybeCast(NumericLiteral(value)), MaybeCast(attr: AttributeReference)) =>
+      Some(attr, value)
     case _ => None
   }
 }
 
-// scalastyle:off cyclomatic.complexity
 /**
- * Extractor for numeric literals.
- */
+  * Matches an expression, ignoring any wrapping [[Cast]].
+  */
+private[sql] object MaybeCast {
+  @tailrec
+  def unapply(any: Any): Option[Expression] =
+    any match {
+      case Cast(exp, _) => unapply(exp)
+      case exp: Expression => Some(exp)
+      case _ => None
+    }
+}
+
+/**
+  * Matches numeric [[Literal]] and returns its value as
+  * [[BigDecimal]].
+  */
 private[sql] object NumericLiteral {
   def unapply(a: Any): Option[BigDecimal] = a match {
     case Literal(value: Int, _) => Some(value)
@@ -28,16 +49,6 @@ private[sql] object NumericLiteral {
     case Literal(value: Decimal, _) => Some(value.toBigDecimal)
     case Literal(value: java.math.BigDecimal, _) => Some(value)
     case Literal(value: BigDecimal, _) => Some(value)
-    case Cast(Literal(value: Int, _), _) => Some(value)
-    case Cast(Literal(value: Long, _), _) => Some(value)
-    case Cast(Literal(value: Double, _), _) => Some(value)
-    case Cast(Literal(value: Float, _), _) => Some(value.toDouble)
-    case Cast(Literal(value: Short, _), _) => Some(value.toInt)
-    case Cast(Literal(value: Decimal, _), _) => Some(value.toBigDecimal)
-    case Cast(Literal(value: java.math.BigDecimal, _), _) => Some(value)
-    case Cast(Literal(value: BigDecimal, _), _) => Some(value)
     case _ => None
   }
 }
-
-// scalastyle:on cyclomatic.complexity
