@@ -34,6 +34,9 @@ private[sql] trait ExtendedPlanner extends Logging {
     }
   }
 
+  // TODO (AC) Remove this once table-valued function are rebased on top.
+  def analyze(p: LogicalPlan): LogicalPlan = self.sqlContext.analyzer.execute(p)
+
   override def plan(p: LogicalPlan): Iterator[SparkPlan] = {
     val iter = strategies.view.flatMap({ strategy =>
       val plans = strategy(p)

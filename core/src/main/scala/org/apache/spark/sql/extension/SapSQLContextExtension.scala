@@ -22,8 +22,9 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
     ResolveReferencesWithHierarchies(analyzer) ::
     ResolveHierarchy(analyzer) ::
+    ResolveStarAnnotations(analyzer) ::
+    ResolveAnnotations ::
     ResolveTableFunctions(analyzer) ::
-    AnnotationResolver(analyzer) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =

@@ -5,6 +5,10 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreateViewCommand, SapDDLParser}
+import org.apache.spark.sql.types.{CalendarIntervalType, DataTypeParser}
+import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.types.CalendarInterval
+import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
 
 import scala.util.parsing.input.Position
 
@@ -64,7 +68,7 @@ with AnnotationParsingRules{
    * Overriden to hook [[createView]] parser.
    */
   override protected lazy val start: Parser[LogicalPlan] =
-    start1 | insert | cte | createView
+    start1 | insert | cte | createView | describeTable
 
   /**
    * Overriden to hook [[hierarchy]] parser.
@@ -107,6 +111,19 @@ with AnnotationParsingRules{
     (CREATE ~> TEMPORARY.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
       case temp ~ name ~ query => CreateViewCommand(name, temp.isDefined, query)
     }
+
+  protected lazy val describeTable: Parser[LogicalPlan] =
+    (OLAP_DESCRIBE ~> (ident <~ ".").? ~ ident ^^ {
+      case db ~ tbl =>
+        val tblIdentifier = db match {
+          case Some(dbName) =>
+            Seq(dbName, tbl)
+          case None =>
+            Seq(tbl)
+        }
+        DescribeRelationCommand(UnresolvedRelation(tblIdentifier, None))
+    }
+    |OLAP_DESCRIBE ~> start1 ^^ { l:LogicalPlan => DescribeQueryCommand(l) })
 
   /** EXTRACT function. */
   protected lazy val extract: Parser[Expression] =

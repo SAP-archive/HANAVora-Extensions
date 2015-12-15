@@ -140,7 +140,7 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
     }
 
   protected lazy val cte: Parser[LogicalPlan] =
-    WITH ~> rep1sep(ident ~ ( AS ~ "(" ~> start1 <~ ")"), ",") ~ (start1 | insert) ^^ {
+    WITH ~> rep1sep(ident ~ (AS ~ "(" ~> start1 <~ ")"), ",") ~ (start1 | insert) ^^ {
       case r ~ s => With(s, r.map({case n ~ s => (n, Subquery(n, s))}).toMap)
     }
 
