@@ -23,9 +23,10 @@ class SapSQLContext(SQLContext):
                 ...     time=datetime(2014, 8, 1, 14, 1, 5))])
                 >>> df = allTypes.toDF()
                 >>> df.registerTempTable("allTypes")
-                >>> sqlContext.sql('select i+1, d+1, not b, list[1], dict["s"], time, row.a '
-                ...            'from allTypes where b and i > 0').collect()
-                [Row(c0=2, c1=2.0, c2=False, c3=2, c4=0, time=datetime.datetime(2014, 8, 1, 14, 1, 5), a=1)]
+                >>> q = 'select i+1, d+1, not b, list[1], dict["s"], time, row.a from allTypes where b and i > 0'
+                >>> result = sqlContext.sql(q).collect()
+                >>> list(map(lambda x: tuple(x), result)) # Row.__repr__ is not compatible Spark 1.4/1.5
+                [(2, 2.0, False, 2, 0, datetime.datetime(2014, 8, 1, 14, 1, 5), 1)]
                 >>> df.map(lambda x: (x.i, str(x.s), x.d, x.l, x.b, x.time, x.row.a, x.list)).collect()
                 [(1, 'string', 1.0, 1, True, datetime.datetime(2014, 8, 1, 14, 1, 5), 1, [1, 2, 3])]
         """

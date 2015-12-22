@@ -10,8 +10,13 @@ fi
 unset JAVA_HOME
 # Figure out where the Spark framework is installed
 FWDIR="$(cd "`dirname "$0"`"; pwd)"
-BASEDIR="$(cd "`dirname "$0"`";cd ../../../../../core; pwd)"
-export PATH_TO_JARS="$BASEDIR/target/*"
+
+BASEDIR="$(cd "`dirname "$0"`";cd ../../../../../; pwd)"
+get_jars() {
+  readlink -f ${BASEDIR}/$1/target/$1-*.jar | grep -v sources.jar | grep -v tests.jar | head -n 1
+}
+export PATH_TO_JARS="$(get_jars core):$(get_jars compat):$(get_jars ${COMPAT_ARTIFACT_ID})"
+
 # check if spark home is set
 if [[ -z $SPARK_HOME ]]; then
   echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
