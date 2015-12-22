@@ -16,6 +16,8 @@ case class CreateTableUsingTemporaryAwareCommand(
     tableIdentifier: TableIdentifier,
     userSpecifiedSchema: Option[StructType],
     partitionColumns: Array[String],
+    partitioningFunction: Option[String],
+    partitioningColumns: Option[Seq[String]],
     provider: String,
     options: Map[String, String],
     isTemporary: Boolean,
@@ -26,8 +28,9 @@ case class CreateTableUsingTemporaryAwareCommand(
 
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
-    val resolved: ResolvedDataSource = resolveDataSource(sqlContext,
-      userSpecifiedSchema, partitionColumns, dataSource, options, isTemporary, allowExisting)
+    val resolved: ResolvedDataSource = resolveDataSource(sqlContext, userSpecifiedSchema,
+      partitionColumns, partitioningFunction, partitioningColumns, dataSource, options,
+      isTemporary, allowExisting)
     // check if this class implements the DatabaseRelation Provider trait
     // this is also checked in the corresponding strategy CreatePersistentTableStrategy
     // however this class could also be called from somewhere else
@@ -48,12 +51,19 @@ case class CreateTableUsingTemporaryAwareCommand(
   private def resolveDataSource(sqlContext: SQLContext,
                                 userSpecifiedSchema: Option[StructType],
                                 partitionColumns: Array[String],
+                                partitioningFunction: Option[String],
+                                partitioningColumns: Option[Seq[String]],
                                 dataSource: Any,
                                 options: Map[String, String],
                                 isTemporary: Boolean,
                                 allowExisting: Boolean): ResolvedDataSource = {
 
     dataSource match {
+      case drp: PartitionedRelationProvider =>
+        new ResolvedDataSource(drp.getClass,
+          drp.createRelation(sqlContext,
+            new CaseInsensitiveMap(options), partitioningFunction, partitioningColumns,
+            isTemporary, allowExisting))
       case drp: TemporaryAndPersistentSchemaRelationProvider if userSpecifiedSchema.nonEmpty =>
             new ResolvedDataSource(drp.getClass,
               drp.createRelation(

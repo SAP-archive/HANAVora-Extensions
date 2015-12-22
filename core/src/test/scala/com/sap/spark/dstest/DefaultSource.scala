@@ -9,27 +9,42 @@ import org.apache.spark.sql.types._
  */
 class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
 with TemporaryAndPersistentRelationProvider
+with PartitionedRelationProvider
 with RegisterAllTableRelations {
 
 
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String]): BaseRelation =
-    createRelation(sqlContext, parameters, isTemporary = false, allowExisting = false)
+    createRelation(sqlContext, parameters, None, None, isTemporary = false, allowExisting = false)
 
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String],
                               schema: StructType): BaseRelation =
     new DummyRelationWithoutTempFlag(sqlContext, schema)
 
-
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
-                              isTemporary: Boolean, allowExisting: Boolean): BaseRelation =
+                              isTemporary: Boolean,
+                              allowExisting: Boolean): BaseRelation =
     new DummyRelationWithTempFlag(sqlContext,
       DefaultSource.standardSchema,
       isTemporary)
 
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
                               sparkSchema: StructType, isTemporary: Boolean,
+                              allowExisting: Boolean): BaseRelation =
+    new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
+
+  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
+                              partitioningFunction: Option[String],
+                              partitioningColumns: Option[Seq[String]], isTemporary: Boolean,
+                              allowExisting: Boolean): BaseRelation =
+    new DummyRelationWithTempFlag(sqlContext,
+      DefaultSource.standardSchema,
+      isTemporary)
+
+  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
+                              sparkSchema: StructType, partitioningFunction: Option[String],
+                              partitioningColumns: Option[Seq[String]], isTemporary: Boolean,
                               allowExisting: Boolean): BaseRelation =
     new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
 

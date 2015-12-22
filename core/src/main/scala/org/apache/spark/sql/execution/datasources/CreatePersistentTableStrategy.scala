@@ -21,13 +21,30 @@ private[sql] object CreatePersistentTableStrategy extends Strategy {
           ExecutedCommand(CreateTableUsingTemporaryAwareCommand(tableName,
             userSpecifiedSchema,
             Array.empty[String],
+            None,
+            None,
             provider,
             options,
             isTemporary = false,
             allowExisting)) :: Nil
         case _ => Nil
       }
-
+    case CreateTablePartitionedByUsing(tableId, userSpecifiedSchema, provider,
+    partitioningFunction, partitioningColumns, temporary, options, allowExisting, _) =>
+      ResolvedDataSource.lookupDataSource(provider).newInstance() match {
+        case _: TemporaryAndPersistentNature =>
+          ExecutedCommand(CreateTableUsingTemporaryAwareCommand(
+            tableId,
+            userSpecifiedSchema,
+            Array.empty[String],
+            Some(partitioningFunction),
+            Some(partitioningColumns),
+            provider,
+            options,
+            isTemporary = false,
+            allowExisting)) :: Nil
+        case _ => Nil
+      }
     case _ => Nil
   }
 }

@@ -251,5 +251,55 @@ OPTIONS (
       ddlParser.parse("USING")
     }
   }
+
+  test("Parse correct CREATE TABLE statements with the PARTITION BY clause") {
+    val testStatement1 = """CREATE TEMPORARY TABLE test1 (a integer, b string)
+                        PARTITIONED BY example (a)
+                        USING com.sap.spark.vora
+                        OPTIONS (
+                        tableName "test1",
+                        paths "/data.csv",
+                        hosts "1.1.1.1",
+                        zkurls "1.1.1.1",
+                        nameNodeUrl "1.1.1.1")"""
+    assert(ddlParser.parse(testStatement1).isInstanceOf[CreateTablePartitionedByUsing])
+
+    val testStatement2 = """CREATE TEMPORARY TABLE test1 (a integer, b string)
+                        PARTITIONED BY example (a, b)
+                        USING com.sap.spark.vora
+                        OPTIONS (
+                        tableName "test1",
+                        paths "/data.csv",
+                        hosts "1.1.1.1",
+                        zkurls "1.1.1.1",
+                        nameNodeUrl "1.1.1.1")"""
+    assert(ddlParser.parse(testStatement2).isInstanceOf[CreateTablePartitionedByUsing])
+
+
+    val testStatement3 = """CREATE TEMPORARY TABLE test1 (a integer, b string, test float)
+                        PARTITIONED BY example (test)
+                        USING com.sap.spark.vora
+                        OPTIONS (
+                        tableName "test1",
+                        paths "/data.csv",
+                        hosts "1.1.1.1",
+                        zkurls "1.1.1.1",
+                        nameNodeUrl "1.1.1.1")"""
+    assert(ddlParser.parse(testStatement3).isInstanceOf[CreateTablePartitionedByUsing])
+  }
+
+  test("Do not parse incorrect CREATE TABLE statements with the PARTITION BY clause") {
+    val invStatement = """CREATE TEMPORARY TABLE test1 (a integer, b string)
+                       PARTITIONED BY example
+                       USING com.sap.spark.vora
+                       OPTIONS (
+                       tableName "test1",
+                       paths "/data.csv",
+                       hosts "1.1.1.1",
+                       zkurls "1.1.1.1",
+                       nameNodeUrl "1.1.1.1")"""
+    intercept[SapParserException](ddlParser.parse(invStatement))
+  }
+
 }
 

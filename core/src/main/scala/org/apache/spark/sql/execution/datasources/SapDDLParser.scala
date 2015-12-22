@@ -1,6 +1,7 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.SapParserException
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{SaveMode, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.commands._
@@ -35,11 +36,75 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
   protected val CONFLICTS = Keyword("CONFLICTS")
   protected val USE = Keyword("USE")
   protected val DATASOURCE = Keyword("DATASOURCE")
+  protected val PARTITIONED = Keyword("PARTITIONED")
+  protected val BY = Keyword("BY")
 
   protected lazy val describeDatasource: Parser[LogicalPlan] =
     DESCRIBE ~> DATASOURCE ~> ident ^^ {
       case tableName =>
         DescribeDatasource(new UnresolvedRelation(Seq(tableName)))
+    }
+
+  override protected lazy val createTable: Parser[LogicalPlan] =
+    (CREATE ~> TEMPORARY.? <~ TABLE) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~
+      tableCols.? ~ (PARTITIONED ~> BY ~> functionName ~ colsNames).? ~ (USING ~> className) ~
+      (OPTIONS ~> options).? ~ (AS ~> restInput).? ^^ {
+      case temp ~ allowExisting ~ tableId ~ columns ~ partitioningFunctionDef ~
+        provider ~ opts ~ query =>
+        if (temp.isDefined && allowExisting.isDefined) {
+          throw new DDLException(
+            "a CREATE TEMPORARY TABLE statement does not allow IF NOT EXISTS clause.")
+        }
+
+        val options = opts.getOrElse(Map.empty[String, String])
+        if (query.isDefined) {
+          if (columns.isDefined) {
+            throw new DDLException(
+              "a CREATE TABLE AS SELECT statement does not allow column definitions.")
+          }
+          // When IF NOT EXISTS clause appears in the query, the save mode will be ignore.
+          val mode = if (allowExisting.isDefined) {
+            SaveMode.Ignore
+          } else if (temp.isDefined) {
+            SaveMode.Overwrite
+          } else {
+            SaveMode.ErrorIfExists
+          }
+
+          val queryPlan = parseQuery(query.get)
+          CreateTableUsingAsSelect(tableId,
+            provider,
+            temp.isDefined,
+            Array.empty[String],
+            mode,
+            options,
+            queryPlan)
+        } else {
+          val userSpecifiedSchema = columns.flatMap(fields => Some(StructType(fields)))
+          if (partitioningFunctionDef.isDefined) {
+            val partitioningFunction = partitioningFunctionDef.get._1
+            val partitioningColumns = partitioningFunctionDef.get._2
+            CreateTablePartitionedByUsing(
+              tableId,
+              userSpecifiedSchema,
+              provider,
+              partitioningFunction,
+              partitioningColumns,
+              temp.isDefined,
+              options,
+              allowExisting.isDefined,
+              managedIfNoPath = false)
+          } else {
+            CreateTableUsing(
+              tableId,
+              userSpecifiedSchema,
+              provider,
+              temp.isDefined,
+              options,
+              allowExisting.isDefined,
+              managedIfNoPath = false)
+          }
+        }
     }
 
   /**
@@ -144,11 +209,16 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
     }
 
 
+  protected lazy val colsNames: Parser[Seq[String]] = "(" ~> repsep(ident, ",") <~ ")"
+
   /** Parses the content of OPTIONS and puts the result in a case insensitive map */
   override protected lazy val options: Parser[Map[String, String]] =
     "(" ~> repsep(pair, ",") <~ ")" ^^ {
       case s: Seq[(String, String)] => new CaseInsensitiveMap(s.toMap)
     }
+
+  /** Partitioning function identifier */
+  protected lazy val functionName: Parser[String] = ident
 
   /*
      * Overridden to appropriately decide which
