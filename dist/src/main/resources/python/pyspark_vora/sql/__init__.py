@@ -1,5 +1,5 @@
 """
-Important classes of Spark SQL and DataFrames using SAP VORA:
+Important classes of Spark SQL and DataFrames using SAP HANA Vora:
 
     - L{SapSQLContext}
       Main entry point for :class:`DataFrame` and SQL functionality.
@@ -8,4 +8,4 @@ Important classes of Spark SQL and DataFrames using SAP VORA:
 
 from pyspark_vora.sql.context import SapSQLContext
 
-__a__ = ['SapSQLContext']
+__all__ = ['SapSQLContext']
