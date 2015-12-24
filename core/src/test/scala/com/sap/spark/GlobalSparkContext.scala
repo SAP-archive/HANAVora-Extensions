@@ -52,7 +52,9 @@ object GlobalSparkContext {
   }
 
   def reset(): Unit = {
-    _sc.cancelAllJobs()
+    if (_sc != null) {
+      _sc.cancelAllJobs()
+    }
   }
 
   def close(): Unit = {
