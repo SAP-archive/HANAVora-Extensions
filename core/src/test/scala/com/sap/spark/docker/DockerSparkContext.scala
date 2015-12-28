@@ -47,7 +47,7 @@ private[spark] trait DockerSparkContext
    */
   def useSparkInDocker: Boolean = false
 
-  override lazy val sparkConf: SparkConf = {
+  override def sparkConf: SparkConf = {
     val _sparkConf = super.sparkConf.clone()
     _sparkConf.set("spark.driver.host", dockerCluster.hostIp)
     _sparkConf
