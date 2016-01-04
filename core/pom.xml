@@ -5,7 +5,7 @@
   <parent>
     <artifactId>spark-sap-parent</artifactId>
     <groupId>com.sap.spark</groupId>
-    <version>1.2.6</version>
+    <version>1.2.7</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -18,6 +18,8 @@
     <dependency>
       <groupId>com.sap.spark</groupId>
       <artifactId>${compat.artifact.id}</artifactId>
+      <version>${project.version}</version>
+      <classifier>${build.classifier}</classifier>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
