@@ -39,10 +39,14 @@ fi
 
 # check if spark home is set
 if [[ -z $SPARK_HOME ]]; then
-  echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
-  exit 1
+  if which beeline ; then
+    SPARK_HOME="$(cd "`dirname $( readlink -nf $(which beeline))`"/..; pwd -P)"
+    echo "[INFO] SPARK_HOME is derived from beeline path to: $SPARK_HOME"
+  else
+     echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
+    exit 1
+  fi
 fi
-
 
 # Find the java binary
 if [ -n "${JAVA_HOME}" ]; then

@@ -23,10 +23,15 @@ set -o posix
 # Get the current directory
 FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
 
-# check if spark home is set
+# check if spark home is set or derive it from path of file spark-submit
 if [[ -z $SPARK_HOME ]]; then
-  echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
-  exit 1
+  if which spark-submit ; then
+    SPARK_HOME="$(cd "`dirname $( readlink -nf $(which spark-submit))`"/..; pwd -P)"
+    echo "[INFO] SPARK_HOME is derived from spark-submit path to: $SPARK_HOME"
+  else
+     echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
+    exit 1
+  fi
 fi
 
 

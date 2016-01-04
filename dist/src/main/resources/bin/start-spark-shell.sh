@@ -38,8 +38,15 @@ if [[ "$@" = *--help ]] || [[ "$@" = *-h ]]; then
   exit 0
 fi
 
-: ${SPARK_HOME:?"Need to set SPARK_HOME non-empty"}
+# check if spark home is set or derive it from path of file spark-shell
+if [[ -z $SPARK_HOME ]]; then
+  if which spark-shell ; then
+    SPARK_HOME="$(cd "`dirname $( readlink -nf $(which spark-shell))`"/..; pwd -P)"
+    echo "[INFO] SPARK_HOME is derived from spark-shell path to: $SPARK_HOME"
+  else
+     echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
+    exit 1
+  fi
+fi
 
-SPARKBIN=$SPARK_HOME/bin
-
-$SPARKBIN/spark-shell --jars "$FWDIR"/lib/*.jar $*
+$SPARK_HOME/bin/spark-shell --jars "$FWDIR"/lib/*.jar $*
