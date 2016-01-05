@@ -7,8 +7,9 @@ fi
 
 # check if spark home is set
 FWDIR="$(cd `dirname $0`; pwd)"
-BASEDIR="$(cd "`dirname "$0"`";cd ../../../../../core; pwd)"
-export PATH_TO_JARS="$BASEDIR/target/*"
+FWDIR_MAIN="$(cd `dirname $0`;cd ../../../main/resources/; pwd)"
+BASEDIR="$(cd "`dirname "$0"`";cd ../../../../../; pwd)"
+export PATH_TO_JARS="$BASEDIR/core/target/*:$BASEDIR/$COMPAT_ARTIFACT_ID/target/*"
 export SPARK_CLASSPATH=$PATH_TO_JARS
 if [[ -z $SPARK_HOME ]]; then
   echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
@@ -26,19 +27,28 @@ command -v R >/dev/null 2>&1 || { echo >&2 "R is not installed.  Aborting."; exi
 # The tests need the R Library testthat
 # https://cran.r-project.org/web/packages/testthat/index.html
 
-
-
 FAILED=0
 LOGFILE=$FWDIR/unit-tests.out
 rm -f $LOGFILE
-rm -rf $FWDIR/R/lib
+rm -rf $FWDIR_MAIN/R/lib
 
-. $FWDIR/R/install-dev.sh
+# copy the tests to the package
+# this step is necessary because we separate TEST and MAIN files
+cp -r $FWDIR/R/pkg/inst $FWDIR_MAIN/R/pkg/.
+cp -r $FWDIR/R/pkg/tests $FWDIR_MAIN/R/pkg/.
+
+cd $FWDIR_MAIN/R/
+. install-dev.sh
 
 export LIB_DIR_PATH="$(cd `dirname $0`;cd ..; pwd)"
 
-SPARK_TESTING=1 $SPARK_HOME/bin/sparkR $FWDIR/pkg/tests/run-all.R 2>&1 | tee -a $LOGFILE
+SPARK_TESTING=1 $SPARK_HOME/bin/sparkR $FWDIR_MAIN/R/pkg/tests/run-all.R 2>&1 | tee -a $LOGFILE
 FAILED=$((PIPESTATUS[0]||$FAILED))
+
+# cleaning
+rm -rf $FWDIR_MAIN/R/pkg/inst
+rm -rf $FWDIR_MAIN/R/pkg/tests
+rm -rf $FWDIR_MAIN/R/lib
 
 if [[ $FAILED != 0 ]]; then
     cat $LOGFILE

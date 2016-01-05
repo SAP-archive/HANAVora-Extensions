@@ -144,9 +144,10 @@
               <execution>
                 <configuration>
                   <executable>./run-tests</executable>
-                  <workingDirectory>src/main/resources/R</workingDirectory>
+                  <workingDirectory>src/test/resources/R</workingDirectory>
                   <environmentVariables>
                     <SKIP_TESTS>${skipTests}</SKIP_TESTS>
+                    <COMPAT_ARTIFACT_ID>${compat.artifact.id}</COMPAT_ARTIFACT_ID>
                   </environmentVariables>
                 </configuration>
                 <id>R-test</id>
