@@ -6,6 +6,18 @@ import org.scalatest.FunSuite
 
 class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
 
+  test ("Check Spark Version"){
+     val sap_sqlc = sqlContext.asInstanceOf[CommonSapSQLContext]
+     // current spark runtime version shall be supported
+     sap_sqlc.checkSparkVersion(List(org.apache.spark.SPARK_VERSION))
+
+     // runtime exception for an unsupported version
+     intercept[RuntimeException]{
+      sap_sqlc.checkSparkVersion(List("some.unsupported.version"))
+     }
+  }
+
+
   test("Ignore USE keyword") {
     // Behaviour:
     // Every syntactically correct "USE [xyz...]" statement produces a UseStatementCommand.

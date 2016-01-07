@@ -4,6 +4,7 @@ import java.io.InputStream
 import java.util.Properties
 
 import org.apache.spark.sql.extension._
+import org.apache.spark.sql.extension.compat._
 import org.apache.spark.sql.sources.commands.RegisterAllTablesUsing
 
 /**
@@ -15,6 +16,7 @@ private[sql] trait CommonSapSQLContext
   extends SapSQLContextExtension {
   self: SQLContext =>
 
+  checkSparkVersion(supportedSparkVersions)
   logProjectVersion()
   // check if we have to automatically register tables
   sparkContext.getConf.getOption(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
@@ -25,6 +27,14 @@ private[sql] trait CommonSapSQLContext
         CommonSapSQLContext
           .registerTablesFromDs(ds, this, Map.empty[String, String], ignoreConflicts = true)
       })
+  }
+
+  def checkSparkVersion(supportedVersions:List[String]): Unit = {
+     if (!supportedVersions.contains(org.apache.spark.SPARK_VERSION)){
+       logError(s"Spark Version mismatch: Supported: ${supportedVersions.mkString(",")}, " +
+                s"Runtime is: ${org.apache.spark.SPARK_VERSION}")
+       throw new RuntimeException ("Termination due to Spark version mismatch")
+     }
   }
 
   private[this] def logProjectVersion(): Unit = {
