@@ -61,13 +61,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.spotify</groupId>
-      <artifactId>docker-client</artifactId>
-      <classifier>shaded</classifier>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>org.pegdown</groupId> <!-- required to create hmtl test results output -->
       <artifactId>pegdown</artifactId>
       <scope>test</scope>

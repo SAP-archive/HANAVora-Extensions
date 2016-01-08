@@ -50,7 +50,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <minimum.code.covered.ratio>0.80</minimum.code.covered.ratio>
-    <spotify.dockerclient.version>3.4.0</spotify.dockerclient.version>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
     <scala.maven.plugin.version>3.2.0</scala.maven.plugin.version>
@@ -197,13 +196,6 @@
         <artifactId>core</artifactId>
         <version>1.2.6</version>
         <type>test-jar</type>
-      </dependency>
-      <dependency>
-        <groupId>com.spotify</groupId>
-        <artifactId>docker-client</artifactId>
-        <classifier>shaded</classifier>
-        <version>${spotify.dockerclient.version}</version>
-        <scope>test</scope>
       </dependency>
 
       <dependency>
