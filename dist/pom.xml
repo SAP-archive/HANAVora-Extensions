@@ -10,6 +10,7 @@
   <modelVersion>4.0.0</modelVersion>
   <name>Spark SAP Extensions Distribution</name>
   <artifactId>extensiondist</artifactId>
+
   <properties>
     <minimum.code.covered.ratio>0</minimum.code.covered.ratio>
     <env.classifier>assembly</env.classifier>
@@ -19,77 +20,83 @@
       <groupId>com.sap.spark</groupId>
       <artifactId>core</artifactId>
       <version>${project.version}</version>
+      <classifier>${build.classifier}</classifier>
     </dependency>
     <dependency>
       <groupId>com.sap.spark</groupId>
       <artifactId>sap-thriftserver</artifactId>
       <version>${project.version}</version>
+      <classifier>${build.classifier}</classifier>
     </dependency>
     <dependency>
       <groupId>com.sap.spark</groupId>
       <artifactId>zeppelin</artifactId>
       <version>${project.version}</version>
+      <classifier>${build.classifier}</classifier>
     </dependency>
   </dependencies>
+
   <build>
     <plugins>
       <plugin>
         <groupId>org.scalastyle</groupId>
         <artifactId>scalastyle-maven-plugin</artifactId>
       </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-shade-plugin</artifactId>
-            <version>2.3</version>
-            <configuration>
-              <finalName>
-                ${project.parent.artifactId}-${project.version}-${env.classifier}
-              </finalName>
-              <relocations>
-                <relocation>
-                  <pattern>com.google</pattern>
-                  <shadedPattern>com.sap.hanalite.com.google</shadedPattern>
-                </relocation>
-              </relocations>
-              <filters>
-                <filter>
-                  <artifact>*:*</artifact>
-                  <excludes>
-                    <exclude>META-INF/*.SF</exclude>
-                    <exclude>META-INF/*.DSA</exclude>
-                    <exclude>META-INF/*.RSA</exclude>
-                  </excludes>
-                </filter>
-              </filters>
-              <artifactSet>
-                <excludes>
-                  <exclude>classworlds:classworlds</exclude>
-                  <exclude>junit:junit</exclude>
-                  <exclude>jmock:*</exclude>
-                  <exclude>*:xml-apis</exclude>
-                  <exclude>org.apache.maven:lib:tests</exclude>
-                </excludes>
-              </artifactSet>
-              <transformers>
-                <transformer
-                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                <transformer
-                        implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                  <resource>reference.conf</resource>
-                </transformer>
-              </transformers>
-		<shadedArtifactAttached>true</shadedArtifactAttached>
-		<shadedClassifierName></shadedClassifierName>
-            </configuration>
-            <executions>
-              <execution>
-                <phase>package</phase>
-                <goals>
-                  <goal>shade</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.2</version>
+        <configuration>
+          <finalName>
+            ${project.parent.artifactId}-${project.version}-${env.classifier}
+          </finalName>
+          <shadedArtifactAttached>true</shadedArtifactAttached>
+          <shadedClassifierName>${build.classifier}${env.classifier}</shadedClassifierName>
+          <relocations>
+            <relocation>
+              <pattern>com.google</pattern>
+              <shadedPattern>com.sap.hanalite.com.google</shadedPattern>
+            </relocation>
+          </relocations>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
+          <artifactSet>
+            <excludes>
+              <exclude>classworlds:classworlds</exclude>
+              <exclude>junit:junit</exclude>
+              <exclude>jmock:*</exclude>
+              <exclude>*:xml-apis</exclude>
+              <exclude>org.apache.maven:lib:tests</exclude>
+            </excludes>
+          </artifactSet>
+          <transformers>
+            <transformer
+                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+            <transformer
+                    implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+              <resource>reference.conf</resource>
+            </transformer>
+          </transformers>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <!-- this creates your *.tar.gz -->
         <groupId>org.apache.maven.plugins</groupId>
@@ -97,24 +104,57 @@
         <version>2.5.5</version>
         <executions>
           <execution>
-            <id>Create final ZIP package</id>
+            <id>${project.artifactId}-${project.version}</id>
             <phase>package</phase>
             <goals>
               <goal>single</goal>
             </goals>
             <configuration>
-              <appendAssemblyId>false</appendAssemblyId>
+              <appendAssemblyId>true</appendAssemblyId> <!-- changed from false -->
               <descriptors>
                 <descriptor>platform-assembly.xml</descriptor>
               </descriptors>
-              <finalName>spark-sap-extensions-${project.version}-dist</finalName>
+              <classifier>${build.classifier}</classifier>
             </configuration>
           </execution>
         </executions>
       </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+
+    <!-- selective deployment of the extensiondist-*-tar.gz  -->
+    <profile>
+      <id>spark-1.5</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-install-plugin</artifactId>
+            <version>2.5.2</version>
+             <executions>
+               <execution>
+                 <id>file-install-tgz</id>
+                 <phase>install</phase>
+                 <goals>
+                   <goal>install-file</goal>
+                 </goals>
+                 <configuration>
+                   <file>${project.build.directory}/${project.artifactId}-${project.version}-${build.classifier}.tar.gz</file>
+                   <artifactId>${project.artifactId}</artifactId>
+                   <groupId>${project.groupId}</groupId>
+                   <version>${project.version}</version>
+                   <classifier>${build.classifier}</classifier>
+                   <packaging>tar.gz</packaging>
+                 </configuration>
+               </execution>
+             </executions>
+          </plugin>
         </plugins>
       </build>
-  <profiles>
+    </profile>
+
     <!-- We only want to run this test when we execute all the tests -->
     <profile>
       <id>full-tests</id>
