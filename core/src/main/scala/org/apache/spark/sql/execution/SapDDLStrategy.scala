@@ -15,6 +15,7 @@ import org.apache.spark.sql.sources.commands._
  */
 private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strategy {
 
+  // scalastyle:off cyclomatic.complexity
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan.flatMap({
     case AppendCommand(table, options) =>
       val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
@@ -36,11 +37,15 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
                             .map(_.asInstanceOf[LogicalRelation]
                                   .relation.asInstanceOf[DescribableRelation])
       ExecutedCommand(DescribeDatasourceCommand(relation)) :: Nil
+    case CreatePartitioningFunction(options, name, datatypes, definition, partitionsNo, provider) =>
+      ExecutedCommand(CreatePartitioningFunctionCommand(options, name, datatypes, definition,
+        partitionsNo, provider)) :: Nil
     case cv@CreateViewCommand(name, query) =>
       ExecutedCommand(cv) :: Nil
     case cmd@UseStatementCommand(input) =>
       ExecutedCommand(cmd) :: Nil
     case _ => Nil
   }).headOption.toSeq
+  // scalastyle:on cyclomatic.complexity
 
 }

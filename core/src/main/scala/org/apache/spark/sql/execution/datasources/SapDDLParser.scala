@@ -1,6 +1,6 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{SaveMode, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -12,6 +12,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
 
   override protected lazy val ddl: Parser[LogicalPlan] =
     createTable |
+      createPartitionFunction |
       appendTable |
       dropTable |
       describeTable |
@@ -38,6 +39,9 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
   protected val DATASOURCE = Keyword("DATASOURCE")
   protected val PARTITIONED = Keyword("PARTITIONED")
   protected val BY = Keyword("BY")
+  protected val PARTITION = Keyword("PARTITION")
+  protected val FUNCTION = Keyword("FUNCTION")
+  protected val PARTITIONS = Keyword("PARTITIONS")
 
   protected lazy val describeDatasource: Parser[LogicalPlan] =
     DESCRIBE ~> DATASOURCE ~> ident ^^ {
@@ -105,6 +109,25 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
               managedIfNoPath = false)
           }
         }
+    }
+
+  /**
+   * Resolves the CREATE PARTITIONING FUNCTION statements.
+   * The only parameter is the function definition passed by
+   * the user,
+   */
+  protected lazy val createPartitionFunction: Parser[LogicalPlan] =
+    (CREATE ~> PARTITION ~> FUNCTION ~> ident) ~ datatypes ~ (AS ~> ident) ~
+      (PARTITIONS ~> numericLit).? ~ (USING ~> className) ~
+      (OPTIONS ~> options).? ^^ {
+      case name ~ types ~ definition ~ partitionsNo ~ provider ~ opts =>
+        if (types.isEmpty){
+          throw new DDLException(
+            "The hashing function argument list cannot be empty.")
+        }
+        val options = opts.getOrElse(Map.empty[String, String])
+        val partitionsNoInt = if (partitionsNo.isDefined) Some(partitionsNo.get.toInt) else None
+        CreatePartitioningFunction(options, name, types, definition, partitionsNoInt, provider)
     }
 
   /**
@@ -208,6 +231,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
       case l ~ r => UseStatementCommand(l + " " + r.mkString(" "))
     }
 
+  protected lazy val datatypes: Parser[Seq[DataType]] = "(" ~> repsep(primitiveType, ",") <~ ")"
 
   protected lazy val colsNames: Parser[Seq[String]] = "(" ~> repsep(ident, ",") <~ ")"
 

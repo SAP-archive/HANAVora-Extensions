@@ -2,10 +2,10 @@ package org.apache.spark.sql.execution
 
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.execution.datasources.{DescribeDatasourceCommand, LogicalRelation}
+import org.apache.spark.sql.execution.datasources.{CreatePartitioningFunctionCommand, DescribeDatasourceCommand, LogicalRelation}
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.sources.commands.DescribeDatasource
+import org.apache.spark.sql.sources.commands.{CreatePartitioningFunction, DescribeDatasource}
 import org.apache.spark.sql.types._
 import org.mockito.Mockito
 import org.scalatest.FunSuite
@@ -53,4 +53,19 @@ class SapDDLStrategySuite extends FunSuite {
 
     Mockito.validateMockitoUsage()
   }
+
+  test("CREATE PARTITION function test") {
+    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
+    val strategy = new SapDDLStrategy(planner)
+    val cpf = new CreatePartitioningFunction(Map[String, String](), "test",
+      Seq(IntegerType, StringType), "hash", None, "com.sap.spark.vora")
+
+    val command = strategy.apply(cpf)
+    assert(command == ExecutedCommand(CreatePartitioningFunctionCommand(
+      Map[String, String](), "test", Seq(IntegerType, StringType), "hash",
+      None, "com.sap.spark.vora")) :: Nil)
+
+    Mockito.validateMockitoUsage()
+  }
+
 }

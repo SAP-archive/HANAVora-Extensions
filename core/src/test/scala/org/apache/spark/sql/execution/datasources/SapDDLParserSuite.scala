@@ -3,6 +3,7 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.sources.commands._
+import org.apache.spark.sql.types.{StringType, IntegerType}
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}
@@ -299,6 +300,91 @@ OPTIONS (
                        zkurls "1.1.1.1",
                        nameNodeUrl "1.1.1.1")"""
     intercept[SapParserException](ddlParser.parse(invStatement))
+  }
+
+  test("Parse a correct CREATE PARTITION FUNCTION statement without the PARTITIONS clause") {
+    val testTable =
+      """CREATE PARTITION FUNCTION test (integer, string) AS HASH
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1")
+      """.stripMargin
+    val parsedStmt = ddlParser.parse(testTable)
+    assert(ddlParser.parse(testTable).isInstanceOf[CreatePartitioningFunction])
+
+    val cpf = parsedStmt.asInstanceOf[CreatePartitioningFunction]
+    assert(cpf.parameters.contains("zkurls"))
+    assert(cpf.parameters("zkurls") == "1.1.1.1")
+    assert(cpf.name == "test")
+    assert(cpf.datatypes == Seq(IntegerType, StringType))
+    assert(cpf.definition == "HASH")
+    assert(cpf.provider == "com.sap.spark.vora")
+  }
+
+  test("Parse a correct CREATE PARTITION FUNCTION statement with the PARTITIONS clause") {
+    val testTable =
+      """CREATE PARTITION FUNCTION test (integer, string) AS HASH PARTITIONS 7
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val parsedStmt = ddlParser.parse(testTable)
+    assert(ddlParser.parse(testTable).isInstanceOf[CreatePartitioningFunction])
+
+    val cpf = parsedStmt.asInstanceOf[CreatePartitioningFunction]
+    assert(cpf.parameters.contains("zkurls"))
+    assert(cpf.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf.name == "test")
+    assert(cpf.datatypes == Seq(IntegerType, StringType))
+    assert(cpf.definition == "HASH")
+    assert(cpf.partitionsNo.isDefined)
+    assert(cpf.partitionsNo.get == 7)
+    assert(cpf.provider == "com.sap.spark.vora")
+  }
+
+  test("Do not parse incorrect CREATE PARTITION FUNCTION statements") {
+    val invStatement1 =
+      """CREATE PARTITION FUNCTION (integer, string) AS HASH PARTITIONS 7
+        |USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement1))
+
+    val invStatement2 =
+      """CREATE PARTITION FUNCTION 44test (integer,) AS HASH PARTITIONS 7
+        |USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement2))
+
+    val invStatement3 =
+      """CREATE PARTITION FUNCTION test AS HASH PARTITIONS 7
+        |USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement3))
+
+    val invStatement4 =
+      """CREATE PARTITION FUNCTION test (integer, string) HASH PARTITIONS 7
+        |USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement4))
+
+    val invStatement5 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS HASH
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement5))
+
+    val invStatement6 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS HASH
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement6))
+
+    val invStatement7 =
+      """CREATE PARTITION FUNCTION test () AS HASH
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val ex = intercept[DDLException](ddlParser.parse(invStatement7))
+    assert(ex.getMessage.contains("The hashing function argument list cannot be empty."))
   }
 
 }
