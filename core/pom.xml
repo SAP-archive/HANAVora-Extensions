@@ -18,8 +18,6 @@
     <dependency>
       <groupId>com.sap.spark</groupId>
       <artifactId>${compat.artifact.id}</artifactId>
-      <version>${project.version}</version>
-      <classifier>${build.classifier}</classifier>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
