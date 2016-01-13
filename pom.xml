@@ -41,8 +41,9 @@
     <scala.binary.version>2.10</scala.binary.version>
     <spark14.version>1.4.1</spark14.version>
     <spark15.version>1.5.2</spark15.version>
-    <spark.version>${spark14.version}</spark.version>
-    <compat.artifact.id>compat-1.4</compat.artifact.id>
+    <!-- hardcoded to 1.5.2 now, simplify later -->
+    <spark.version>${spark15.version}</spark.version>
+    <compat.artifact.id>compat-1.5</compat.artifact.id>
     <scalacheck.version>1.11.3</scalacheck.version>
     <scalaz.version>7.1.1</scalaz.version>
     <hadoop.version>2.6.0</hadoop.version>
@@ -444,37 +445,6 @@
   </build>
 
   <profiles>
-    <profile>
-      <id>spark-1.5</id>
-      <properties>
-        <spark.version>${spark15.version}</spark.version>
-        <compat.artifact.id>compat-1.5</compat.artifact.id>
-      </properties>
-      <!--
-        XXX: We need to work around the issue of other modules not picking the
-        transitive dependencies from the profile. See MNG-1388.
-      -->
-      <dependencyManagement>
-        <dependencies>
-          <dependency>
-            <groupId>com.sap.spark</groupId>
-            <artifactId>core</artifactId>
-            <version>1.2.10</version>
-            <exclusions>
-              <exclusion>
-                <groupId>com.sap.spark</groupId>
-                <artifactId>compat-1.4</artifactId>
-              </exclusion>
-            </exclusions>
-          </dependency>
-          <dependency>
-            <groupId>com.sap.spark</groupId>
-            <artifactId>compat-1.5</artifactId>
-            <version>1.2.10</version>
-          </dependency>
-        </dependencies>
-      </dependencyManagement>
-    </profile>
     <profile>
       <id>release.build</id>
       <activation>
