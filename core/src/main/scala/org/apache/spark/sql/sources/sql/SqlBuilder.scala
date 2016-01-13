@@ -4,9 +4,10 @@ import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.expressions.{BinarySymbolExpression, Ascending}
+import org.apache.spark.sql.catalyst.expressions.{Literal, BinarySymbolExpression, Ascending}
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.catalyst.{analysis, expressions => expr}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.Filter
@@ -269,6 +270,10 @@ class SqlBuilder {
       case expr.SortOrder(child,direction) =>
         val sortDirection = if (direction == Ascending) "ASC" else "DESC"
         s"${expressionToSql(child)} $sortDirection"
+      // in Spark 1.5 timestamps are longs and processed internally, however we have to
+      // convert that to TO_TIMESTAMP()
+      case t@Literal(_, dataType) if dataType.equals(TimestampType) =>
+        s"TO_TIMESTAMP('${longToReadableTimestamp(t.value.asInstanceOf[Long])}')"
       case expr.Literal(value, _) => literalToSql(value)
       case expr.Cast(child, dataType) =>
         s"CAST(${expressionToSql(child)} AS ${typeToSql(dataType)})"
@@ -302,6 +307,10 @@ class SqlBuilder {
     }
   // scalastyle:on method.length
   // scalastyle:on cyclomatic.complexity
+
+  private def longToReadableTimestamp(t: Long): String =
+    DateTimeUtils.timestampToString(t) + "." +
+      "%07d".format(DateTimeUtils.toJavaTimestamp(t).getNanos()/100)
 
   /**
    * Convenience functions to take several expressions
