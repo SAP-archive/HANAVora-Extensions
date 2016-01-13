@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sap.spark</groupId>
   <artifactId>spark-sap-parent</artifactId>
-  <version>1.2.11</version>
+  <version>1.2.12</version>
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
@@ -175,27 +175,27 @@
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>compat</artifactId>
-        <version>1.2.11</version>
+        <version>1.2.12</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>compat-1.4</artifactId>
-        <version>1.2.11</version>
+        <version>1.2.12</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>compat-1.5</artifactId>
-        <version>1.2.11</version>
+        <version>1.2.12</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.2.11</version>
+        <version>1.2.12</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.2.11</version>
+        <version>1.2.12</version>
         <type>test-jar</type>
       </dependency>
 
