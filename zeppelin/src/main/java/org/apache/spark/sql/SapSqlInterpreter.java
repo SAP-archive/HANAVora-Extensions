@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 import scala.collection.Iterator;
 import scala.collection.JavaConversions;
-import scala.collection.JavaConverters;
 import scala.collection.mutable.HashMap;
 import scala.collection.mutable.HashSet;
 
@@ -179,9 +178,7 @@ public class SapSqlInterpreter extends Interpreter {
 
         if (rows != null && rows.length > 0) {
             try {
-                List<Attribute> columns =
-                        scala.collection.JavaConverters.asJavaListConverter(
-                                qe.analyzed().output()).asJava();
+                List<Attribute> columns = JavaConversions.asJavaList(qe.analyzed().output());
                 // ArrayType, BinaryType, BooleanType, ByteType, DecimalType, DoubleType, DynamicType,
                 // FloatType, FractionalType, IntegerType, IntegralType, LongType, MapType, NativeType,
                 // NullType, NumericType, ShortType, StringType, StructType
@@ -291,8 +288,7 @@ public class SapSqlInterpreter extends Interpreter {
 
             Method numCompletedTasks = stageUIDataClass.getMethod("numCompleteTasks");
 
-            Set<Tuple2<Object, Object>> keys =
-                    JavaConverters.asJavaSetConverter(stageIdData.keySet()).asJava();
+            Set<Tuple2<Object, Object>> keys = JavaConversions.asJavaSet(stageIdData.keySet());
             for (Tuple2<Object, Object> k: keys) {
                 if (stage.id() == (int) k._1()) {
                     Object uiData = stageIdData.get(k).get();

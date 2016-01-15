@@ -53,7 +53,8 @@ class SapSqlInterpreterSuite extends FunSuite with BeforeAndAfterAll {
     sqli.open()
 
     context = new InterpreterContext(
-      "id",
+      "noteId",
+      "paragraphId",
       "title",
       "text",
       new java.util.HashMap[String, Object](),
