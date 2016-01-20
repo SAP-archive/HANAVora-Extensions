@@ -5,9 +5,10 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 
+// scalastyle:off file.size.limit
 class FiltersReductionSuite
   extends FunSuite
   with PlanTest {

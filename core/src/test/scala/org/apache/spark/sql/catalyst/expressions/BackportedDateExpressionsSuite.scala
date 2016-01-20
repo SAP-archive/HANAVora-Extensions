@@ -3,9 +3,9 @@ package org.apache.spark.sql.catalyst.expressions
 import java.sql.{Date, Timestamp}
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import org.apache.spark.sql.catalyst.compat.InternalRow
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 
 //

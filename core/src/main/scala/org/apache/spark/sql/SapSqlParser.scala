@@ -1,9 +1,9 @@
 package org.apache.spark.sql
 
-import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
+import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.compat.BackportedSqlParser
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan, Subquery}
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreateViewCommand, SapDDLParser}
 
 import scala.util.parsing.input.Position
@@ -49,13 +49,13 @@ private object SapSqlParser extends BackportedSqlParser {
     hierarchy | joinedRelation | relationFactor
 
   /**
-    * Every function / expression parsing is hooked here.
-    *
-    * @note Do not add rules to parse new functions here unless
-    *       they have special syntax. Functions with standard
-    *       syntax should be registered with [[SQLContext.functionRegistry]].
-    *       See [[RegisterCustomFunctions]].
-    */
+   * Every function / expression parsing is hooked here.
+   *
+   * @note Do not add rules to parse new functions here unless
+   *       they have special syntax. Functions with standard
+   *       syntax should be registered with [[SQLContext.functionRegistry]].
+   *       See [[RegisterCustomFunctions]].
+   */
   override protected lazy val function: Parser[Expression] =
     extract | originalFunction | dataSourceFunctions
 
@@ -92,11 +92,11 @@ private object SapSqlParser extends BackportedSqlParser {
   protected lazy val extractPart: Parser[Expression => Expression] =
     (
       "(?i)DAY".r ^^^ { e: Expression => DayOfMonth(e) }
-      | "(?i)MONTH".r ^^^ { e: Expression => Month(e) }
-      | "(?i)YEAR".r ^^^ { e: Expression => Year(e) }
-      | "(?i)HOUR".r ^^^  { e: Expression => Hour(e) }
-      | "(?i)MINUTE".r ^^^ { e: Expression => Minute(e) }
-      | "(?i)SECOND".r ^^^ { e: Expression => Second(e) }
+        | "(?i)MONTH".r ^^^ { e: Expression => Month(e) }
+        | "(?i)YEAR".r ^^^ { e: Expression => Year(e) }
+        | "(?i)HOUR".r ^^^  { e: Expression => Hour(e) }
+        | "(?i)MINUTE".r ^^^ { e: Expression => Minute(e) }
+        | "(?i)SECOND".r ^^^ { e: Expression => Second(e) }
       )
 
   /**

@@ -1,6 +1,6 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import org.apache.spark.sql.catalyst.compat.InternalRow
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.test.HierarchyGen._
 import org.apache.spark.sql.types.{Node, NodeType}
 import org.scalatest.{MustMatchers, PropSpec}

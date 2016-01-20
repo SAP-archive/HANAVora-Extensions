@@ -3,8 +3,7 @@ package org.apache.spark.sql.hive.sap.thriftserver
 import java.io.PrintStream
 
 import org.apache.spark.scheduler.StatsReportListener
-import org.apache.spark.sql.hive.SapHiveContext
-import org.apache.spark.sql.hive.compat.HIVE_VERSION
+import org.apache.spark.sql.hive.{HiveContext, SapHiveContext}
 import org.apache.spark.sql.hive.thriftserver.SparkSQLCLIDriver
 import org.apache.spark.sql.hive.thriftserver.SparkSQLEnv._
 import org.apache.spark.util.Utils
@@ -43,7 +42,7 @@ object SapSQLEnv extends Logging {
       hiveContext.metadataHive.setInfo(new PrintStream(System.err, true, "UTF-8"))
       hiveContext.metadataHive.setError(new PrintStream(System.err, true, "UTF-8"))
 
-      hiveContext.setConf("spark.sql.hive.version", HIVE_VERSION)
+      hiveContext.setConf("spark.sql.hive.version", HiveContext.hiveExecutionVersion)
 
       if (log.isDebugEnabled) {
         hiveContext.hiveconf.getAllProperties.toSeq.sorted.foreach { case (k, v) =>

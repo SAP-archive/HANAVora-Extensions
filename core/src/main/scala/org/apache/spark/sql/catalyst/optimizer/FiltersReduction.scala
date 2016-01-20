@@ -3,13 +3,14 @@ package org.apache.spark.sql.catalyst.optimizer
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 
 import scala.annotation.tailrec
 
 /**
  * Removing redundant filters.
  */
+
 object FiltersReduction extends Rule[LogicalPlan] with PredicateHelper {
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformUp {
@@ -38,6 +39,8 @@ object FiltersReduction extends Rule[LogicalPlan] with PredicateHelper {
     }
 
   // scalastyle:off cyclomatic.complexity
+  // scalastyle:off method.length
+  // TODO (YH, ...) decompose this method into smaller ones.
   private def foldAndExpression(left: BinaryComparison,
                                 right: BinaryComparison): Option[Expression] =
     (left, right) match {

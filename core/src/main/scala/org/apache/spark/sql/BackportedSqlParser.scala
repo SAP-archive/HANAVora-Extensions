@@ -1,13 +1,7 @@
 package org.apache.spark.sql.catalyst.compat
 
-//
-// Extracted from Spark 1.5.2.
-//
-
-// scalastyle:off
-
 import org.apache.spark.sql.catalyst.{TableIdentifier, AbstractSparkSQLParser}
-import org.apache.spark.sql.types.CalendarIntervalType
+import org.apache.spark.sql.types._
 
 import scala.language.implicitConversions
 
@@ -16,19 +10,23 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.compat._
 import org.apache.spark.unsafe.types.CalendarInterval
 
 /**
-  * A very simple SQL parser.  Based loosely on:
-  * https://github.com/stephentu/scala-sql-parser/blob/master/src/main/scala/parser.scala
-  *
-  * Limitations:
-  *  - Only supports a very limited subset of SQL.
-  *
-  * This is currently included mostly for illustrative purposes.  Users wanting more complete support
-  * for a SQL like language should checkout the HiveQL support in the sql/hive sub-project.
-  */
+ * A very simple SQL parser.  Based loosely on:
+ * https://github.com/stephentu/scala-sql-parser/blob/master/src/main/scala/parser.scala
+ *
+ * Limitations:
+ *  - Only supports a very limited subset of SQL.
+ *
+ * This is currently included mostly for illustrative purposes.  Users wanting more complete support
+ * for a SQL like language should checkout the HiveQL support in the sql/hive sub-project.
+ *
+ * This class itself is a copy of [[org.apache.spark.sql.catalyst.SqlParser]] and it is copied
+ * here to make it possible to easily extend it.
+ *
+ * For more information about this check SPARK-10155.
+ */
 private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataTypeParser {
 
   def parseExpression(input: String): Expression = synchronized {

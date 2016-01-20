@@ -9,6 +9,7 @@ import org.apache.spark.sql.types.Node
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
+// scalastyle:off method.length
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
 (pred: I => C,
  succ: I => C,

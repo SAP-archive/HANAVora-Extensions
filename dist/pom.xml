@@ -132,7 +132,6 @@
                 <environmentVariables>
                   <PYTHONPATH>../../main/python:$PYTHONPATH</PYTHONPATH>
                   <SKIP_TESTS>${skipTests}</SKIP_TESTS>
-                  <COMPAT_ARTIFACT_ID>${compat.artifact.id}</COMPAT_ARTIFACT_ID>
                 </environmentVariables>
               </configuration>
               <id>python-test</id>
@@ -147,7 +146,6 @@
                   <workingDirectory>src/test/resources/R</workingDirectory>
                   <environmentVariables>
                     <SKIP_TESTS>${skipTests}</SKIP_TESTS>
-                    <COMPAT_ARTIFACT_ID>${compat.artifact.id}</COMPAT_ARTIFACT_ID>
                   </environmentVariables>
                 </configuration>
                 <id>R-test</id>

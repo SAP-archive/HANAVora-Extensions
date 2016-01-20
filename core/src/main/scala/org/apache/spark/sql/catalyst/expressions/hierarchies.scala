@@ -1,12 +1,12 @@
 package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
-import org.apache.spark.sql.catalyst.expressions.compat.{AbstractDataType, _}
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types.AbstractDataType
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.{Node, NodeType}
 
 abstract class UnaryNodeExpression
-  extends BackportedUnaryExpression
+  extends UnaryExpression
   with ImplicitCastInputTypes
   with CodegenFallback {
   self: Product =>
@@ -23,7 +23,7 @@ abstract class UnaryNodeExpression
 }
 
 abstract class NodePredicate
-  extends BackportedBinaryExpression
+  extends BinaryExpression
   with ImplicitCastInputTypes
   with CodegenFallback {
   self: Product =>

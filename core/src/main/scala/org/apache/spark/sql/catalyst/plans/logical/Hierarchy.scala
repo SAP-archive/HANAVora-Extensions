@@ -4,7 +4,6 @@ import java.util.Locale
 
 import org.apache.spark.sql.catalyst.analysis.Resolver
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.compat.BackportedUnaryNode
 
 case class Hierarchy(
     relation: LogicalPlan,
@@ -13,7 +12,7 @@ case class Hierarchy(
     searchBy: Seq[SortOrder],
     startWhere: Option[Expression],
     nodeAttribute: Attribute)
-  extends BackportedUnaryNode {
+  extends UnaryNode {
 
   /**
    * Calculate an ad-hoc unique identifier of a hierarchy based

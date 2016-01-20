@@ -2,12 +2,12 @@ package org.apache.spark.sql.execution
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.compat._
+import org.apache.spark.sql.catalyst._
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
 import org.apache.spark.sql.hierarchy._
 import org.apache.spark.sql.catalyst.plans.logical.Hierarchy
-import org.apache.spark.sql.types.compat._
-import org.apache.spark.sql.types.NodeType
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.util.RddUtils
 
 /**
   * Execution for hierarchies.
@@ -48,7 +48,7 @@ private[sql] case class HierarchyPhysicalPlan(
     val childSchema = child.schema
 
     /** Copy to prevent weird duplicated rows. See SPARK-4775. */
-    val mappedRDD = CompatRDDConversions.rowRddToRdd(rdd, childSchema)
+    val mappedRDD = RddUtils.rowRddToRdd(rdd, childSchema)
 
     /** Build the hierarchy */
     val resultRdd = hierarchyBuilder.buildFromAdjacencyList(mappedRDD)
@@ -58,7 +58,8 @@ private[sql] case class HierarchyPhysicalPlan(
     /** Transform the result to Catalyst types */
     val schemaWithNode =
       StructType(childSchema.fields ++ Seq(StructField("", NodeType, nullable = false)))
-    val resultInternalRdd = CompatRDDConversions.rddToRowRdd(cachedResultRdd, schemaWithNode)
+    val resultInternalRdd = RDDConversions.rowToRowRdd(cachedResultRdd,
+      schemaWithNode.fields.map(_.dataType))
 
     resultInternalRdd
   }

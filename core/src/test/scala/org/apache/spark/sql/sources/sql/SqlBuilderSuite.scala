@@ -8,7 +8,7 @@ import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{LogicalRelation, CreateLogicalRelation}
 import org.apache.spark.sql.sources.BaseRelation
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SQLContext, sources}
 import org.mockito.Mockito
 import org.scalatest.FunSuite

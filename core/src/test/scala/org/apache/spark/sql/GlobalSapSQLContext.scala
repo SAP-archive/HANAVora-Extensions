@@ -5,10 +5,10 @@ import java.io.File
 import com.sap.spark.util.TestUtils
 import com.sap.spark.{GlobalSparkContext, WithSQLContext}
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.catalyst.compat.InternalRow
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{BoundReference, Cast}
-import org.apache.spark.unsafe.types.compat._
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.unsafe.types._
+import org.apache.spark.sql.types._
 import org.scalatest.Suite
 
 import scala.io.Source

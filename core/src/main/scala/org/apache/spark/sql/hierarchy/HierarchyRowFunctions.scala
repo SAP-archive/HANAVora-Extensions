@@ -1,10 +1,10 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.compat.InternalRow
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.CatalystTypeConverters
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.Node
 
 private[hierarchy]  case class HierarchyRowFunctions(inputTypes: Seq[DataType]) {

@@ -4,7 +4,7 @@ import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.expressions.{Literal, BinarySymbolExpression, Ascending}
+import org.apache.spark.sql.catalyst.expressions.{BinarySymbolExpression, Literal, Ascending}
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -12,8 +12,8 @@ import org.apache.spark.sql.catalyst.{analysis, expressions => expr}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.{sources => src}
-import org.apache.spark.unsafe.types.compat._
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.unsafe.types._
+import org.apache.spark.sql.types._
 
 /**
  * SQL builder class.
@@ -95,7 +95,8 @@ class SqlBuilder {
 
   /**
    * These rules prepare a logical plan to be convertible to a SQL query.
-   * @return
+    *
+    * @return
    */
   protected def preparePlanRules: Seq[Rule[logical.LogicalPlan]] = Seq(
     AddSubqueries,

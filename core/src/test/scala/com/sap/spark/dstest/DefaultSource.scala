@@ -2,7 +2,7 @@ package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 
 /**
  * Test default source that is capable of creating dummy temporary and persistent relations

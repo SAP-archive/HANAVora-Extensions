@@ -1,24 +1,39 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry
-import org.apache.spark.sql.catalyst.analysis.compat._
+import org.apache.spark.sql.catalyst.analysis.FunctionRegistry._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.compat._
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
+import scala.reflect.ClassTag
 
 /**
  * Register custom functions in a function registry.
  */
 object RegisterCustomFunctions {
 
-  def apply(registry: FunctionRegistry): Unit = {
-    registry.registerExpression[Remainder]("remainder")
-    registry.registerExpression[Remainder]("mod")
+  /**
+   * Utility methods that registers an expression in the given registry by extracting its
+   * builder from the registry and use it for registering the expression.
+   *
+   * @param registry The registry.
+   * @param name The name of the expression.
+   * @param tag The class tag of the expression.
+   * @tparam T The Ttype of the expression.
+   */
+  // TODO move this to an implicit function in the registry.
+  private[this] def registerExpression[T <: Expression](registry: FunctionRegistry, name: String)
+                                         (implicit tag: ClassTag[T]): Unit = {
+    val (_, (_, builder)) = expression[T](name)
+    registry.registerFunction(name, builder)
+  }
 
-    registry.registerExpression[AddYears]("add_years")
-    registry.registerExpression[DateAdd]("add_days")
-    registry.registerExpression[Replace]("replace")
-    registry.registerExpression[Log]("ln")
+  def apply(registry: FunctionRegistry): Unit = {
+    registerExpression[Remainder](registry, "remainder")
+    registerExpression[Remainder](registry, "mod")
+    registerExpression[AddYears](registry, "add_years")
+    registerExpression[DateAdd](registry, "add_days")
+    registerExpression[Replace](registry, "replace")
+    registerExpression[Log](registry, "ln")
     registry.registerFunction("to_double", toDoubleBuilder)
     registry.registerFunction("to_integer", toIntegerBuilder)
     registry.registerFunction("to_varchar", toVarcharBuilder)

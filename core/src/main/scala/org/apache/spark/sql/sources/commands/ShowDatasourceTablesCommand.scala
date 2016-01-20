@@ -2,7 +2,7 @@ package org.apache.spark.sql.sources.commands
 
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 
 /**
  * Returned for the "SHOW DATASOURCETABLES" command.

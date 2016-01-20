@@ -4,7 +4,6 @@ import java.sql.Timestamp
 import java.util.TimeZone
 
 import org.apache.spark.sql.catalyst.expressions.Literal
-import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.scalatest.FunSuite
 
 class SqlBuilderTimestampSuite extends FunSuite {

@@ -4,8 +4,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PartialAggregation
 import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.compat._
-import org.apache.spark.sql.execution.{CompatRDDConversions, SparkPlan}
+import org.apache.spark.sql.execution.{PhysicalRDD, RDDConversions, SparkPlan}
 import org.apache.spark.sql.sources.CatalystSource
 import org.apache.spark.sql.{Strategy, execution}
 
@@ -35,8 +34,11 @@ private[sql] object CatalystSourceStrategy extends Strategy {
 
   private def toPhysicalRDD(cs: CatalystSource, plan: LogicalPlan): SparkPlan = {
     val rdd = cs.logicalPlanToRDD(plan)
-    val internalRdd = CompatRDDConversions.rddToRowRdd(rdd, plan.schema)
-    physicalRDD(plan.output, internalRdd, "CatalystSource")
+    val internalRdd = RDDConversions.rowToRowRdd(rdd,
+      plan.schema.fields.map(_.dataType))
+
+
+    PhysicalRDD(plan.output, internalRdd, "CatalystSource")
   }
 
   private def planNonPartitioned(cs: CatalystSource, plan: LogicalPlan): Seq[SparkPlan] =
@@ -57,28 +59,28 @@ private[sql] object CatalystSourceStrategy extends Strategy {
 
     plan match {
       case logical.Limit(IntegerLiteral(limit),
-      logical.CompatDistinct(logical.Sort(order, globalSort, child)))
+      logical.IsDistinct(logical.Sort(order, globalSort, child)))
         if isSupported(plan, child) =>
         execution.Limit(limit,
-          execution.CompatDistinct(
+          execution.IsDistinct(
             execution.Sort(order, global = globalSort,
               toRDD(plan)))) :: Nil
       case logical.Limit(IntegerLiteral(limit),
-      logical.Sort(order, globalSort, logical.CompatDistinct(child)))
+      logical.Sort(order, globalSort, logical.IsDistinct(child)))
         if isSupported(plan, child) =>
         execution.Limit(limit,
           execution.Sort(order, global = globalSort,
-            execution.CompatDistinct(
+            execution.IsDistinct(
               toRDD(plan)))) :: Nil
       case logical.Limit(IntegerLiteral(limit), logical.Sort(order, globalSort, child))
         if isSupported(plan, child) =>
         execution.Limit(limit,
           execution.Sort(order, global = globalSort,
             toRDD(plan))) :: Nil
-      case logical.Limit(IntegerLiteral(limit), logical.CompatDistinct(child))
+      case logical.Limit(IntegerLiteral(limit), logical.IsDistinct(child))
         if isSupported(plan, child) =>
         execution.Limit(limit,
-          execution.CompatDistinct(
+          execution.IsDistinct(
             toRDD(plan))) :: Nil
       case logical.Limit(IntegerLiteral(limit), child)
         if isSupported(plan, child) =>
@@ -86,7 +88,7 @@ private[sql] object CatalystSourceStrategy extends Strategy {
           toRDD(plan)) :: Nil
       case logical.Distinct(child)
         if isSupported(plan, child) =>
-        execution.CompatDistinct(
+        execution.IsDistinct(
           toRDD(plan)) :: Nil
 
       case partialAgg@PartialAggregation(

@@ -11,7 +11,7 @@ import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LogicalPlan}
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.{CatalystSourceStrategy, CreateLogicalRelation}
 import org.apache.spark.sql.types.NodeType
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class CatalystSourceStrategySuite

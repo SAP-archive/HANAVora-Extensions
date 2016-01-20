@@ -1,6 +1,6 @@
 package org.apache.spark.sql.catalyst.expressions
 
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 
 import scala.annotation.tailrec
 
@@ -49,6 +49,25 @@ private[sql] object NumericLiteral {
     case Literal(value: Decimal, _) => Some(value.toBigDecimal)
     case Literal(value: java.math.BigDecimal, _) => Some(value)
     case Literal(value: BigDecimal, _) => Some(value)
+    case _ => None
+  }
+}
+
+// TODO optimize this. maybe we can substitute it completely with its logic.
+object BinarySymbolExpression {
+  def isBinaryExpressionWithSymbol(be: BinaryExpression): Boolean =
+    be.isInstanceOf[BinaryArithmetic] || be.isInstanceOf[BinaryComparison]
+
+  def getBinaryExpressionSymbol(be: BinaryExpression): String =
+    be match {
+      case be: BinaryComparison => be.symbol
+      case be:BinaryArithmetic => be.symbol
+      case _ => sys.error(s"${be.getClass.getName} has no symbol attribute")
+    }
+
+  def unapply(any: Any): Option[(Expression, String, Expression)] = any match {
+    case be: BinaryExpression if isBinaryExpressionWithSymbol(be) =>
+      Some(be.left, getBinaryExpressionSymbol(be), be.right)
     case _ => None
   }
 }

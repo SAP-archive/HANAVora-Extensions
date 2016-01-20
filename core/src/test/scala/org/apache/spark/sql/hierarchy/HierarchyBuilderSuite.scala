@@ -3,7 +3,7 @@ package org.apache.spark.sql.hierarchy
 import org.apache.spark.SparkConf
 import org.apache.spark.serializer.JavaSerializer
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.types.Node
 import org.scalatest.FunSuite
 

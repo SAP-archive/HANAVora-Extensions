@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.ProviderUtils._
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources.DatasourceCatalog
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SQLContext}
 
 /**

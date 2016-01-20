@@ -6,5 +6,5 @@ package org.apache.spark.sql.sources
  * This one is meant for extending the BaseRelation!
  */
 trait TemporaryFlagRelation {
-  def isTemporary() : Boolean
+  def isTemporary(): Boolean
 }

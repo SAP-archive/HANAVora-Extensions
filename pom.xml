@@ -26,9 +26,6 @@
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
-    <module>compat</module>
-    <module>compat-1.4</module>
-    <module>compat-1.5</module>
     <module>core</module>
     <module>zeppelin</module>
     <module>sap-thriftserver</module>
@@ -39,11 +36,9 @@
     <mockito.version>1.10.19</mockito.version>
     <scala.version>2.10.4</scala.version>
     <scala.binary.version>2.10</scala.binary.version>
-    <spark14.version>1.4.1</spark14.version>
     <spark15.version>1.5.2</spark15.version>
     <!-- hardcoded to 1.5.2 now, simplify later -->
     <spark.version>${spark15.version}</spark.version>
-    <compat.artifact.id>compat-1.5</compat.artifact.id>
     <scalacheck.version>1.11.3</scalacheck.version>
     <scalaz.version>7.1.1</scalaz.version>
     <hadoop.version>2.6.0</hadoop.version>
@@ -171,21 +166,6 @@
         <groupId>org.scalaz</groupId>
         <artifactId>scalaz-scalacheck-binding_${scala.binary.version}</artifactId>
         <version>${scalaz.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.sap.spark</groupId>
-        <artifactId>compat</artifactId>
-        <version>1.2.15</version>
-      </dependency>
-      <dependency>
-        <groupId>com.sap.spark</groupId>
-        <artifactId>compat-1.4</artifactId>
-        <version>1.2.15</version>
-      </dependency>
-      <dependency>
-        <groupId>com.sap.spark</groupId>
-        <artifactId>compat-1.5</artifactId>
-        <version>1.2.15</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>

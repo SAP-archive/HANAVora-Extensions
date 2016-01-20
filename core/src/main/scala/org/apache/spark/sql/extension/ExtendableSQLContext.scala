@@ -2,13 +2,12 @@ package org.apache.spark.sql.extension
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.analysis.compat._
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, SimpleCatalog}
+import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.{ParserDialect, SimpleCatalystConf}
-import org.apache.spark.sql.execution.BaseSparkPlanner
-import org.apache.spark.sql.execution.compat.ExtractPythonUDFs
+import org.apache.spark.sql.execution.ExtractPythonUDFs
 import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.catalyst.analysis.SimpleFunctionRegistry
 
 /**
   * An [[SQLContext]] that eases extensions by mixin [[SQLContextExtension]].
@@ -37,8 +36,8 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
     */
   @transient
   override protected[sql] lazy val functionRegistry = {
-    val registry = newSimpleFunctionRegistry(catalystConf)
-    registry.registerBuiltins()
+    val registry = new SimpleFunctionRegistry()
+    registerBuiltins(registry)
     registerFunctions(registry)
     registry
   }
@@ -92,7 +91,21 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
   @transient
   override protected[sql] val planner =
   // HiveStrategies defines its own strategies, we should be back to SparkPlanner strategies
-    new SparkPlanner with ExtendedPlanner with BaseSparkPlanner {
+    new SparkPlanner with ExtendedPlanner {
+
+      def baseStrategies: Seq[Strategy] =
+        DataSourceStrategy ::
+          DDLStrategy ::
+          TakeOrderedAndProject ::
+          HashAggregation ::
+          Aggregation ::
+          LeftSemiJoin ::
+          EquiJoinSelection ::
+          InMemoryScans ::
+          BasicOperators ::
+          CartesianProduct ::
+          BroadcastNestedLoopJoin :: Nil
+
       override def strategies: Seq[Strategy] =
         self.strategies(this) ++
           experimental.extraStrategies ++

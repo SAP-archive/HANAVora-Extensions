@@ -15,10 +15,7 @@
     <minimum.code.covered.ratio>0.65</minimum.code.covered.ratio>
   </properties>
   <dependencies>
-    <dependency>
-      <groupId>com.sap.spark</groupId>
-      <artifactId>${compat.artifact.id}</artifactId>
-    </dependency>
+
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-hive_${scala.binary.version}</artifactId>

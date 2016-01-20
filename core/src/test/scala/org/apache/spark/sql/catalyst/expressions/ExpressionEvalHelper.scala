@@ -5,7 +5,7 @@ package org.apache.spark.sql.catalyst.expressions
 //
 
 import org.apache.spark.sql.catalyst.CatalystTypeConverters
-import org.apache.spark.sql.catalyst.compat.InternalRow
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.optimizer.DefaultOptimizer
 import org.apache.spark.sql.catalyst.plans.logical.{OneRowRelation, Project}
 import org.scalactic.TripleEqualsSupport.Spread

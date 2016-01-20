@@ -4,7 +4,6 @@ import java.io.InputStream
 import java.util.Properties
 
 import org.apache.spark.sql.extension._
-import org.apache.spark.sql.extension.compat._
 import org.apache.spark.sql.sources.commands.RegisterAllTablesUsing
 
 /**
@@ -16,7 +15,7 @@ private[sql] trait CommonSapSQLContext
   extends SapSQLContextExtension {
   self: SQLContext =>
 
-  checkSparkVersion(supportedSparkVersions)
+  checkSparkVersion(List("1.5.0", "1.5.1", "1.5.2"))
   logProjectVersion()
   // check if we have to automatically register tables
   sparkContext.getConf.getOption(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {

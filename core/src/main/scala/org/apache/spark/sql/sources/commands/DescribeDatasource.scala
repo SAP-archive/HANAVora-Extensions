@@ -3,7 +3,7 @@ package org.apache.spark.sql.sources.commands
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 
 /**
  * Command to get debugging information about a specific table.

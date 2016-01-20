@@ -1,6 +1,11 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
-object CompatDistinct {
+/**
+  * Parts of Distinct operations are transalted to Aggregates. Therefor this object is added
+  * to make it easier to translate a given plan to an aggregate. Look into calling context
+  * for more information.
+  */
+object IsDistinct {
 
   def unapply(any: Any): Option[LogicalPlan] =
     any match {

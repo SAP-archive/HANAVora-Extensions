@@ -41,10 +41,6 @@
     </dependency>
     <dependency>
       <groupId>com.sap.spark</groupId>
-      <artifactId>${compat.artifact.id}</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.sap.spark</groupId>
       <artifactId>core</artifactId>
       <version>${project.version}</version>
     </dependency>

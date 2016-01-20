@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.expressions.{Attribute, EqualTo}
 import org.apache.spark.sql.catalyst.plans.logical.Hierarchy
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.BaseRelation
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
 

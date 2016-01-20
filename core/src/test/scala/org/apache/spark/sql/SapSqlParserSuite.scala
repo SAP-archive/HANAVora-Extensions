@@ -4,11 +4,10 @@ import com.sap.spark.PlanTest
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.analysis.compat._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.CreateViewCommand
-import org.apache.spark.sql.types.compat._
+import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 
 class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
@@ -40,7 +39,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         |) AS H
       """.stripMargin)
 
-    val expected = Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
+    val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
       relation = UnresolvedRelation("T1" :: Nil, Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
@@ -66,7 +65,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         | SET Node
         |) AS H
       """.stripMargin)
-    val expected = Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
+    val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
       relation = UnresolvedRelation("T1" :: Nil, Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
@@ -93,7 +92,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
           | SET Node
           |) AS H
         """.stripMargin)
-      val expected = Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
+      val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
@@ -112,7 +111,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
     val parser = new SapParserDialect
     val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateViewCommand("myview",
-      Project(unresolvedAliases(Literal(1)), UnresolvedRelation("mytable" :: Nil))
+      Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))
     )
     comparePlans(expected, result)
   }
@@ -128,7 +127,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
                                 ) AS H
                               """.stripMargin)
     val expected = CreateViewCommand("HV",
-      Project(unresolvedAliases(Literal(1)), Subquery("H", Hierarchy(
+      Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),

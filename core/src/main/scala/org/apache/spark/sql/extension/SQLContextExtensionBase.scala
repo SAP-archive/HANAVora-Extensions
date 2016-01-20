@@ -45,6 +45,13 @@ private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
               |Reverting to default dialect '${conf.dialect}'""".stripMargin, e)
     }
 
+  // (suggestion) make this implicit to FunctionRegistry.
+  protected def registerBuiltins(registry: FunctionRegistry): Unit = {
+    FunctionRegistry.expressions.foreach {
+      case (name, (info, builder)) => registry.registerFunction(name, builder)
+    }
+  }
+
   override protected def extendedDdlParser(parser: String => LogicalPlan): DDLParser =
     new DDLParser(sqlParser.parse(_))
 
