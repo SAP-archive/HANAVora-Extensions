@@ -81,19 +81,27 @@ public class SapSqlInterpreter extends Interpreter {
     }
 
     private SparkInterpreter getSparkInterpreter() {
-        for (Interpreter intp: getInterpreterGroup()) {
-            if (intp.getClassName().equals(SparkInterpreter.class.getName())) {
-                Interpreter p = intp;
-                while (p instanceof WrappedInterpreter) {
-                    if (p instanceof LazyOpenInterpreter) {
-                        p.open();
+        InterpreterGroup intpGroup = getInterpreterGroup();
+        LazyOpenInterpreter lazy = null;
+        SparkInterpreter spark = null;
+        synchronized (intpGroup) {
+            for (Interpreter intp : getInterpreterGroup()){
+                if (intp.getClassName().equals(SparkInterpreter.class.getName())) {
+                    Interpreter p = intp;
+                    while (p instanceof WrappedInterpreter) {
+                        if (p instanceof LazyOpenInterpreter) {
+                            lazy = (LazyOpenInterpreter) p;
+                        }
+                        p = ((WrappedInterpreter) p).getInnerInterpreter();
                     }
-                    p = ((WrappedInterpreter) p).getInnerInterpreter();
+                    spark = (SparkInterpreter) p;
                 }
-                return (SparkInterpreter) p;
             }
         }
-        throw new RuntimeException("SparkInterpreter not found!");
+        if (lazy != null) {
+            lazy.open();
+        }
+        return spark;
     }
 
     public boolean concurrentSQL() {
@@ -249,65 +257,7 @@ public class SapSqlInterpreter extends Interpreter {
 
     @Override
     public int getProgress(InterpreterContext context) {
-        String jobGroup = getJobGroup(context);
-        SQLContext sqlc = getSparkInterpreter().getSQLContext();
-        SparkContext sc = sqlc.sparkContext();
-        JobProgressListener sparkListener = getSparkInterpreter().getJobProgressListener();
-        int completedTasks = 0;
-        int totalTasks = 0;
-
-        DAGScheduler scheduler = sc.dagScheduler();
-        HashSet<ActiveJob> jobs = scheduler.activeJobs();
-        Iterator<ActiveJob> it = jobs.iterator();
-        while (it.hasNext()) {
-            ActiveJob job = it.next();
-            String g = (String) job.properties().get("spark.jobGroup.id");
-            if (jobGroup.equals(g)) {
-                int[] progressInfo = getProgressFromStage_1_1x(sparkListener, job.finalStage());
-                totalTasks += progressInfo[0];
-                completedTasks += progressInfo[1];
-            }
-        }
-
-        if (totalTasks == 0) {
-            return 0;
-        }
-        return completedTasks * 100 / totalTasks;
-    }
-
-    private int[] getProgressFromStage_1_1x(JobProgressListener sparkListener, Stage stage) {
-        int numTasks = stage.numTasks();
-        int completedTasks = 0;
-
-        try {
-            Method stageIdToData = sparkListener.getClass().getMethod("stageIdToData");
-            HashMap<Tuple2<Object, Object>, Object> stageIdData =
-                    (HashMap<Tuple2<Object, Object>, Object>) stageIdToData.invoke(sparkListener);
-            Class<?> stageUIDataClass =
-                    this.getClass().forName("org.apache.spark.ui.jobs.UIData$StageUIData");
-
-            Method numCompletedTasks = stageUIDataClass.getMethod("numCompleteTasks");
-
-            Set<Tuple2<Object, Object>> keys = JavaConversions.asJavaSet(stageIdData.keySet());
-            for (Tuple2<Object, Object> k: keys) {
-                if (stage.id() == (int) k._1()) {
-                    Object uiData = stageIdData.get(k).get();
-                    completedTasks += (int) numCompletedTasks.invoke(uiData);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Error on getting progress information", e);
-        }
-
-        List<Stage> parents = JavaConversions.asJavaList(stage.parents());
-        if (parents != null) {
-            for (Stage s: parents) {
-                int[] p = getProgressFromStage_1_1x(sparkListener, s);
-                numTasks += p[0];
-                completedTasks += p[1];
-            }
-        }
-        return new int[]{numTasks, completedTasks};
+        return this.getSparkInterpreter().getProgress(context);
     }
 
     @Override
