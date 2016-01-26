@@ -15,7 +15,8 @@ import scala.util.parsing.input.Position
  * This parser covers only SELECT and CREATE [TEMPORARY] VIEW statements.
  * For DML statements see [[SapDDLParser]].
  */
-private object SapSqlParser extends BackportedSqlParser {
+private object SapSqlParser extends BackportedSqlParser
+with AnnotationParsingRules{
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")
@@ -24,6 +25,9 @@ private object SapSqlParser extends BackportedSqlParser {
   protected val SEARCH = Keyword("SEARCH")
   protected val START = Keyword("START")
   protected val SET = Keyword("SET")
+
+  /* Describe table keyword */
+  protected val OLAP_DESCRIBE = Keyword("OLAP_DESCRIBE")
 
   /* Views keywords */
   protected val CREATE = Keyword("CREATE")
@@ -34,6 +38,25 @@ private object SapSqlParser extends BackportedSqlParser {
   protected val EXTRACT = Keyword("EXTRACT")
 
   lexical.delimiters += "$"
+
+  /**
+   * This is copied from [[projection]] but extended to allow annotations
+   * on the attributes.
+   */
+  override protected lazy val projection: Parser[Expression] =
+    (expression ~ (AS ~> ident) ~ metadata ^^ {
+      case e ~ a ~ k => AnnotatedAttribute(Alias(e, a)())(k)
+    }
+    | expression ~ metadataFilter ^^ {
+      case e ~ f => AnnotationFilter(e)(f)
+    }
+    | expression ~ metadata ^^ {
+      case e ~ k => AnnotatedAttribute(e)(k)
+    }
+    | expression ~ (AS.? ~> ident.?) ^^ {
+      case e ~ a => a.fold(e)(Alias(e, _)())
+    }
+    )
 
   /**
    * This is the starting rule from, where parsing always starts.

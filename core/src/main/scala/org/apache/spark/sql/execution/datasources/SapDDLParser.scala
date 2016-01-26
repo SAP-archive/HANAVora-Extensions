@@ -1,17 +1,19 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.plans.{JoinType, Inner}
-import org.apache.spark.sql.types._
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.commands._
 
 import scala.util.parsing.input.Position
 
 class SapDDLParser(parseQuery: String => LogicalPlan)
-  extends BackportedSapSqlParser(parseQuery) {
+  extends BackportedSapSqlParser(parseQuery)
+  with AnnotationParsingRules {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
       createViewUsingOrig |
@@ -373,4 +375,24 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       case other: NoSuccess => other
     }
   }
+
+  /**
+   * Overridden to allow the user to add annotations on the table columns.
+   */
+  override lazy val tableCols: Parser[Seq[StructField]] = "(" ~> repsep(annotatedCol, ",") <~ ")"
+
+  protected lazy val annotatedCol: Parser[StructField] =
+    (ident ~ metadata ~ dataType ^^ {
+      case columnName ~ md ~ typ =>
+        StructField(columnName, typ, nullable = true, metadata = toTableMetadata(md))
+    }
+    |ident ~ dataType ~ (COMMENT ~> stringLit).?  ^^ { case columnName ~ typ ~ cm =>
+      val meta = cm match {
+        case Some(comment) =>
+          new MetadataBuilder().putString(COMMENT.str.toLowerCase, comment).build()
+        case None => Metadata.empty
+      }
+
+      StructField(columnName, typ, nullable = true, meta)
+    })
 }

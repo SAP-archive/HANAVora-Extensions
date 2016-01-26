@@ -23,6 +23,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveReferencesWithHierarchies(analyzer) ::
     ResolveHierarchy(analyzer) ::
     ResolveTableFunctions(analyzer) ::
+    AnnotationResolver(analyzer) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =
