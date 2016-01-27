@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sap.spark</groupId>
   <artifactId>spark-sap-parent</artifactId>
-  <version>1.2.15</version>
+  <version>1.2.16</version>
   <packaging>pom</packaging>
   <name>Spark SAP Extensions Project</name>
   <modules>
@@ -170,12 +170,12 @@
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.2.15</version>
+        <version>1.2.16</version>
       </dependency>
       <dependency>
         <groupId>com.sap.spark</groupId>
         <artifactId>core</artifactId>
-        <version>1.2.15</version>
+        <version>1.2.16</version>
         <type>test-jar</type>
       </dependency>
 
