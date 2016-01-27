@@ -10,6 +10,7 @@ import org.apache.spark.sql.types._
 class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
 with TemporaryAndPersistentRelationProvider
 with PartitionedRelationProvider
+with PartitioningFunctionProvider
 with RegisterAllTableRelations {
 
 
@@ -63,6 +64,15 @@ with RegisterAllTableRelations {
     } else {
       None
     }
+  }
+
+  override def createPartitioningFunction(sqlContext: SQLContext,
+                                          parameters: Map[String, String],
+                                          name: String,
+                                          datatypes: Seq[DataType],
+                                          definition: String,
+                                          partitionsNo: Option[Int]): Unit = {
+    // nop
   }
 
 }

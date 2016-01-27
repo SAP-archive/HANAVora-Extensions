@@ -3,7 +3,7 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.sources.commands._
-import org.apache.spark.sql.types.{StringType, IntegerType}
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}
@@ -263,7 +263,18 @@ OPTIONS (
                         hosts "1.1.1.1",
                         zkurls "1.1.1.1",
                         nameNodeUrl "1.1.1.1")"""
-    assert(ddlParser.parse(testStatement1).isInstanceOf[CreateTablePartitionedByUsing])
+    val parsedStmt1 = ddlParser.parse(testStatement1)
+    assert(parsedStmt1.isInstanceOf[CreateTablePartitionedByUsing])
+
+    val ctp1 = parsedStmt1.asInstanceOf[CreateTablePartitionedByUsing]
+    assert(ctp1.tableIdent.table == "test1")
+    assert(ctp1.userSpecifiedSchema.isDefined)
+    assert(ctp1.userSpecifiedSchema.get ==
+      StructType(Seq(StructField("a", IntegerType, nullable = true),
+        StructField("b", StringType, nullable = true))))
+    assert(ctp1.partitioningFunc == "example")
+    assert(ctp1.partitioningColumns == Seq("a"))
+    assert(ctp1.provider == "com.sap.spark.vora")
 
     val testStatement2 = """CREATE TEMPORARY TABLE test1 (a integer, b string)
                         PARTITIONED BY example (a, b)
@@ -274,7 +285,18 @@ OPTIONS (
                         hosts "1.1.1.1",
                         zkurls "1.1.1.1",
                         nameNodeUrl "1.1.1.1")"""
-    assert(ddlParser.parse(testStatement2).isInstanceOf[CreateTablePartitionedByUsing])
+    val parsedStmt2 = ddlParser.parse(testStatement2)
+    assert(parsedStmt2.isInstanceOf[CreateTablePartitionedByUsing])
+
+    val ctp2 = parsedStmt2.asInstanceOf[CreateTablePartitionedByUsing]
+    assert(ctp2.tableIdent.table == "test1")
+    assert(ctp2.userSpecifiedSchema.isDefined)
+    assert(ctp2.userSpecifiedSchema.get ==
+      StructType(Seq(StructField("a", IntegerType, nullable = true),
+        StructField("b", StringType, nullable = true))))
+    assert(ctp2.partitioningFunc == "example")
+    assert(ctp2.partitioningColumns == Seq("a", "b"))
+    assert(ctp2.provider == "com.sap.spark.vora")
 
 
     val testStatement3 = """CREATE TEMPORARY TABLE test1 (a integer, b string, test float)
@@ -286,7 +308,19 @@ OPTIONS (
                         hosts "1.1.1.1",
                         zkurls "1.1.1.1",
                         nameNodeUrl "1.1.1.1")"""
-    assert(ddlParser.parse(testStatement3).isInstanceOf[CreateTablePartitionedByUsing])
+    val parsedStmt3 = ddlParser.parse(testStatement3)
+    assert(parsedStmt3.isInstanceOf[CreateTablePartitionedByUsing])
+
+    val ctp3 = parsedStmt3.asInstanceOf[CreateTablePartitionedByUsing]
+    assert(ctp3.tableIdent.table == "test1")
+    assert(ctp3.userSpecifiedSchema.isDefined)
+    assert(ctp3.userSpecifiedSchema.get ==
+      StructType(Seq(StructField("a", IntegerType, nullable = true),
+        StructField("b", StringType, nullable = true),
+        StructField("test", FloatType, nullable = true))))
+    assert(ctp3.partitioningFunc == "example")
+    assert(ctp3.partitioningColumns == Seq("test"))
+    assert(ctp3.provider == "com.sap.spark.vora")
   }
 
   test("Do not parse incorrect CREATE TABLE statements with the PARTITION BY clause") {
@@ -356,19 +390,20 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement2))
 
     val invStatement3 =
-      """CREATE PARTITION FUNCTION test AS HASH PARTITIONS 7
+      """CREATE PARTITION FUNCTION test AS HASH
         |USING com.sap.spark.vora
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement3))
 
     val invStatement4 =
-      """CREATE PARTITION FUNCTION test (integer, string) HASH PARTITIONS 7
+      """CREATE PARTITION FUNCTION test AS HASH PARTITIONS 7
         |USING com.sap.spark.vora
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement4))
 
     val invStatement5 =
-      """CREATE PARTITION FUNCTION test (integer, string) AS HASH
+      """CREATE PARTITION FUNCTION test (integer, string) HASH PARTITIONS 7
+        |USING com.sap.spark.vora
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement5))
 
@@ -378,12 +413,22 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement6))
 
     val invStatement7 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS HASH
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement7))
+
+    val invStatement8 =
+      """CREATE PARTITION FUNCION test (integer, string) AS HASH
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement8))
+
+    val invStatement9 =
       """CREATE PARTITION FUNCTION test () AS HASH
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
       """.stripMargin
-    val ex = intercept[DDLException](ddlParser.parse(invStatement7))
+    val ex = intercept[DDLException](ddlParser.parse(invStatement9))
     assert(ex.getMessage.contains("The hashing function argument list cannot be empty."))
   }
 

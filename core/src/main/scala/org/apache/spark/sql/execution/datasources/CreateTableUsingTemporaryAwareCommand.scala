@@ -60,10 +60,16 @@ case class CreateTableUsingTemporaryAwareCommand(
 
     dataSource match {
       case drp: PartitionedRelationProvider =>
-        new ResolvedDataSource(drp.getClass,
-          drp.createRelation(sqlContext,
-            new CaseInsensitiveMap(options), partitioningFunction, partitioningColumns,
-            isTemporary, allowExisting))
+        if (userSpecifiedSchema.isEmpty) {
+          new ResolvedDataSource(drp.getClass,
+            drp.createRelation(sqlContext,
+              new CaseInsensitiveMap(options), partitioningFunction, partitioningColumns,
+              isTemporary, allowExisting))
+        } else {
+          new ResolvedDataSource(drp.getClass,
+            drp.createRelation(sqlContext, new CaseInsensitiveMap(options), userSpecifiedSchema.get,
+              partitioningFunction, partitioningColumns, isTemporary, allowExisting))
+        }
       case drp: TemporaryAndPersistentSchemaRelationProvider if userSpecifiedSchema.nonEmpty =>
             new ResolvedDataSource(drp.getClass,
               drp.createRelation(
