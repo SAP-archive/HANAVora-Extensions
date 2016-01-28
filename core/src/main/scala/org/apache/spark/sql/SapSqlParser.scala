@@ -1,7 +1,6 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.compat.BackportedSqlParser
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreateViewCommand, SapDDLParser}

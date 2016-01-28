@@ -1,4 +1,4 @@
-package org.apache.spark.sql.catalyst.compat
+package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.{TableIdentifier, AbstractSparkSQLParser}
 import org.apache.spark.sql.types._
