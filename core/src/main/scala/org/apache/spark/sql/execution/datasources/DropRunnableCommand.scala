@@ -23,7 +23,7 @@ private[sql] case class DropRunnableCommand(
   extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    if (sqlContext.catalog.tableExists(tableIdentifier.toSeq)) {
+    if (sqlContext.catalog.tableExists(tableIdentifier)) {
       executeDrop(sqlContext)
     } else if (allowNotExisting) {
       Seq.empty
@@ -50,12 +50,12 @@ private[sql] case class DropRunnableCommand(
   private def getReferencingRelations(sqlContext: SQLContext): Set[String] = {
     val catalog = sqlContext.catalog
     val tables = sqlContext.tableNames()
-                           .map(name => (name, catalog.lookupRelation(Seq(name))))
+                           .map(name => (name, catalog.lookupRelation(TableIdentifier(name))))
                            .toMap
 
     def inner(acc: Set[String], next: List[String]): Set[String] = {
       def hasReference(plan: LogicalPlan): Boolean = plan.find {
-        case UnresolvedRelation(Seq(ident), _) if acc.contains(ident) =>
+        case UnresolvedRelation(ident, _) if acc.contains(ident.table) =>
           true
         case _ => false
       }.isDefined

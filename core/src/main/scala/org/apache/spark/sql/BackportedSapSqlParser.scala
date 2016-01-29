@@ -2,11 +2,12 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.DDLParser
-import org.apache.spark.sql.types.{CalendarIntervalType, BooleanType, NullType, StringType}
+import org.apache.spark.sql.types.{BooleanType, NullType, StringType}
 import org.apache.spark.unsafe.types.CalendarInterval
 
 /**
@@ -167,7 +168,7 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
       case name ~ arguments =>
         UnresolvedTableFunction(name, arguments)
     } |
-      ( rep1sep(ident, ".") ~ (opt(AS) ~> opt(ident)) ^^ {
+      ( tableIdentifier ~ (opt(AS) ~> opt(ident)) ^^ {
         case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
       } |
         ("(" ~> dmlStart <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) })
@@ -236,7 +237,7 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
   protected lazy val originalFunction: Parser[Expression] =
     (ident <~ ("(" ~ "*" ~ ")") ^^ { case udfName =>
       if (lexical.normalizeKeyword(udfName) == "count") {
-        Count(Literal(1))
+        AggregateExpression(Count(Literal(1)), mode = Complete, isDistinct = false)
       } else {
         throw new AnalysisException(s"invalid expression $udfName(*)")
       }
@@ -245,14 +246,14 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
       { case udfName ~ exprs => UnresolvedFunction(udfName, exprs, isDistinct = false) }
       | ident ~ ("(" ~ DISTINCT ~> repsep(expression, ",")) <~ ")" ^^ { case udfName ~ exprs =>
       lexical.normalizeKeyword(udfName) match {
-        case "sum" => SumDistinct(exprs.head)
-        case "count" => CountDistinct(exprs)
+        case "count" =>
+          aggregate.Count(exprs).toAggregateExpression(isDistinct = true)
         case _ => UnresolvedFunction(udfName, exprs, isDistinct = true)
       }
     }
       | APPROXIMATE ~> ident ~ ("(" ~ DISTINCT ~> expression <~ ")") ^^ { case udfName ~ exp =>
       if (lexical.normalizeKeyword(udfName) == "count") {
-        ApproxCountDistinct(exp)
+        AggregateExpression(new HyperLogLogPlusPlus(exp), mode = Complete, isDistinct = false)
       } else {
         throw new AnalysisException(s"invalid function approximate $udfName")
       }
@@ -260,7 +261,10 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
       | APPROXIMATE ~> "(" ~> unsignedFloat ~ ")" ~ ident ~ "(" ~ DISTINCT ~ expression <~ ")" ^^
       { case s ~ _ ~ udfName ~ _ ~ _ ~ exp =>
         if (lexical.normalizeKeyword(udfName) == "count") {
-          ApproxCountDistinct(exp, s.toDouble)
+          AggregateExpression(
+            HyperLogLogPlusPlus(exp, s.toDouble, 0, 0),
+            mode = Complete,
+            isDistinct = false)
         } else {
           throw new AnalysisException(s"invalid function approximate($s) $udfName")
         }
@@ -304,8 +308,8 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
 
   protected lazy val unsignedFloat: Parser[String] =
     ("." ~> numericLit ^^ { u => "0." + u }
-      | elem("decimal", _.isInstanceOf[lexical.FloatLit]) ^^ (_.chars)
-      )
+      | elem("decimal", _.isInstanceOf[lexical.DecimalLit]) ^^ (_.chars)
+     )
 
   protected lazy val sign: Parser[String] = ("+" | "-")
 
@@ -359,21 +363,56 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
       case num => num.toLong * CalendarInterval.MICROS_PER_WEEK
     }
 
+  private def intervalKeyword(keyword: String) = acceptIf {
+    case lexical.Identifier(str) =>
+      lexical.normalizeKeyword(str) == keyword
+    case _ => false
+  } {_ => "wrong interval keyword"}
+
+  // copied from 1.6.1
+  // scalastyle:off
   protected lazy val intervalLiteral: Parser[Literal] =
-    INTERVAL ~> year.? ~ month.? ~ week.? ~ day.? ~ hour.? ~ minute.? ~ second.? ~
-      millisecond.? ~ microsecond.? ^^ {
-      case year ~ month ~ week ~ day ~ hour ~ minute ~ second ~
-        millisecond ~ microsecond =>
-        if (!Seq(year, month, week, day, hour, minute, second,
-          millisecond, microsecond).exists(_.isDefined)) {
-          throw new AnalysisException(
-            "at least one time unit should be given for interval literal")
-        }
-        val months = Seq(year, month).map(_.getOrElse(0)).sum
-        val microseconds = Seq(week, day, hour, minute, second, millisecond, microsecond)
-          .map(_.getOrElse(0L)).sum
-        Literal.create(new CalendarInterval(months, microseconds), CalendarIntervalType)
+    ( INTERVAL ~> stringLit <~ intervalKeyword("year") ~ intervalKeyword("to") ~
+      intervalKeyword("month") ^^ { case s =>
+      Literal(CalendarInterval.fromYearMonthString(s))
     }
+      | INTERVAL ~> stringLit <~ intervalKeyword("day") ~ intervalKeyword("to") ~
+      intervalKeyword("second") ^^ { case s =>
+      Literal(CalendarInterval.fromDayTimeString(s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("year") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("year", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("month") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("month", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("day") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("day", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("hour") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("hour", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("minute") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("minute", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("second") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("second", s))
+    }
+      | INTERVAL ~> year.? ~ month.? ~ week.? ~ day.? ~ hour.? ~ minute.? ~ second.? ~
+      millisecond.? ~ microsecond.? ^^ { case year ~ month ~ week ~ day ~ hour ~ minute ~ second ~
+      millisecond ~ microsecond =>
+      if (!Seq(year, month, week, day, hour, minute, second,
+        millisecond, microsecond).exists(_.isDefined)) {
+        throw new AnalysisException(
+          "at least one time unit should be given for interval literal")
+      }
+      val months = Seq(year, month).map(_.getOrElse(0)).sum
+      val microseconds = Seq(week, day, hour, minute, second, millisecond, microsecond)
+        .map(_.getOrElse(0L)).sum
+      Literal(new CalendarInterval(months, microseconds))
+    }
+      )
+  // scalastyle:on
 
   private def toNarrowestIntegerType(value: String): Any = {
     val bigIntValue = BigDecimal(value)
@@ -398,7 +437,7 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
 
   protected lazy val baseExpression: Parser[Expression] =
     ("*" ^^^ UnresolvedStar(None)
-      | ident <~ "." ~ "*" ^^ { case tableName => UnresolvedStar(Option(tableName)) }
+      | rep1(ident <~ ".") <~ "*" ^^ { case target => UnresolvedStar(Option(target))}
       | primary
       )
 

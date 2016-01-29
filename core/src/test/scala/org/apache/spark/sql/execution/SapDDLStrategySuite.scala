@@ -1,5 +1,6 @@
 package org.apache.spark.sql.execution
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
@@ -86,14 +87,16 @@ class SapDDLStrategySuite extends FunSuite {
   test("DESCRIBE TABLE USING test") {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
     val strategy = new SapDDLStrategy(planner)
-    val unresolved = UnresolvedRelation(Seq("test"))
+    val unresolved = UnresolvedRelation(TableIdentifier("test"))
     val plan = unresolved.select('id)
 
-    val viewCommand = DescribeTableUsingCommand("test" :: Nil, "com.sap.spark.vora", Map.empty)
+    val viewCommand = DescribeTableUsingCommand(TableIdentifier("test"),
+      "com.sap.spark.vora", Map.empty)
     val command = strategy.apply(viewCommand)
 
     assert(command == ExecutedCommand(
-      DescribeTableUsingRunnableCommand("test" :: Nil, "com.sap.spark.vora", Map.empty)) :: Nil)
+      DescribeTableUsingRunnableCommand(TableIdentifier("test"), "com.sap.spark.vora",
+        Map.empty)) :: Nil)
     Mockito.validateMockitoUsage()
     Mockito.validateMockitoUsage()
   }

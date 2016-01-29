@@ -88,7 +88,7 @@ trait AbstractCreateViewCommand[A <: AbstractView] extends AbstractViewCommand[A
     * @return True if it is okay to write in the spark catalog, false otherwise.
     */
   def allowedToWriteRelationInSpark(sqlContext: SQLContext): Boolean = {
-    !sqlContext.catalog.tableExists(identifier.toSeq)
+    !sqlContext.catalog.tableExists(identifier)
   }
 
   /**
@@ -110,7 +110,7 @@ trait Persisting[A <: AbstractView with Persisted] extends ProviderBound[A] {
   val allowExisting: Boolean
 
   override def allowedToWriteRelationInSpark(sqlContext: SQLContext): Boolean = {
-    allowExisting || !sqlContext.catalog.tableExists(identifier.toSeq)
+    allowExisting || !sqlContext.catalog.tableExists(identifier)
   }
 
   /**

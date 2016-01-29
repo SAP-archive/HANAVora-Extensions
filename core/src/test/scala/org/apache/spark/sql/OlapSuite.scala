@@ -11,6 +11,7 @@ class OlapSuite
   with Logging {
 
   override def beforeAll(): Unit = {
+    super.beforeAll()
     DefaultSource.reset()
   }
 

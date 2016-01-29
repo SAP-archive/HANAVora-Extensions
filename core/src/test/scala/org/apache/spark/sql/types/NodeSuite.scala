@@ -39,23 +39,23 @@ class NodeSuite extends FunSuite {
   }
 
   test("Node is serializable") {
-    assert(isSerializable(Node(Seq(1))))
-    assert(isSerializable(Node(Seq(1L))))
-    assert(isSerializable(Node(Seq("1"))))
-    assert(isSerializable(Node(Seq(1, 2))))
-    assert(isSerializable(Node(Seq(1L, 2L))))
-    assert(isSerializable(Node(Seq("1", "2", 1))))
-    assert(isSerializable(Node(Seq(1), 1, 1, true)))
+    assert(isSerializable(Node(Seq(1), IntegerType)))
+    assert(isSerializable(Node(Seq(1L), LongType)))
+    assert(isSerializable(Node(Seq("1"), StringType)))
+    assert(isSerializable(Node(Seq(1, 2), IntegerType)))
+    assert(isSerializable(Node(Seq(1L, 2L), LongType)))
+    // assert(isSerializable(Node(Seq("1", "2", 1))))
+    assert(isSerializable(Node(Seq(1), IntegerType, 1, 1, true)))
   }
 
   test("Node is serializable with Kryo") {
-    assert(isKryoSerializable(Node(Seq(1))))
-    assert(isKryoSerializable(Node(Seq(1L))))
-    assert(isKryoSerializable(Node(Seq("1"))))
-    assert(isKryoSerializable(Node(Seq(1, 2))))
-    assert(isKryoSerializable(Node(Seq(1L, 2L))))
-    assert(isKryoSerializable(Node(Seq("1", "2", 1))))
-    assert(isKryoSerializable(Node(Seq(1), 1, 1, true)))
+    assert(isKryoSerializable(Node(Seq(1), IntegerType)))
+    assert(isKryoSerializable(Node(Seq(1L), LongType)))
+    assert(isKryoSerializable(Node(Seq("1"), StringType)))
+    assert(isKryoSerializable(Node(Seq(1, 2), IntegerType)))
+    assert(isKryoSerializable(Node(Seq(1L, 2L), LongType)))
+    // assert(isKryoSerializable(Node(Seq("1", "2", 1))))
+    assert(isKryoSerializable(Node(Seq(1), IntegerType, 1, 1, true)))
   }
 
 }

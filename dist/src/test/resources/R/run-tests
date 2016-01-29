@@ -9,7 +9,7 @@ fi
 FWDIR="$(cd `dirname $0`; pwd)"
 FWDIR_MAIN="$(cd `dirname $0`;cd ../../../main/resources/; pwd)"
 BASEDIR="$(cd "`dirname "$0"`";cd ../../../../../; pwd)"
-export PATH_TO_JARS="$BASEDIR/core/target/*:$BASEDIR/$COMPAT_ARTIFACT_ID/target/*"
+export PATH_TO_JARS="$BASEDIR/core/target/*"
 export SPARK_CLASSPATH=$PATH_TO_JARS
 if [[ -z $SPARK_HOME ]]; then
   echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
@@ -34,8 +34,8 @@ rm -rf $FWDIR_MAIN/R/lib
 
 # copy the tests to the package
 # this step is necessary because we separate TEST and MAIN files
-cp -r $FWDIR/R/pkg/inst $FWDIR_MAIN/R/pkg/.
-cp -r $FWDIR/R/pkg/tests $FWDIR_MAIN/R/pkg/.
+cp -r $FWDIR/pkg/inst $FWDIR_MAIN/R/pkg/.
+cp -r $FWDIR/pkg/tests $FWDIR_MAIN/R/pkg/.
 
 cd $FWDIR_MAIN/R/
 . install-dev.sh

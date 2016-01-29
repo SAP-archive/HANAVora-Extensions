@@ -99,14 +99,14 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
         DataSourceStrategy ::
           DDLStrategy ::
           TakeOrderedAndProject ::
-          HashAggregation ::
           Aggregation ::
           LeftSemiJoin ::
           EquiJoinSelection ::
           InMemoryScans ::
           BasicOperators ::
+          BroadcastNestedLoop ::
           CartesianProduct ::
-          BroadcastNestedLoopJoin :: Nil
+          DefaultJoin :: Nil
 
       override def strategies: Seq[Strategy] =
         self.strategies(this) ++

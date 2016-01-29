@@ -2,7 +2,7 @@ package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.Node
+import org.apache.spark.sql.types.{DataType, Node}
 import org.apache.spark.storage.StorageLevel
 
 import scala.reflect.ClassTag
@@ -42,7 +42,7 @@ case class HierarchyJoinBuilder[T: ClassTag, O: ClassTag, K: ClassTag]
     }
   }
 
-  override def buildFromAdjacencyList(rdd: RDD[T]): RDD[O] = {
+  override def buildFromAdjacencyList(rdd: RDD[T], pathDataType: DataType): RDD[O] = {
     val left0 = (rdd filter startWhere) keyBy pk mapValues(x =>
       init(x, getOrd(x))
       ) persist()

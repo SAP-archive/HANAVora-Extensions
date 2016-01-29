@@ -46,7 +46,7 @@ class ViewsSuite extends FunSuite
     sqlContext.sql("CREATE VIEW v2 AS SELECT * FROM v1 WHERE ord = 1")
 
     // drop the view v1.
-    sqlContext.catalog.unregisterTable("v1" :: Nil)
+    sqlContext.catalog.unregisterTable(TableIdentifier("v1"))
 
     // create v1 again using different schema.
     sqlContext.sql(s"CREATE VIEW v1 AS SELECT * FROM $animalsTable")
@@ -63,7 +63,7 @@ class ViewsSuite extends FunSuite
     sqlContext.sql(s"CREATE VIEW v1 AS SELECT * FROM $orgTbl WHERE ord = 1")
 
     // drop the table.
-    sqlContext.catalog.unregisterTable(orgTbl :: Nil)
+    sqlContext.catalog.unregisterTable(TableIdentifier(orgTbl))
 
     // create the table again using different schema.
     val rdd2 = sc.parallelize(animalsHierarchy.sortBy(x => Random.nextDouble()))
@@ -86,7 +86,7 @@ class ViewsSuite extends FunSuite
     sqlContext.sql("CREATE DIMENSION VIEW v2 AS SELECT * FROM v1 WHERE ord = 1")
 
     // drop the dimension view v1.
-    sqlContext.catalog.unregisterTable("v1" :: Nil)
+    sqlContext.catalog.unregisterTable(TableIdentifier("v1"))
 
     // create dimension v1 again using different schema.
     sqlContext.sql(s"CREATE DIMENSION VIEW v1 AS SELECT * FROM $animalsTable")
@@ -181,13 +181,13 @@ class ViewsSuite extends FunSuite
     sqlContext.catalog.unregisterAllTables()
     sqlContext.sql("REGISTER ALL TABLES USING com.sap.spark.dstest")
 
-    val actual = sqlContext.catalog.lookupRelation(Seq("v"))
+    val actual = sqlContext.catalog.lookupRelation(TableIdentifier("v"))
 
     assertResult(Subquery(
       "v",
       Project(
         UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-        UnresolvedRelation(Seq("t")))))(actual)
+        UnresolvedRelation(TableIdentifier("t")))))(actual)
   }
 
   test("Valid view provider is issued to create view") {
@@ -269,12 +269,12 @@ class ViewsSuite extends FunSuite
                        START WHERE pred IS NULL
                        SET node) AS H
                        USING com.sap.spark.dstest""")
-    val actual = sqlContext.catalog.lookupRelation(Seq("v1"))
+    val actual = sqlContext.catalog.lookupRelation(TableIdentifier("v1"))
     assertResult(actual)(Subquery("v1",
       Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
         Subquery("H",
           Hierarchy(
-            UnresolvedRelation("organizationTbl" :: Nil, Some("v")),
+            UnresolvedRelation(TableIdentifier("organizationTbl"), Some("v")),
             "u",
             EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
             SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,

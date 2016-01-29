@@ -30,7 +30,7 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
       val appendRelation = logicalRelation.relation.asInstanceOf[AppendRelation]
       ExecutedCommand(AppendRunnableCommand(appendRelation, options)) :: Nil
     case DropCommand(allowNotExisting, table, cascade) =>
-      val dropRelation = planner.optimizedRelationLookup(UnresolvedRelation(table.toSeq))
+      val dropRelation = planner.optimizedRelationLookup(UnresolvedRelation(table))
                                 .collect {
                                   case IsLogicalRelation(relation: DropRelation) => relation
                                 }

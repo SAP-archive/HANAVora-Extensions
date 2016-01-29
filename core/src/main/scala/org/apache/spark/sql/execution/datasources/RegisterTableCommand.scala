@@ -1,5 +1,6 @@
 package org.apache.spark.sql.execution.datasources
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.ProviderUtils._
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources.{BaseRelationSource, RegisterAllTableRelations}
@@ -33,7 +34,8 @@ private[sql] case class RegisterTableCommand(
     relation match {
       case None =>
         sys.error(s"Table $tableName is not found in the catalog.")
-      case Some(r) if !ignoreConflicts && sqlContext.catalog.tableExists(tableName :: Nil) =>
+      case Some(r) if !ignoreConflicts && sqlContext
+        .catalog.tableExists(new TableIdentifier(tableName)) =>
         sys.error(s"Table $tableName already exists is Spark catalog.")
       case Some(r) =>
         val lp = r.logicalPlan(sqlContext)

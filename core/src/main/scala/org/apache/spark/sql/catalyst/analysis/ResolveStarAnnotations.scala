@@ -20,11 +20,11 @@ case class ResolveStarAnnotations(analyzer: Analyzer) extends Rule[LogicalPlan] 
       // If the projection list contains Stars, expand it.
       case p@Project((a@AnnotatedAttribute(s: Star)) :: Nil, child) =>
         Project(
-          s.expand(child.output, analyzer.resolver).map(e => AnnotatedAttribute(e)(a.annotations)),
+          s.expand(child, analyzer.resolver).map(e => AnnotatedAttribute(e)(a.annotations)),
           child)
       case p@Project((a@AnnotationFilter(s: Star)) :: Nil, child) =>
         Project(
-          s.expand(child.output, analyzer.resolver).map(e => AnnotationFilter(e)(a.filters)),
+          s.expand(child, analyzer.resolver).map(e => AnnotationFilter(e)(a.filters)),
           child)
     }
   }

@@ -1,6 +1,7 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
 /**
@@ -16,7 +17,7 @@ object SqlContextAccessor {
     extends SQLContext(sqlContext.sparkContext) {
 
     def registerRawPlan(lp: LogicalPlan, tableName: String): Unit = {
-      sqlContext.catalog.registerTable(Seq(tableName), lp)
+      sqlContext.catalog.registerTable(TableIdentifier(tableName), lp)
     }
   }
 }

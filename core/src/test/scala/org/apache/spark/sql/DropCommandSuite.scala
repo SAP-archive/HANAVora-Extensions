@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.{BaseRelation, DropRelation}
 import org.apache.spark.sql.types.StructType
@@ -140,8 +141,8 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
 
     sqlContext.sql(s"DROP TABLE $someTable cascade")
 
-    assert(!sqlContext.catalog.tableExists(Seq(someTable)))
-    assert(!sqlContext.catalog.tableExists(Seq(someView)))
+    assert(!sqlContext.catalog.tableExists(TableIdentifier(someTable)))
+    assert(!sqlContext.catalog.tableExists(TableIdentifier(someView)))
   }
 
   test("Drop table cascade drops view related views (Bug 106016), (Bug 107567)") {
@@ -159,9 +160,9 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
 
     sqlContext.sql(s"DROP TABLE $someView cascade")
 
-    assert(sqlContext.catalog.tableExists(Seq(someTable)))
-    assert(!sqlContext.catalog.tableExists(Seq(someView)))
-    assert(!sqlContext.catalog.tableExists(Seq(someOtherView)))
+    assert(sqlContext.catalog.tableExists(TableIdentifier(someTable)))
+    assert(!sqlContext.catalog.tableExists(TableIdentifier(someView)))
+    assert(!sqlContext.catalog.tableExists(TableIdentifier(someOtherView)))
   }
 
   test("Drop single view works (Bug 107566)") {
@@ -174,8 +175,8 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
 
     sqlContext.sql(s"DROP TABLE $someView")
 
-    assert(sqlContext.catalog.tableExists(Seq(someTable)))
-    assert(!sqlContext.catalog.tableExists(Seq(someView)))
+    assert(sqlContext.catalog.tableExists(TableIdentifier(someTable)))
+    assert(!sqlContext.catalog.tableExists(TableIdentifier(someView)))
   }
 
   // TODO(AC): this will change during future releases
@@ -195,7 +196,7 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
     sqlContext.sql(s"DROP TABLE $someTable")
 
     assert(relation.wasDropped)
-    assert(!sqlContext.catalog.tableExists(Seq(someTable)))
+    assert(!sqlContext.catalog.tableExists(TableIdentifier(someTable)))
   }
 
   test("Drop fails on a table that does not exist in the catalog") {

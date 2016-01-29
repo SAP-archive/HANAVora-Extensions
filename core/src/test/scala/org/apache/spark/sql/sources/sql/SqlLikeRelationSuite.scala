@@ -2,6 +2,7 @@ package org.apache.spark.sql.sources.sql
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.aggregate.Sum
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 

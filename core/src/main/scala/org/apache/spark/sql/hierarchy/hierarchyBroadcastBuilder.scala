@@ -4,7 +4,7 @@ import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.Node
+import org.apache.spark.sql.types.{DataType, Node}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -58,7 +58,7 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     }
   }
 
-  override def buildFromAdjacencyList(rdd: RDD[I]): RDD[O] = {
+  override def buildFromAdjacencyList(rdd: RDD[I], pathDataType: DataType): RDD[O] = {
     logDebug(s"Collecting data to build hierarchy")
     val data = rdd mapPartitions { iter =>
       iter map { row =>
@@ -106,6 +106,7 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
           subtreeOpt map { subtree =>
             transformRowFunction(x, Node(
               path = subtree.prefix,
+              pathDataType = pathDataType,
               preRank = subtree.preRank,
               postRank = subtree.postRank,
               isLeaf = subtree.isLeaf

@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.OverrideCatalog
 import org.apache.spark.sql.catalyst.plans.logical.Subquery
 import org.apache.spark.sql.execution.datasources.IsLogicalRelation
@@ -14,7 +15,7 @@ trait TemporaryFlagProxyCatalog extends OverrideCatalog{
     val tables = super.getTables(databaseName)
     val proxiedTables = tables.map {
       case (tableName: String , isTemporary: Boolean) =>
-        lookupRelation(Seq(tableName)) match {
+        lookupRelation(TableIdentifier(tableName)) match {
           case sq @ Subquery(_, IsLogicalRelation(br: TemporaryFlagRelation)) =>
             (tableName, br.isTemporary())
           case _ => (tableName, isTemporary)

@@ -19,8 +19,8 @@ trait AbstractDropViewCommand[A <: AbstractView] extends AbstractViewCommand[A] 
   def dropFromSpark(sqlContext: SQLContext): Unit = {
     val catalog = sqlContext.catalog
 
-    if (catalog.tableExists(identifier.toSeq)) {
-      catalog.unregisterTable(identifier.toSeq)
+    if (catalog.tableExists(identifier)) {
+      catalog.unregisterTable(identifier)
     }
   }
 }

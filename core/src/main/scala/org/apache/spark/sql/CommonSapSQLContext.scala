@@ -17,7 +17,7 @@ private[sql] trait CommonSapSQLContext
   extends SapSQLContextExtension {
   self: SQLContext =>
 
-  val supportedVersions: List[String] = List("1.5.0", "1.5.1", "1.5.2")
+  val supportedVersions: List[String] = List("1.6.0","1.6.1")
 
   checkSparkVersion(supportedVersions)
 

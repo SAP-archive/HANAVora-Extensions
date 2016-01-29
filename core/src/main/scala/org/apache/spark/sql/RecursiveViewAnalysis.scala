@@ -20,7 +20,7 @@ object RecursiveViewAnalysis {
 
   private def containsViewIdentifier(name: TableIdentifier,
                                      plan: LogicalPlan): Boolean = plan.find {
-    case UnresolvedRelation(ident, _) if ident == name.toSeq =>
+    case UnresolvedRelation(ident, _) if ident == name =>
       true
     case AbstractView(child) => containsViewIdentifier(name, child)
     case _ =>

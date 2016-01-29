@@ -82,7 +82,7 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
       def baseStrategies(hiveContext: HiveContext): Seq[Strategy] =
         Seq(
           DataSourceStrategy,
-          HiveCommandStrategy(hiveContext),
+          HiveCommandStrategy(self),
           HiveDDLStrategy,
           DDLStrategy,
           TakeOrderedAndProject,
@@ -90,13 +90,13 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
           HiveTableScans,
           DataSinks,
           Scripts,
-          HashAggregation,
           Aggregation,
           LeftSemiJoin,
           EquiJoinSelection,
           BasicOperators,
+          BroadcastNestedLoop,
           CartesianProduct,
-          BroadcastNestedLoopJoin
+          DefaultJoin
         )
 
       override def strategies: Seq[Strategy] =

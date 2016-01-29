@@ -27,6 +27,7 @@ trait MockitoSparkContext extends WithSparkContext with MockitoSugar {
   }
 
   override protected def tearDownSparkContext(): Unit = {
+    _sc.stop()
     _sc = null
   }
 

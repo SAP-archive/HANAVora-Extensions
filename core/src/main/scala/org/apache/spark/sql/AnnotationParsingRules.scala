@@ -71,7 +71,7 @@ private[sql] trait AnnotationParsingRules extends AbstractSparkSQLParser {
 
   protected lazy val floatLiteral: Parser[String] =
     ("." ~> numericLit ^^ { u => "0." + u }
-      | elem("decimal", _.isInstanceOf[lexical.FloatLit]) ^^ (_.chars)
+      | elem("decimal", _.isInstanceOf[lexical.DecimalLit]) ^^ (_.chars)
     )
 
   /**

@@ -1,9 +1,7 @@
 package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
-import org.apache.spark.sql.types.AbstractDataType
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.types.{Node, NodeType}
 
 abstract class UnaryNodeExpression
   extends UnaryExpression

@@ -1,7 +1,7 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.SimpleCatalystConf
+import org.apache.spark.sql.catalyst.{TableIdentifier, SimpleCatalystConf}
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.{Ascending, AttributeReference, SortOrder}
@@ -48,7 +48,7 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
 
   def catalog: Catalog = {
     val catalog = new SimpleCatalog(SimpleCatalystConf(true))
-    catalog.registerTable(Seq("T1"), t1)
+    catalog.registerTable(TableIdentifier("T1"), t1)
     catalog
   }
 

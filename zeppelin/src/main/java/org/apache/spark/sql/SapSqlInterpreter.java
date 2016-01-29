@@ -1,6 +1,7 @@
 package org.apache.spark.sql;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.spark.sql.execution.QueryExecution;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.scheduler.Scheduler;
@@ -10,7 +11,6 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.scheduler.ActiveJob;
 import org.apache.spark.scheduler.DAGScheduler;
 import org.apache.spark.scheduler.Stage;
-import org.apache.spark.sql.SQLContext.QueryExecution;
 import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.ui.jobs.JobProgressListener;
 import org.slf4j.Logger;

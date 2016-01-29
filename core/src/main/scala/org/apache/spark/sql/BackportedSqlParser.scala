@@ -1,5 +1,7 @@
 package org.apache.spark.sql
 
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.util.DataTypeParser
 import org.apache.spark.sql.catalyst.{TableIdentifier, AbstractSparkSQLParser}
 import org.apache.spark.sql.types._
 
@@ -28,6 +30,8 @@ import org.apache.spark.unsafe.types.CalendarInterval
  *
  * For more information about this check SPARK-10155.
  */
+// COPIED FROM 1.6
+// scalastyle:off
 private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataTypeParser {
 
   def parseExpression(input: String): Expression = synchronized {
@@ -161,7 +165,7 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
     joinedRelation | relationFactor
 
   protected lazy val relationFactor: Parser[LogicalPlan] =
-    ( rep1sep(ident, ".") ~ (opt(AS) ~> opt(ident)) ^^ {
+    ( tableIdentifier ~ (opt(AS) ~> opt(ident)) ^^ {
       case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
     }
       | ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) }
@@ -209,7 +213,10 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
     andExpression * (OR ^^^ { (e1: Expression, e2: Expression) => Or(e1, e2) })
 
   protected lazy val andExpression: Parser[Expression] =
-    comparisonExpression * (AND ^^^ { (e1: Expression, e2: Expression) => And(e1, e2) })
+    notExpression * (AND ^^^ { (e1: Expression, e2: Expression) => And(e1, e2) })
+
+  protected lazy val notExpression: Parser[Expression] =
+    NOT.? ~ comparisonExpression ^^ { case maybeNot ~ e => maybeNot.map(_ => Not(e)).getOrElse(e) }
 
   protected lazy val comparisonExpression: Parser[Expression] =
     ( termExpression ~ ("="  ~> termExpression) ^^ { case e1 ~ e2 => EqualTo(e1, e2) }
@@ -237,7 +244,6 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
     }
       | termExpression <~ IS ~ NULL ^^ { case e => IsNull(e) }
       | termExpression <~ IS ~ NOT ~ NULL ^^ { case e => IsNotNull(e) }
-      | NOT ~> termExpression ^^ {e => Not(e)}
       | termExpression
       )
 
@@ -263,7 +269,7 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
   protected lazy val originalFunction: Parser[Expression] =
     ( ident <~ ("(" ~ "*" ~ ")") ^^ { case udfName =>
       if (lexical.normalizeKeyword(udfName) == "count") {
-        Count(Literal(1))
+        AggregateExpression(Count(Literal(1)), mode = Complete, isDistinct = false)
       } else {
         throw new AnalysisException(s"invalid expression $udfName(*)")
       }
@@ -272,14 +278,14 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
       { case udfName ~ exprs => UnresolvedFunction(udfName, exprs, isDistinct = false) }
       | ident ~ ("(" ~ DISTINCT ~> repsep(expression, ",")) <~ ")" ^^ { case udfName ~ exprs =>
       lexical.normalizeKeyword(udfName) match {
-        case "sum" => SumDistinct(exprs.head)
-        case "count" => CountDistinct(exprs)
+        case "count" =>
+          aggregate.Count(exprs).toAggregateExpression(isDistinct = true)
         case _ => UnresolvedFunction(udfName, exprs, isDistinct = true)
       }
     }
       | APPROXIMATE ~> ident ~ ("(" ~ DISTINCT ~> expression <~ ")") ^^ { case udfName ~ exp =>
       if (lexical.normalizeKeyword(udfName) == "count") {
-        ApproxCountDistinct(exp)
+        AggregateExpression(new HyperLogLogPlusPlus(exp), mode = Complete, isDistinct = false)
       } else {
         throw new AnalysisException(s"invalid function approximate $udfName")
       }
@@ -287,7 +293,10 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
       | APPROXIMATE ~> "(" ~> unsignedFloat ~ ")" ~ ident ~ "(" ~ DISTINCT ~ expression <~ ")" ^^
       { case s ~ _ ~ udfName ~ _ ~ _ ~ exp =>
         if (lexical.normalizeKeyword(udfName) == "count") {
-          ApproxCountDistinct(exp, s.toDouble)
+          AggregateExpression(
+            HyperLogLogPlusPlus(exp, s.toDouble, 0, 0),
+            mode = Complete,
+            isDistinct = false)
         } else {
           throw new AnalysisException(s"invalid function approximate($s) $udfName")
         }
@@ -332,7 +341,7 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
 
   protected lazy val unsignedFloat: Parser[String] =
     ( "." ~> numericLit ^^ { u => "0." + u }
-      | elem("decimal", _.isInstanceOf[lexical.FloatLit]) ^^ (_.chars)
+      | elem("decimal", _.isInstanceOf[lexical.DecimalLit]) ^^ (_.chars)
       )
 
   protected lazy val sign: Parser[String] = ("+" | "-")
@@ -387,21 +396,53 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
       case num => num.toLong * CalendarInterval.MICROS_PER_WEEK
     }
 
+  private def intervalKeyword(keyword: String) = acceptIf {
+    case lexical.Identifier(str) =>
+      lexical.normalizeKeyword(str) == keyword
+    case _ => false
+  } {_ => "wrong interval keyword"}
+
   protected lazy val intervalLiteral: Parser[Literal] =
-    INTERVAL ~> year.? ~ month.? ~ week.? ~ day.? ~ hour.? ~ minute.? ~ second.? ~
-      millisecond.? ~ microsecond.? ^^ {
-      case year ~ month ~ week ~ day ~ hour ~ minute ~ second ~
-        millisecond ~ microsecond =>
-        if (!Seq(year, month, week, day, hour, minute, second,
-          millisecond, microsecond).exists(_.isDefined)) {
-          throw new AnalysisException(
-            "at least one time unit should be given for interval literal")
-        }
-        val months = Seq(year, month).map(_.getOrElse(0)).sum
-        val microseconds = Seq(week, day, hour, minute, second, millisecond, microsecond)
-          .map(_.getOrElse(0L)).sum
-        Literal.create(new CalendarInterval(months, microseconds), CalendarIntervalType)
+    ( INTERVAL ~> stringLit <~ intervalKeyword("year") ~ intervalKeyword("to") ~
+      intervalKeyword("month") ^^ { case s =>
+      Literal(CalendarInterval.fromYearMonthString(s))
     }
+      | INTERVAL ~> stringLit <~ intervalKeyword("day") ~ intervalKeyword("to") ~
+      intervalKeyword("second") ^^ { case s =>
+      Literal(CalendarInterval.fromDayTimeString(s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("year") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("year", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("month") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("month", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("day") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("day", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("hour") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("hour", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("minute") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("minute", s))
+    }
+      | INTERVAL ~> stringLit <~ intervalKeyword("second") ^^ { case s =>
+      Literal(CalendarInterval.fromSingleUnitString("second", s))
+    }
+      | INTERVAL ~> year.? ~ month.? ~ week.? ~ day.? ~ hour.? ~ minute.? ~ second.? ~
+      millisecond.? ~ microsecond.? ^^ { case year ~ month ~ week ~ day ~ hour ~ minute ~ second ~
+      millisecond ~ microsecond =>
+      if (!Seq(year, month, week, day, hour, minute, second,
+        millisecond, microsecond).exists(_.isDefined)) {
+        throw new AnalysisException(
+          "at least one time unit should be given for interval literal")
+      }
+      val months = Seq(year, month).map(_.getOrElse(0)).sum
+      val microseconds = Seq(week, day, hour, minute, second, millisecond, microsecond)
+        .map(_.getOrElse(0L)).sum
+      Literal(new CalendarInterval(months, microseconds))
+    }
+      )
 
   private def toNarrowestIntegerType(value: String): Any = {
     val bigIntValue = BigDecimal(value)
@@ -426,7 +467,7 @@ private[sql] trait BackportedSqlParser extends AbstractSparkSQLParser with DataT
 
   protected lazy val baseExpression: Parser[Expression] =
     ( "*" ^^^ UnresolvedStar(None)
-      | ident <~ "." ~ "*" ^^ { case tableName => UnresolvedStar(Option(tableName)) }
+      | rep1(ident <~ ".") <~ "*" ^^ { case target => UnresolvedStar(Option(target))}
       | primary
       )
 

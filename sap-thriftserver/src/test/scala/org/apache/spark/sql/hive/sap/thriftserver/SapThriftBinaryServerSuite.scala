@@ -24,8 +24,10 @@ class SapThriftBinaryServerSuite extends FunSuite with BeforeAndAfterAll
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     // auto register feature test
-    val conf = s"""${CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES}=com.sap.spark.dstest"""
-    thriftServer = new SapThriftServer2Test(additionalConfOptions = Option(Seq(conf)))
+    val conf = Seq(s"""${CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES}=com.sap.spark.dstest""",
+    "spark.sql.hive.thriftServer.singleSession=true")
+
+    thriftServer = new SapThriftServer2Test(additionalConfOptions = Option(conf))
     thriftServer.startThriftServer()
     thriftJdbcTest = new SapThriftJdbcHiveDriverTest(thriftServer)
     thriftJdbcTest.withJdbcStatement { statement =>
@@ -37,6 +39,7 @@ class SapThriftBinaryServerSuite extends FunSuite with BeforeAndAfterAll
       queries.foreach(statement.execute)
       logInfo("Test table is created.")
     }
+
   }
 
   override protected def afterAll(): Unit = {

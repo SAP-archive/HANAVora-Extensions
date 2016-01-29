@@ -1,11 +1,13 @@
 package org.apache.spark.sql.execution.datasources
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.sources.DatasourceCatalog
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.catalyst.TableIdentifierUtils._
 
 /**
   * The execution of ''DESCRIBE TABLES ... USING '' in the data source.
@@ -27,7 +29,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
   * @param options The options map.
   */
 private[sql]
-case class DescribeTableUsingRunnableCommand(name: Seq[String],
+case class DescribeTableUsingRunnableCommand(name: TableIdentifier,
                                              provider: String, options: Map[String, String])
   extends LogicalPlan
     with RunnableCommand {
@@ -44,7 +46,7 @@ case class DescribeTableUsingRunnableCommand(name: Seq[String],
     dataSource match {
       case describableRelation: DatasourceCatalog =>
         Seq(describableRelation
-          .getRelation(sqlContext, name, new CaseInsensitiveMap(options)) match {
+          .getRelation(sqlContext, name.toSeq, new CaseInsensitiveMap(options)) match {
             case None => Row("", "")
             case Some(describableRelation.RelationInfo(relName, _, _, ddl)) => Row(
               relName, ddl.getOrElse(""))

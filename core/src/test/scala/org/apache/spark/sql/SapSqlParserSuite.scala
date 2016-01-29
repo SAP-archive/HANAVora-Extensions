@@ -30,7 +30,7 @@ class SapSqlParserSuite
 
   def catalog: Catalog = {
     val catalog = new SimpleCatalog(SimpleCatalystConf(true))
-    catalog.registerTable(Seq("T1"), t1)
+    catalog.registerTable(TableIdentifier("T1"), t1)
     catalog
   }
 
@@ -49,7 +49,7 @@ class SapSqlParserSuite
       """.stripMargin)
 
     val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-      relation = UnresolvedRelation("T1" :: Nil, Some("v")),
+      relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
       startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
@@ -60,6 +60,11 @@ class SapSqlParserSuite
 
     val analyzed = analyzer.execute(result)
     log.info(s"$analyzed")
+  }
+
+  test("Distinct") {
+    val parsed = SapSqlParser.parse("SELECT count(distinct *) FROM t")
+    println(parsed)
   }
 
   test("parse system table") {
@@ -91,7 +96,7 @@ class SapSqlParserSuite
       UnresolvedTableFunction("describe_table",         // FROM describe_table(
         Seq(Project(                                    // SELECT
           Seq(UnresolvedAlias(UnresolvedStar(None))),   // *
-          UnresolvedRelation(Seq("persons"))            // FROM persons
+          UnresolvedRelation(TableIdentifier("persons"))            // FROM persons
         )))))                                           // )
   }
 
@@ -115,7 +120,7 @@ class SapSqlParserSuite
         |) AS H
       """.stripMargin)
     val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-      relation = UnresolvedRelation("T1" :: Nil, Some("v")),
+      relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
       parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
       childAlias = "u",
       startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
@@ -142,7 +147,7 @@ class SapSqlParserSuite
           |) AS H
         """.stripMargin)
       val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-        relation = UnresolvedRelation("T1" :: Nil, Some("v")),
+        relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
         childAlias = "u",
@@ -160,7 +165,8 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE TEMPORARY VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))),
+      NonPersistedView(Project(AliasUnresolver(Literal(1)),
+        UnresolvedRelation(TableIdentifier("mytable")))),
       TableIdentifier("myview"), temporary = true)
     comparePlans(expected, result)
   }
@@ -169,7 +175,8 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))),
+      NonPersistedView(Project(AliasUnresolver(Literal(1)),
+        UnresolvedRelation(TableIdentifier("mytable")))),
       TableIdentifier("myview"), temporary = false)
     comparePlans(expected, result)
   }
@@ -186,7 +193,7 @@ class SapSqlParserSuite
                               """.stripMargin)
     val expected = CreateNonPersistentViewCommand(
       NonPersistedView(Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-        relation = UnresolvedRelation("T1" :: Nil, Some("v")),
+        relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
         childAlias = "u",
@@ -227,7 +234,7 @@ class SapSqlParserSuite
 
     val projection = nonPersistedView.plan.asInstanceOf[Project]
 
-    assertResult(UnresolvedRelation("atable" :: Nil))(projection.child)
+    assertResult(UnresolvedRelation(TableIdentifier("atable")))(projection.child)
 
     val actual = projection.projectList
 
@@ -286,7 +293,8 @@ class SapSqlParserSuite
     val result = parser.parse("CREATE DIMENSION VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
       NonPersistedDimensionView(Project(AliasUnresolver(Literal(1)),
-        UnresolvedRelation("mytable" :: Nil))), TableIdentifier("myview"), temporary = false)
+        UnresolvedRelation(TableIdentifier("mytable")))),
+      TableIdentifier("myview"), temporary = false)
     comparePlans(expected, result)
   }
 

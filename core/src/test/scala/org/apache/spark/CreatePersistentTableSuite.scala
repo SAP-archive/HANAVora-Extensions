@@ -30,7 +30,7 @@ class CreatePersistentTableSuite
          |USING com.sap.spark.dstest
        """.stripMargin)
 
-    val plan = CatalogAccessor(sqlContext).lookupRelation(Seq(tableNotTemp))
+    val plan = CatalogAccessor.lookupRelation(tableNotTemp, sqlContext)
     inside(plan) {
       case Subquery(_,
         IsLogicalRelation(DummyRelationWithTempFlag(_, tableName, _, _))) =>
@@ -44,7 +44,7 @@ class CreatePersistentTableSuite
           |USING com.sap.spark.dstest
        """.stripMargin)
 
-    val plan = CatalogAccessor(sqlContext).lookupRelation(Seq(tableTemp))
+    val plan = CatalogAccessor.lookupRelation(tableTemp, sqlContext)
     inside(plan) {
       case Subquery(_,
       IsLogicalRelation(DummyRelationWithTempFlag(_, tableName, _, _))) =>

@@ -11,16 +11,17 @@ private[hierarchy]  case class HierarchyRowFunctions(inputTypes: Seq[DataType]) 
 
   private[hierarchy] def rowGet[K](i: Int): Row => K = (row: Row) => row.getAs[K](i)
 
-  private[hierarchy] def rowInit[K](pk: Row => K):
+  private[hierarchy] def rowInit[K](pk: Row => K, pathDataType: DataType):
   (Row, Option[Long]) => Row = { (row, myOrdKey) =>
     myOrdKey match {
-      case Some(x) => Row(row.toSeq ++ Seq(Node(List(pk(row)), ordPath = List(x))): _*)
-      case None => Row(row.toSeq ++ Seq(Node(List(pk(row)))): _*)
+      case Some(x) => Row(row.toSeq ++ Seq(Node(List(pk(row)),
+        pathDataType, ordPath = List(x))): _*)
+      case None => Row(row.toSeq ++ Seq(Node(List(pk(row)), pathDataType)): _*)
     }
   }
 
-  private[hierarchy] def rowModifyAndOrder[K](pk: Row => K): (Row, Row, Option[Long]) => Row
-  = {
+  private[hierarchy] def rowModifyAndOrder[K](pk: Row => K, pathDataType: DataType):
+  (Row, Row, Option[Long]) => Row = {
     (left, right, myord) => {
       val pathComponent: K = pk(right)
       // TODO(weidner): is myNode a ref/ptr or a copy of node?:
@@ -34,17 +35,18 @@ private[hierarchy]  case class HierarchyRowFunctions(inputTypes: Seq[DataType]) 
             case x: Seq[Long] => x
             case _ => List()
           }
-          node = Node(path, ordPath = parentOrdPath ++ List(ord))
-        case None => node = Node(path)
+          node = Node(path, pathDataType, ordPath = parentOrdPath ++ List(ord))
+        case None => node = Node(path, pathDataType)
       }
       Row(right.toSeq :+ node: _*)
     }
   }
 
-  private[hierarchy] def rowModify[K](pk: Row => K): (Row, Row) => Row = { (left, right) =>
+  private[hierarchy] def rowModify[K](pk: Row => K, pathDataType: DataType):
+    (Row, Row) => Row = { (left, right) =>
     val pathComponent: K = pk(right)
     val path: Seq[Any] = left.getAs[Node](left.length - 1).path ++ List(pathComponent)
-    val node: Node = Node(path)
+    val node: Node = Node(path, pathDataType)
     Row(right.toSeq :+ node: _*)
   }
 

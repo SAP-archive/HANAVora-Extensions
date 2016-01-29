@@ -1,7 +1,7 @@
 package org.apache.spark.sql.extension
 
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.ParserDialect
+import org.apache.spark.sql.catalyst.{TableIdentifier, ParserDialect}
 import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
 import org.apache.spark.sql.catalyst.errors.DialectException
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -28,7 +28,7 @@ private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
    */
   override def dropTempTable(tableName: String): Unit = {
     Try(cacheManager.tryUncacheQuery(table(tableName)))
-    catalog.unregisterTable(Seq(tableName))
+    catalog.unregisterTable(TableIdentifier(tableName))
   }
 
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[LogicalPlan => Unit] = Nil

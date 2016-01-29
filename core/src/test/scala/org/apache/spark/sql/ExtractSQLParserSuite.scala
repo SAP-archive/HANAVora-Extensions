@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import com.sap.spark.PlanTest
 import org.apache.spark.Logging
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
@@ -12,7 +13,7 @@ class ExtractSQLParserSuite extends FunSuite with PlanTest with Logging {
 
   // scalastyle:off magic.number
 
-  val t1 = UnresolvedRelation("T1" :: Nil)
+  val t1 = UnresolvedRelation(TableIdentifier("T1"))
   val parser = new SapParserDialect
 
   test("Parse EXTRACT in SELECT") {

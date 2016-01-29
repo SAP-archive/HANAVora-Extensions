@@ -1,6 +1,6 @@
 package org.apache.spark.sql.hierarchy
 
-import org.apache.spark.sql.types.Node
+import org.apache.spark.sql.types.{IntegerType, Node}
 import org.apache.spark.Logging
 import org.apache.spark.sql.Row
 
@@ -10,7 +10,7 @@ class HierarchyJoinBuilderUnitTests extends NodeUnitTestSpec with Logging {
 
   log.info("Testing function 'extractNodeFromRow'\n")
 
-  val x = new Node(List(1,2,3), ordPath = List(1,1,2))
+  val x = Node(List(1,2,3), IntegerType, List(1L,1L,2L))
   Some(x) should equal {
     jb.extractNodeFromRow(Row.fromSeq(Seq(1,2,3, x)))
   }

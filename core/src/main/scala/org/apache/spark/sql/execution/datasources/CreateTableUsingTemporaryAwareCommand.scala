@@ -6,6 +6,7 @@ import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import org.apache.spark.sql.catalyst.TableIdentifierUtils._
 
 /**
  * This command is used to register persistent tables if the datasource is capable of reporting
@@ -53,7 +54,7 @@ case class CreateTableUsingTemporaryAwareCommand(
         sys.error("allowExisting should be set to false when creating a temporary table.")
       }
     } else {
-      if (sqlContext.catalog.tableExists(tableIdentifier.toSeq) && !allowExisting) {
+      if (sqlContext.catalog.tableExists(tableIdentifier) && !allowExisting) {
         sys.error(s"Table ${tableIdentifier.toString()} already exists")
       }
     }

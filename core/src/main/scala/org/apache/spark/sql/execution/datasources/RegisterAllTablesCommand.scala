@@ -1,5 +1,6 @@
 package org.apache.spark.sql.execution.datasources
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.ProviderUtils._
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources.RegisterAllTableRelations
@@ -32,7 +33,7 @@ private[sql] case class RegisterAllTablesCommand(
     /** Partition relations in two groups: new and already existing */
     val (existingRelations, newRelations) = relations
       .partition({
-        case (name, relation) => sqlContext.catalog.tableExists(name :: Nil)
+        case (name, relation) => sqlContext.catalog.tableExists(new TableIdentifier(name))
       })
 
     /** If [[ignoreConflicts]] is false, throw if there are existing relations */

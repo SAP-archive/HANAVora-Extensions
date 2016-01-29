@@ -1,6 +1,6 @@
 package org.apache.spark.sql.catalyst.analysis
 
-import org.apache.spark.sql.catalyst.expressions.CountDistinct
+import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Count}
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.Rule
 
@@ -13,9 +13,10 @@ case class ResolveCountDistinctStar(analyzer: Analyzer) extends Rule[LogicalPlan
     case a@Aggregate(_, aggregateExpressions, child) =>
       analyzer.ResolveAliases(
         a.copy(aggregateExpressions = aggregateExpressions.collect {
-          case u@UnresolvedAlias(c@CountDistinct((star: UnresolvedStar) :: Nil)) =>
-            val expanded = star.expand(child.output, analyzer.resolver)
-            u.copy(c.copy(expanded))
+          case u@UnresolvedAlias(
+            aggExp@AggregateExpression(c@Count((star: UnresolvedStar) :: Nil),_ , true)) =>
+              val expanded = star.expand(child, analyzer.resolver)
+              u.copy(aggExp.copy(c.copy(expanded)))
           case default => default
         })
       )

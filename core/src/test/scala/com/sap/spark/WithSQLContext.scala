@@ -34,7 +34,7 @@ trait WithSQLContext extends BeforeAndAfterEach {
   var _sqlContext: SQLContext = _
 
   protected def setUpSQLContext(): Unit =
-    _sqlContext = new SQLContext(sc)
+    _sqlContext = SQLContext.getOrCreate(sc).newSession()
 
 
   protected def tearDownSQLContext(): Unit =

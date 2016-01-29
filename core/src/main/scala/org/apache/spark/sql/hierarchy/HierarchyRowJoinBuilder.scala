@@ -23,6 +23,10 @@ object HierarchyRowJoinBuilder {
           s"Unsupported parenthood expression: $parenthoodExpression"
         )
     }
+
+    // determine path data type
+    val pathDataType = parenthoodExpression.asInstanceOf[EqualTo].left.dataType
+
     val predIdx = predSuccIndexes._1
     val pkIdx = predSuccIndexes._2
 
@@ -39,8 +43,8 @@ object HierarchyRowJoinBuilder {
           attributes.indexWhere(_.name ==
             searchBy.head.child.asInstanceOf[AttributeReference].name))
     }
-    val init = rowFunctions.rowInit(pk)
-    val modify = rowFunctions.rowModifyAndOrder(pk)
+    val init = rowFunctions.rowInit(pk, pathDataType)
+    val modify = rowFunctions.rowModifyAndOrder(pk, pathDataType)
 
     new HierarchyJoinBuilder[Row,Row,Any](startsWhere, pk, pred, init, ord, modify)
   }

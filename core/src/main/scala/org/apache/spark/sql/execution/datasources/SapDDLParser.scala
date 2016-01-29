@@ -13,9 +13,9 @@ import org.apache.spark.sql.sources.commands._
 
 import scala.util.parsing.input.Position
 import scala.reflect._
-
 import org.apache.spark.sql.util.CollectionUtils._
 
+// scalastyle: off file.size.limit
 class SapDDLParser(parseQuery: String => LogicalPlan)
   extends BackportedSapSqlParser(parseQuery)
   with AnnotationParsingRules {
@@ -83,7 +83,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val describeDatasource: Parser[LogicalPlan] =
     DEEP ~> DESCRIBE ~> ident ^^ {
       case tableName =>
-        UnresolvedDeepDescribe(new UnresolvedRelation(Seq(tableName)))
+        UnresolvedDeepDescribe(new UnresolvedRelation(TableIdentifier(tableName)))
     }
 
   override protected lazy val createTable: Parser[LogicalPlan] =
@@ -124,6 +124,36 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
             queryPlan)
         } else {
           val userSpecifiedSchema = columns.flatMap(fields => Some(StructType(fields)))
+          /**
+            * This checks for the deprecated path(s) option, should be removed in the next
+            * version
+            */
+          val sapVoraProviderPackages: Set[String] =
+            Set("com.sap.spark.vora", "com.sap.spark.vora.DefaultSource")
+          val sapHanaProviderPackages: Set[String] =
+            Set("com.sap.spark.hana", "com.sap.spark.hana.DefaultSource")
+
+          val modifiedOptions: Map[String, String] =
+            (sapVoraProviderPackages.contains(provider),
+              options.keySet.contains("paths"),
+              sapHanaProviderPackages.contains(provider),
+              options.keySet.contains("path")) match {
+            // paths for vora datasource set
+            case (true, true, false, _) =>
+              logWarning(s"Usage of 'paths' is a deprecated option for datasource '$provider' " +
+                s"use 'files' instead")
+              // replace paths
+              options - ("paths") + (("files" -> options.get("paths").get))
+            // path for hana datasource set
+            case (false, _, true, true) =>
+              logWarning(s"Usage of 'path' is a deprecated option for datasource '$provider' " +
+                s"use 'tablepath' instead")
+              // replace paths
+              options - ("path") + (("tablepath" -> options.get("path").get))
+            // leave untouched by default
+            case _ => options
+          }
+
           if (partitioningFunctionDef.isDefined) {
             val partitioningFunction = partitioningFunctionDef.get._1
             val partitioningColumns = partitioningFunctionDef.get._2
@@ -134,7 +164,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
               partitioningFunction,
               partitioningColumns,
               temp.isDefined,
-              options,
+              modifiedOptions,
               allowExisting.isDefined,
               managedIfNoPath = false)
           } else {
@@ -143,7 +173,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
               userSpecifiedSchema,
               provider,
               temp.isDefined,
-              options,
+              modifiedOptions,
               allowExisting.isDefined,
               managedIfNoPath = false)
           }
@@ -329,9 +359,9 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       case db ~ tbl ~ opts =>
         val tblIdentifier = db match {
           case Some(dbName) =>
-            Seq(dbName, tbl)
+            TableIdentifier(dbName, Some(tbl))
           case None =>
-            Seq(tbl)
+            TableIdentifier(tbl)
         }
         AppendCommand(UnresolvedRelation(tblIdentifier, None), opts)
     }
@@ -423,7 +453,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val describeTableUsing: Parser[LogicalPlan] =
     DESCRIBE ~> TABLE ~> tableIdentifier ~ (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
       case tableIdent ~ provider ~ opts =>
-        DescribeTableUsingCommand(tableIdent.toSeq, provider, opts.getOrElse(Map.empty))
+        DescribeTableUsingCommand(tableIdent, provider, opts.getOrElse(Map.empty))
     }
 
   /**
@@ -541,3 +571,4 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       StructField(columnName, typ, nullable = true, meta)
     })
 }
+// scalastyle: on

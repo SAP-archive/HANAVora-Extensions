@@ -3,7 +3,7 @@ package org.apache.spark.sql.execution
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst._
-import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, BinaryExpression, Expression, SortOrder}
 import org.apache.spark.sql.hierarchy._
 import org.apache.spark.sql.catalyst.plans.logical.Hierarchy
 import org.apache.spark.sql.types._
@@ -50,8 +50,11 @@ private[sql] case class HierarchyPhysicalPlan(
     /** Copy to prevent weird duplicated rows. See SPARK-4775. */
     val mappedRDD = RddUtils.rowRddToRdd(rdd, childSchema)
 
+    /** Determine the type of the node elements */
+    val pathDataType = parenthoodExpression.asInstanceOf[BinaryExpression].left.dataType
+
     /** Build the hierarchy */
-    val resultRdd = hierarchyBuilder.buildFromAdjacencyList(mappedRDD)
+    val resultRdd = hierarchyBuilder.buildFromAdjacencyList(mappedRDD, pathDataType)
 
     val cachedResultRdd = resultRdd.cache()
 

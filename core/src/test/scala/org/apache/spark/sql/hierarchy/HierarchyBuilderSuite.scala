@@ -23,8 +23,8 @@ class HierarchyBuilderSuite extends FunSuite {
     for (i <- 0 to 5) {
       val row = Row((0 to 5).map(_.toString): _*)
 
-      val result = rowFunctions.rowInit(rowFunctions.rowGet(i))(row, None)
-      val expected = Row(row.toSeq :+ Node(List(i.toString)): _*)
+      val result = rowFunctions.rowInit(rowFunctions.rowGet(i), StringType)(row, None)
+      val expected = Row(row.toSeq :+ Node(List(i.toString), StringType): _*)
       assertResult(expected)(result)
     }
   }
@@ -33,8 +33,8 @@ class HierarchyBuilderSuite extends FunSuite {
   test("HierarchyRowFunctions.rowInitWithOrder") {
     for (i <- 0 to 5) {
       val row = Row((0 to 5).map(_.toString): _*)
-      val result = rowFunctions.rowInit(rowFunctions.rowGet(i))(row, Some(42L))
-      val expected = Row(row.toSeq :+ Node(List(i.toString), ordPath = List(42L)): _*)
+      val result = rowFunctions.rowInit(rowFunctions.rowGet(i), StringType)(row, Some(42L))
+      val expected = Row(row.toSeq :+ Node(List(i.toString),StringType, ordPath = List(42L)): _*)
       assertResult(expected)(result)
     }
   }
@@ -43,11 +43,11 @@ class HierarchyBuilderSuite extends FunSuite {
   test("HierarchyRowFunctions.rowModify") {
     for (i <- 0 to 5) {
       val rightRow = Row(0 to 5: _*)
-      val leftRow = Row("foo", 0, "bar", Node(List(0)))
+      val leftRow = Row("foo", 0, "bar", Node(List(0),StringType))
       val result = rowFunctions.rowModify(
-        rowFunctions.rowGet(i)
+        rowFunctions.rowGet(i),StringType
       )(leftRow, rightRow)
-      val expected = Row((0 to 5) :+ Node(List(0, i)): _*)
+      val expected = Row((0 to 5) :+ Node(List(0, i), StringType): _*)
       assertResult(expected)(result)
     }
   }
@@ -56,11 +56,11 @@ class HierarchyBuilderSuite extends FunSuite {
   test("HierarchyRowFunctions.rowModifyAndOrder") {
     for (i <- 0 to 5) {
       val rightRow = Row(0 to 5: _*)
-      val leftRow = Row("foo", 0, "bar", Node(List(0)))
+      val leftRow = Row("foo", 0, "bar", Node(List(0),StringType))
       val result = rowFunctions.rowModifyAndOrder(
-        rowFunctions.rowGet(i)
+        rowFunctions.rowGet(i), StringType
       )(leftRow, rightRow, Some(42L))
-      val expected = Row((0 to 5) :+ Node(List(0, i), ordPath = List(42L)): _*)
+      val expected = Row((0 to 5) :+ Node(List(0, i), StringType, ordPath = List(42L)): _*)
       assertResult(expected)(result)
     }
   }

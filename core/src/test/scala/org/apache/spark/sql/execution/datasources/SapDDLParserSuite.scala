@@ -2,6 +2,9 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.expressions.{Literal, Alias, AnnotatedAttribute}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical._
@@ -12,6 +15,7 @@ import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen, Inside}
 
+// scalastyle: off file.size.limit
 class SapDDLParserSuite
   extends FunSuite
   with TableDrivenPropertyChecks
@@ -24,7 +28,7 @@ class SapDDLParserSuite
 
   test("DEEP DESCRIBE command") {
     val parsed = ddlParser.parse("DEEP DESCRIBE test")
-    assert(parsed == UnresolvedDeepDescribe(UnresolvedRelation(Seq("test"))))
+    assert(parsed == UnresolvedDeepDescribe(UnresolvedRelation(TableIdentifier("test"))))
   }
 
   test("SHOW PARTITION FUNCTIONS command") {
@@ -210,6 +214,58 @@ OPTIONS (
 )"""
     ddlParser.parse(testTable, exceptionOnError = true)
     ddlParser.parse(testTable, exceptionOnError = false)
+  }
+
+  test("Replace 'paths' for vora datasource with files if needed (deprecation)") {
+    val testTableVora = """
+      CREATE TABLE testDeprec (field1 string)
+      USING com.sap.spark.vora
+      OPTIONS (
+        tableName "testDep",
+        paths "/user/u1234/data.csv"
+    )"""
+    assert(ddlParser.parse(testTableVora, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("files"))
+    assert(!ddlParser.parse(testTableVora, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("paths"))
+
+    val testTableVoraDS = """
+      CREATE TABLE testDeprec (field1 string)
+      USING com.sap.spark.vora.DefaultSource
+      OPTIONS (
+        tableName "testDep",
+        paths "/user/u1234/data.csv"
+    )"""
+    assert(ddlParser.parse(testTableVoraDS, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("files"))
+    assert(!ddlParser.parse(testTableVoraDS, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("paths"))
+  }
+
+  test("Replace 'path' for hana datasource with files if needed (deprecation)") {
+    val testTableHana = """
+      CREATE TABLE testDeprec (field1 string)
+      USING com.sap.spark.hana
+      OPTIONS (
+        tableName "testDep",
+        path "NAME"
+    )"""
+    assert(ddlParser.parse(testTableHana, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("tablepath"))
+    assert(!ddlParser.parse(testTableHana, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("path"))
+
+    val testTableHanaDS = """
+      CREATE TABLE testDeprec (field1 string)
+      USING com.sap.spark.hana.DefaultSource
+      OPTIONS (
+        tableName "testDep",
+        path "/user/u1234/data.csv"
+    )"""
+    assert(ddlParser.parse(testTableHanaDS, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("tablepath"))
+    assert(!ddlParser.parse(testTableHanaDS, exceptionOnError = true)
+      .asInstanceOf[CreateTableUsing].options.contains("path"))
   }
 
   test("test simple CREATE TEMPORARY TABLE (Bug 90774)") {
@@ -712,7 +768,7 @@ OPTIONS (
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.view)
+      UnresolvedRelation(TableIdentifier("t")))))(actual.view)
     assertResult(false)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
@@ -736,7 +792,7 @@ OPTIONS (
             "sq",
             Project(
               UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-              UnresolvedRelation(Seq("t"), None)
+              UnresolvedRelation(TableIdentifier("t"), None)
             )
           )
     )))(actual.view)
@@ -757,7 +813,7 @@ OPTIONS (
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.view)
+      UnresolvedRelation(TableIdentifier("t")))))(actual.view)
     assertResult(true)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
@@ -782,7 +838,7 @@ OPTIONS (
     assert(persistedView.plan.isInstanceOf[Project])
     val projection = persistedView.plan.asInstanceOf[Project]
 
-    assertResult(UnresolvedRelation("t" :: Nil))(projection.child)
+    assertResult(UnresolvedRelation(TableIdentifier("t")))(projection.child)
 
     val expected = Seq(
       ("al", UnresolvedAttribute("a"), Map("b" -> Literal.create("c", StringType))))
@@ -908,7 +964,7 @@ OPTIONS (
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedDimensionView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.view)
+      UnresolvedRelation(TableIdentifier("t")))))(actual.view)
     assertResult(true)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
@@ -949,7 +1005,7 @@ OPTIONS (
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedCubeView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.view)
+      UnresolvedRelation(TableIdentifier("t")))))(actual.view)
     assertResult(true)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
@@ -979,3 +1035,4 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement5))
   }
 }
+// scalastyle:on

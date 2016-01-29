@@ -160,13 +160,13 @@ class HierarchySuite
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
     val result = sqlContext.sql(hierarchySQL(orgTbl)).collect()
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 7, isLeaf = false)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, 6, isLeaf = true)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 5, isLeaf = false)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 3, isLeaf = false)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, 4, isLeaf = true)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true)),
-      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, 2, isLeaf = true))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 7, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), LongType, 7, 6, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), LongType, 2, 5, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), LongType, 3, 3, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), LongType, 6, 4, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), LongType, 4, 1, isLeaf = true)),
+      Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), LongType, 5, 2, isLeaf = true))
     )
     assertSetEqual(expected)(result.toSet)
   }
@@ -182,12 +182,12 @@ class HierarchySuite
     val result = sqlContext.sql(hierarchySQL("h_src")).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 6, isLeaf = false)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, 5, isLeaf = true)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 4, isLeaf = false)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 2, isLeaf = false)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, 3, isLeaf = true)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 6, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), LongType, 6, 5, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), LongType, 2, 4, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), LongType, 3, 2, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), LongType, 5, 3, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), LongType, 4, 1, isLeaf = true))
     )
 
     assertSetEqual(expected)(result.toSet)
@@ -210,12 +210,12 @@ class HierarchySuite
     val result = sqlContext.sql(hierarchySQL("h_src")).collect()
 
     val expected = Set(
-      Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 6, isLeaf = false)),
-      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 6, 5, isLeaf = true)),
-      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 4, isLeaf = false)),
-      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 2, isLeaf = false)),
-      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 5, 3, isLeaf = true)),
-      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true))
+      Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 6, isLeaf = false)),
+      Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), LongType, 6, 5, isLeaf = true)),
+      Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), LongType, 2, 4, isLeaf = false)),
+      Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), LongType, 3, 2, isLeaf = false)),
+      Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), LongType, 5, 3, isLeaf = true)),
+      Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), LongType, 4, 1, isLeaf = true))
     )
 
     assertSetEqual(expected)(result.toSet)
@@ -237,9 +237,9 @@ class HierarchySuite
                                    SET node) AS H""").collect().toSet
 
     val expected = Set(
-      Row("Parent", 3L, 1L, 1, Node(List(1L), 1, 3, isLeaf = false)),
-      Row("Child", 1L, 2L, 1, Node(List(1L, 2L), 2, 2, isLeaf = false)),
-      Row("Cycler", 2L, 3L, 1, Node(List(1L, 2L, 3L), 3, 1, isLeaf = true))
+      Row("Parent", 3L, 1L, 1, Node(List(1L), LongType, 1, 3, isLeaf = false)),
+      Row("Child", 1L, 2L, 1, Node(List(1L, 2L), LongType, 2, 2, isLeaf = false)),
+      Row("Cycler", 2L, 3L, 1, Node(List(1L, 2L, 3L), LongType, 3, 1, isLeaf = true))
     )
 
     assertSetEqual(expected)(result.toSet)
@@ -281,28 +281,30 @@ class HierarchySuite
       val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
       val hSrc = sqlContext.createDataFrame(rdd)
 
-      val result = builder.buildFromAdjacencyList(hSrc.rdd)
+      val result = builder.buildFromAdjacencyList(hSrc.rdd, LongType)
 
       // TODO(Weidner): workaround, implement prerank for join builder!
       val isJoin = builder.getClass.getName.contains("JoinBuilder")
       val expected = if (isJoin) {
         Set(
-          Row("THE BOSS", null, 1L, 1, Node(List(1L))),
-          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L))),
-          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L))),
-          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L))),
-          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L))),
-          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L))),
-          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L))))
+          Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType)),
+          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), LongType)),
+          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), LongType)),
+          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), LongType)),
+          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), LongType)),
+          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), LongType)),
+          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), LongType)))
       } else {
         Set(
-          Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 7, isLeaf = false)),
-          Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, 6, isLeaf = true)),
-          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), 2, 5, isLeaf = false)),
-          Row("Senior Developer", 2L, 4L, 1, Node(List(1L, 2L, 4L), 3, 3, isLeaf = false)),
-          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), 6, 4, isLeaf = true)),
-          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true)),
-          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, 2, isLeaf = true)))
+          Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 7, isLeaf = false)),
+          Row("The Other Middle Manager", 1L, 3L, 2,
+            Node(List(1L, 3L), LongType, 7, 6, isLeaf = true)),
+          Row("The Middle Manager", 1L, 2L, 1, Node(List(1L, 2L), LongType, 2, 5, isLeaf = false)),
+          Row("Senior Developer", 2L, 4L, 1,
+            Node(List(1L, 2L, 4L), LongType, 3, 3, isLeaf = false)),
+          Row("Minion 1", 2L, 5L, 2, Node(List(1L, 2L, 5L), LongType, 6, 4, isLeaf = true)),
+          Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), LongType, 4, 1, isLeaf = true)),
+          Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), LongType, 5, 2, isLeaf = true)))
       }
 
       assertSetEqual(expected)(result.collect().toSet)
@@ -341,7 +343,7 @@ class HierarchySuite
         transformRowFunction = (r: EmployeeRow, node: Node) =>
           PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
       )
-      val hierarchy = builder.buildFromAdjacencyList(rdd)
+      val hierarchy = builder.buildFromAdjacencyList(rdd, LongType)
 
       val expected = Set(
         PartialResult(List(1), 1),

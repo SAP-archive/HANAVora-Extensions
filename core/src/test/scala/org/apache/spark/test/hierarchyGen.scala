@@ -1,7 +1,8 @@
 package org.apache.spark.test
 
-import org.apache.spark.sql.types.Node
+import org.apache.spark.sql.types.{LongType, Node}
 import org.scalacheck.{Arbitrary, Gen}
+
 import scala.util.Random
 import scalaz._
 import Scalaz._
@@ -76,6 +77,7 @@ object HierarchyGen {
 
   private[spark] def treeLocToNode[A](treeLoc: TreeLoc[A]): Node = Node(
     path = treeLoc.path.reverse.toList,
+    pathDataType = LongType, // only long types here
     preRank = treeLoc.root.tree.flatten.indexOf(treeLoc.getLabel),
     postRank = treeLoc.root.tree.levels.flatten.indexOf(treeLoc.getLabel),
     isLeaf = treeLoc.isLeaf

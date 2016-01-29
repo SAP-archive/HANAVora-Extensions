@@ -143,13 +143,7 @@ with AnnotationParsingRules{
   protected lazy val describeTable: Parser[LogicalPlan] =
     (OLAP_DESCRIBE ~> (ident <~ ".").? ~ ident ^^ {
       case db ~ tbl =>
-        val tblIdentifier = db match {
-          case Some(dbName) =>
-            Seq(dbName, tbl)
-          case None =>
-            Seq(tbl)
-        }
-        DescribeRelationCommand(UnresolvedRelation(tblIdentifier, None))
+        DescribeRelationCommand(UnresolvedRelation(TableIdentifier(tbl, db), None))
     }
     |OLAP_DESCRIBE ~> start1 ^^ { l:LogicalPlan => DescribeQueryCommand(l) })
 
@@ -180,8 +174,8 @@ with AnnotationParsingRules{
       case name ~ arguments =>
         UnresolvedTableFunction(name, arguments)
     } |
-    ( rep1sep(ident, ".") ~ (opt(AS) ~> opt(ident)) ^^ {
-      case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
+      ( tableIdentifier ~ (opt(AS) ~> opt(ident)) ^^ {
+        case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
     } |
     ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) })
 

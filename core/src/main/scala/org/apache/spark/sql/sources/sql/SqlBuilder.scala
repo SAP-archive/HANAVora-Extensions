@@ -4,7 +4,8 @@ import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.expressions.{BinarySymbolExpression, Literal, Ascending}
+import org.apache.spark.sql.catalyst.expressions.aggregate.AggregateExpression
+import org.apache.spark.sql.catalyst.expressions.{Ascending, BinarySymbolExpression, Literal}
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -133,7 +134,8 @@ class SqlBuilder {
       case IsLogicalRelation(base: SqlLikeRelation) if noProject =>
         buildQuery(formatRelation(base), plan.output.map(expressionToSql))
       case IsLogicalRelation(base: SqlLikeRelation) => formatRelation(base)
-      case analysis.UnresolvedRelation(name :: Nil, aliasOpt) => aliasOpt.getOrElse(name)
+      case analysis.UnresolvedRelation(tblIdent, aliasOpt) =>
+        aliasOpt.getOrElse(tblIdent.quotedString)
       case _: LogicalRelation =>
         sys.error("Cannot convert LogicalRelations to SQL unless they contain a SqlLikeRelation")
 
@@ -282,7 +284,10 @@ class SqlBuilder {
       case expr.Literal(value, _) => literalToSql(value)
       case expr.Cast(child, dataType) =>
         s"CAST(${expressionToSql(child)} AS ${typeToSql(dataType)})"
-      case expr.CountDistinct(children) => s"COUNT(DISTINCT ${expressionsToSql(children, ",")})"
+        // TODO work on that, for SPark 1.6
+      // case expr.CountDistinct(children) => s"COUNT(DISTINCT ${expressionsToSql(children, ",")})"
+      case expr.aggregate.AggregateExpression(aggFunc, _, _)
+        => s"${aggFunc.prettyName.toUpperCase}(${expressionsToSql(aggFunc.children, ",")})"
       case expr.Coalesce(children) => s"COALESCE(${expressionsToSql(children, ",")})"
       case expr.DayOfMonth(date) => s"EXTRACT(DAY FROM ${expressionToSql(date)})"
       case expr.Month(date) => s"EXTRACT(MONTH FROM ${expressionToSql(date)})"
@@ -293,7 +298,8 @@ class SqlBuilder {
       case expr.CurrentDate() => s"CURRENT_DATE()"
       case expr.Substring(str, pos, len) =>
         s"SUBSTRING(${expressionToSql(str)}, $pos, $len)"
-      case expr.Average(child) => s"AVG(${expressionToSql(child)})"
+      // TODO work on that, for SPark 1.6
+      // case expr.Average(child) => s"AVG(${expressionToSql(child)})"
       case expr.In(value, list) =>
         s"${expressionToSql(value)} IN (${list.map(expressionToSql).mkString(", ")})"
       case expr.InSet(value, hset) =>
