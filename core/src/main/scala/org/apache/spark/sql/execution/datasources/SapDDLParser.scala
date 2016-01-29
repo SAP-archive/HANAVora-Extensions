@@ -1,17 +1,22 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.types.{DataType, StructType}
-import org.apache.spark.sql.{SaveMode, SapParserException}
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.plans.{JoinType, Inner}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.sources.commands._
 
 import scala.util.parsing.input.Position
 
-class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQuery) {
+class SapDDLParser(parseQuery: String => LogicalPlan)
+  extends BackportedSapSqlParser(parseQuery) {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
-    createTable |
+      createViewUsingOrig |
+      dropViewUsing |
+      createTable |
       createPartitionFunction |
       appendTable |
       dropTable |
@@ -31,17 +36,24 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
   protected val SHOW = Keyword("SHOW")
   protected val DSTABLES = Keyword("DATASOURCETABLES")
   protected val REGISTER = Keyword("REGISTER")
-  protected val ALL = Keyword("ALL")
   protected val TABLES = Keyword("TABLES")
   protected val IGNORING = Keyword("IGNORING")
   protected val CONFLICTS = Keyword("CONFLICTS")
   protected val USE = Keyword("USE")
   protected val DATASOURCE = Keyword("DATASOURCE")
   protected val PARTITIONED = Keyword("PARTITIONED")
-  protected val BY = Keyword("BY")
   protected val PARTITION = Keyword("PARTITION")
   protected val FUNCTION = Keyword("FUNCTION")
   protected val PARTITIONS = Keyword("PARTITIONS")
+
+  /* VIEW Keyword */
+  protected val VIEW = Keyword("VIEW")
+  protected val VIEW_SQL_STRING = "VIEW_SQL"
+
+  /**
+    * needed for view parsing.
+    */
+  lexical.delimiters += "$"
 
   protected lazy val describeDatasource: Parser[LogicalPlan] =
     DESCRIBE ~> DATASOURCE ~> ident ^^ {
@@ -128,6 +140,38 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
         val options = opts.getOrElse(Map.empty[String, String])
         val partitionsNoInt = if (partitionsNo.isDefined) Some(partitionsNo.get.toInt) else None
         CreatePartitioningFunction(options, name, types, definition, partitionsNoInt, provider)
+    }
+
+  /**
+    * Resolves a CREATE VIEW ... USING statement, in addition is adds the original VIEW SQL string
+    * added by the user into the OPTIONS.
+    */
+  protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
+    withConsumedInput(createViewUsing) ^^ {
+      case ((name, plan, provider, opts, allowExisting), text) =>
+        CreatePersistentViewCommand(name, plan, provider, opts.updated(VIEW_SQL_STRING, text.trim),
+          allowExisting)
+    }
+
+  /**
+    * Resolves a DROP VIEW ... USING statement. For more information about the rationale behind
+    * this command please take a look at [[DropPersistentViewRunnableCommand]]
+    */
+  protected lazy val dropViewUsing: Parser[LogicalPlan] =
+    DROP ~> VIEW ~> (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ (USING ~> className) ~
+      (OPTIONS ~> options).? ^^ {
+      case allowNotExisting ~ db ~ tbl ~ provider ~ opts =>
+        DropPersistentViewCommand(TableIdentifier(tbl, db),
+          provider, opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
+    }
+
+  /** Create view parser rule */
+  protected lazy val createViewUsing: Parser[(TableIdentifier, LogicalPlan,
+    String, Map[String, String], Boolean)] =
+    CREATE ~> VIEW ~> (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
+      (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+      case allowExisting ~ name ~ plan ~ provider ~ opts =>
+        (name, plan, provider, opts.getOrElse(Map.empty[String, String]), allowExisting.isDefined)
     }
 
   /**
@@ -244,18 +288,29 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
   /** Partitioning function identifier */
   protected lazy val functionName: Parser[String] = ident
 
-  /*
-     * Overridden to appropriately decide which
-     * parser error to use in case both parsers (ddl, sql)
-     * failed. Now chooses the error of the parser
-     * that succeeded most.
-     */
+  /**
+    * Overridden to appropriately decide which
+    * parser error to use in case both parsers (ddl, sql)
+    * failed. Now chooses the error of the parser
+    * that succeeded most.
+    *
+    * @param input the input string.
+    * @param exceptionOnError if set to true, the parser will throw an exception without falling
+    *                         back to the DML parser. If set to false, then the parser will only
+    *                         throw without falling back to DML parser if a [[DDLException]] occurs.
+    *
+   */
   override def parse(input: String, exceptionOnError: Boolean): LogicalPlan = {
     try {
       parse(input)
     } catch {
+      // DDLException indicates that although the statement if valid there is still a problem with
+      // it (e.g. a CREATE which have IF NOT EXISTS and TEMPORARY). Therefor we must throw
+      // immediately because it does not make sense to try to parse it with the DML parser.
+      case ddlException: DDLException =>
+        throw ddlException
       case vpeDDL: SapParserException =>
-        if(exceptionOnError) throw vpeDDL
+        if (exceptionOnError) throw vpeDDL
         // in case ddlparser failed, try sqlparser
         try {
           parseQuery(input)
@@ -265,29 +320,46 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
             // in case sqlparser also failed,
             // use the exception from the parser
             // that read the most characters
-            if(vpeSQL.line > vpeDDL.line) throw vpeSQL
-            else if(vpeSQL.line < vpeDDL.line) throw vpeDDL
-            else {
-              if(vpeSQL.column > vpeDDL.column) throw vpeSQL
-              else throw vpeDDL
+            (vpeSQL.line compare vpeDDL.line).signum match {
+              case 1 => throw vpeSQL
+              case -1 => throw vpeDDL
+              case 0 =>
+                if (vpeSQL.column > vpeDDL.column) {
+                  throw vpeSQL
+                } else {
+                  throw vpeDDL
+                }
             }
         }
     }
   }
 
-  /* Overridden to throw a SapParserException
-   * instead of as sys.error(failureOrError.toString). This allows
-   * to unify the parser exception handling in the
-   * upper layers.
-   *
-   */
-  override def parse(input: String): LogicalPlan = {
+  override def parse(input: String): LogicalPlan = synchronized {
     initLexical
     phrase(start)(new lexical.Scanner(input)) match {
       case Success(plan, _) => plan
       case failureOrError =>
+        // Now the native scala parser error is reformatted
+        // to be non-misleading. An idea is to allow the user
+        // to set the error message type in the future.
         val pos: Position = failureOrError.next.pos
         throw new SapParserException(input, pos.line, pos.column, failureOrError.toString)
+    }
+  }
+
+  /**
+    * Helper method that keeps in the input of a parsed input using parser 'p'.
+    *
+    * @param p The original parser.
+    * @tparam U The output type of 'p'
+    * @return a tuple containing the original parsed input along with the input [[String]].
+    */
+  def withConsumedInput [U](p: => Parser[U]): Parser[(U, String)] = new Parser[(U, String)] {
+    def apply(in: Input) = p(in) match {
+      case Success(result, next) =>
+        val parsedString = in.source.subSequence(in.offset, next.offset).toString
+        Success(result -> parsedString, next)
+      case other: NoSuccess => other
     }
   }
 }

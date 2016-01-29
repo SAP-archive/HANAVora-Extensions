@@ -1,14 +1,19 @@
 package org.apache.spark.sql.execution
 
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.sources.sql.View
+import org.apache.spark.sql.{AliasUnresolver, SQLContext}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.execution.datasources.{CreatePartitioningFunctionCommand, DescribeDatasourceCommand, LogicalRelation}
+import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.commands.{CreatePartitioningFunction, DescribeDatasource}
 import org.apache.spark.sql.types._
 import org.mockito.Mockito
 import org.scalatest.FunSuite
+import org.apache.spark.sql.catalyst.dsl.expressions._
+import org.apache.spark.sql.catalyst.dsl.plans._
+import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
 
 /**
  * Suite for testing the SapDDLStrategy.
@@ -68,4 +73,37 @@ class SapDDLStrategySuite extends FunSuite {
     Mockito.validateMockitoUsage()
   }
 
+  test("CREATE VIEW USING test") {
+    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
+    val strategy = new SapDDLStrategy(planner)
+    val unresolved = UnresolvedRelation(Seq("test"))
+    val plan = unresolved.select('id)
+
+    val viewCommand = CreatePersistentViewCommand(TableIdentifier("test"), plan,
+      "com.sap.spark.vora", Map[String, String](), allowExisting = true)
+    val command = strategy.apply(viewCommand)
+
+    assert(command == ExecutedCommand(
+      CreatePersistentViewRunnableCommand(TableIdentifier("test"), plan,
+        "com.sap.spark.vora", Map[String, String](), allowExisting = true)) :: Nil)
+    Mockito.validateMockitoUsage()
+    Mockito.validateMockitoUsage()
+  }
+
+  test("DROP VIEW USING test") {
+    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
+    val strategy = new SapDDLStrategy(planner)
+    val unresolved = UnresolvedRelation(Seq("test"))
+    val plan = unresolved.select('id)
+
+    val viewCommand = DropPersistentViewCommand(TableIdentifier("test"), "com.sap.spark.vora",
+      Map[String, String](), allowNotExisting = true)
+    val command = strategy.apply(viewCommand)
+
+    assert(command == ExecutedCommand(
+      DropPersistentViewRunnableCommand(TableIdentifier("test"), "com.sap.spark.vora",
+        Map[String, String](), allowNotExisting = true)) :: Nil)
+    Mockito.validateMockitoUsage()
+    Mockito.validateMockitoUsage()
+  }
 }

@@ -1,6 +1,7 @@
 package org.apache.spark.sql.execution
 
 import org.apache.spark.sql.Strategy
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension.ExtendedPlanner
@@ -44,6 +45,12 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
       ExecutedCommand(cv) :: Nil
     case cmd@UseStatementCommand(input) =>
       ExecutedCommand(cmd) :: Nil
+    case CreatePersistentViewCommand(viewIdentifier, plan, provider, options, allowExisting) =>
+      ExecutedCommand(CreatePersistentViewRunnableCommand(viewIdentifier, plan, provider,
+        options, allowExisting)) :: Nil
+    case DropPersistentViewCommand(viewIdentifier, provider, options, allowNotExisting) =>
+      ExecutedCommand(DropPersistentViewRunnableCommand(viewIdentifier, provider,
+        options, allowNotExisting)) :: Nil
     case _ => Nil
   }).headOption.toSeq
   // scalastyle:on cyclomatic.complexity

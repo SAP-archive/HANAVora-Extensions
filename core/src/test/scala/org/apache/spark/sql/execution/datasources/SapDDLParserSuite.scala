@@ -1,7 +1,9 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.plans.logical.Project
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
@@ -432,5 +434,92 @@ OPTIONS (
     assert(ex.getMessage.contains("The hashing function argument list cannot be empty."))
   }
 
+  test("Parse correct CREATE VIEW USING") {
+    val statement = "CREATE VIEW v AS SELECT * FROM t USING com.sap.spark.vora"
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assertResult(Some(statement))(actual.options.get("VIEW_SQL"))
+    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation("t" :: Nil)))(actual.plan)
+    assertResult(false)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("VIEW_SQL" -> statement))(actual.options)
+  }
+
+  test("Parse correct CREATE VIEW USING OPTIONS") {
+    val statement = """CREATE VIEW IF NOT EXISTS v
+                   |AS SELECT * FROM t
+                   |USING com.sap.spark.vora
+                   |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation("t" :: Nil)))(actual.plan)
+    assertResult(true)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2",
+      "view_sql" -> statement.trim))(actual.options)
+  }
+
+  test("Handle incorrect CREATE VIEW statements") {
+    val invStatement1 =
+      """CREATE VIE v AS SELECT * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement1))
+
+    val invStatement2 =
+      """CREATE VIEW v AS SELEC * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement2))
+
+    val invStatement3 =
+      """CREATE VIEW v AS SELECT * FROM t USIN com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement3))
+
+    val invStatement5 =
+      """CREATE VIEW v AS SELECT USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement5))
+  }
+
+  test("Handle correct DROP VIEW USING OPTIONS") {
+    val statement = """DROP VIEW IF EXISTS v
+                      |USING com.sap.spark.vora
+                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[DropPersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[DropPersistentViewCommand]
+    assertResult(true)(actual.allowNotExisting)
+    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+  }
+
+  test("Handle incorrect DROP VIEW statements") {
+    val invStatement1 =
+      """DROP VIE v USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement1))
+
+    val invStatement3 =
+      """DROP VIEW v USIN com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement3))
+
+    val invStatement5 =
+      """DROP VIEW v5k""".stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement5))
+  }
 }
 
