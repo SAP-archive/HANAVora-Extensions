@@ -432,5 +432,37 @@ OPTIONS (
     assert(ex.getMessage.contains("The hashing function argument list cannot be empty."))
   }
 
+  test("CREATE TABLE puts original schema in OPTIONS") {
+    val testStatement1 = """CREATE TEMPORARY TABLE test1 (
+                        a integer,
+                        b VARCHAR(30),
+                        c SMALLINT,
+                        d BIGINT,
+                        e DECIMAL(5,1))
+                        USING com.sap.spark.vora
+                        OPTIONS ()"""
+    val parsedStmt1 = ddlParser.parse(testStatement1)
+    assert(parsedStmt1.isInstanceOf[CreateTableUsing])
+    val createTableStatement = parsedStmt1.asInstanceOf[CreateTableUsing]
+    assertResult(Map[String, String]("schema" ->
+      "a integer,b VARCHAR(30),c SMALLINT,d BIGINT,e DECIMAL(5,1)"))(
+      createTableStatement.options)
+  }
+
+  test("CREATE TABLE with user defined schema in OPTIONS does not override it") {
+    val testStatement1 = """CREATE TEMPORARY TABLE test1 (
+                        a integer,
+                        b VARCHAR(30),
+                        c SMALLINT,
+                        d BIGINT,
+                        e DECIMAL(5,1))
+                        USING com.sap.spark.vora
+                        OPTIONS (schema "bla bla bla")"""
+    val parsedStmt1 = ddlParser.parse(testStatement1)
+    assert(parsedStmt1.isInstanceOf[CreateTableUsing])
+    val createTableStatement = parsedStmt1.asInstanceOf[CreateTableUsing]
+    assertResult(Map[String, String]("schema" -> "bla bla bla"))(createTableStatement.options)
+  }
+
 }
 
