@@ -1,11 +1,10 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{SaveMode, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.commands._
-import org.apache.spark.sql.util.CollectionUtils._
 
 import scala.util.parsing.input.Position
 
@@ -44,17 +43,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
   protected val FUNCTION = Keyword("FUNCTION")
   protected val PARTITIONS = Keyword("PARTITIONS")
 
-
-  // datasource option that captures the schema as defined by the user.
-  // (YH) this means that we are having this option in two locations: extensions
-  // and datasource which is not ideal but ok I guess.
-  val SCHEMA_OPTION = "schema"
-
-  /**
-    * name of the metadata entry of the original SQL type for a table column
-    */
-  protected val ORIGINAL_SQL_TYPE: String = "ORIG_SQL_TYPE"
-
   protected lazy val describeDatasource: Parser[LogicalPlan] =
     DESCRIBE ~> DATASOURCE ~> ident ^^ {
       case tableName =>
@@ -63,7 +51,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
 
   override protected lazy val createTable: Parser[LogicalPlan] =
     (CREATE ~> TEMPORARY.? <~ TABLE) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~
-      tableColsOrig.? ~ (PARTITIONED ~> BY ~> functionName ~ colsNames).? ~ (USING ~> className) ~
+      tableCols.? ~ (PARTITIONED ~> BY ~> functionName ~ colsNames).? ~ (USING ~> className) ~
       (OPTIONS ~> options).? ~ (AS ~> restInput).? ^^ {
       case temp ~ allowExisting ~ tableId ~ columns ~ partitioningFunctionDef ~
         provider ~ opts ~ query =>
@@ -71,17 +59,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
           throw new DDLException(
             "a CREATE TEMPORARY TABLE statement does not allow IF NOT EXISTS clause.")
         }
-        val options = columns match {
-          case Some(cols) =>
-            // get columns names and types.
-            val colNamesTypes = cols.map(pair => pair._2.name.concat(" ").concat(pair._1))
-            // add 'schema' option to the options if it is not defined by the user.
-            opts.getOrElse(Map.empty[String, String])
-              .putIfAbsent(SCHEMA_OPTION, colNamesTypes.mkString(","))
-          case None =>
-            opts.getOrElse(Map.empty[String, String])
-        }
 
+        val options = opts.getOrElse(Map.empty[String, String])
         if (query.isDefined) {
           if (columns.isDefined) {
             throw new DDLException(
@@ -105,9 +84,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
             options,
             queryPlan)
         } else {
-          val userSpecifiedSchema = columns
-            .map(fields => fields.map(f => f._2))
-              .flatMap(fields => Some(StructType(fields)))
+          val userSpecifiedSchema = columns.flatMap(fields => Some(StructType(fields)))
           if (partitioningFunctionDef.isDefined) {
             val partitioningFunction = partitioningFunctionDef.get._1
             val partitioningColumns = partitioningFunctionDef.get._2
@@ -295,46 +272,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan) extends DDLParser(parseQue
               else throw vpeDDL
             }
         }
-    }
-  }
-
-  /**
-    * Helper method that keeps in the input of a parsed input using parser 'p'.
-    *
-    * @param p The original parser.
-    * @tparam U The output type of 'p'
-    * @return a tuple containing the original parsed input along with the input [[String]].
-    */
-  def withConsumedInput [U](p: => Parser[U]): Parser[(U, String)] = new Parser[(U, String)] {
-    def apply(in: Input) = p(in) match {
-      case Success(result, next) =>
-        val parsedString = in.source.subSequence(in.offset, next.offset).toString
-        Success(result -> parsedString, next)
-      case other: NoSuccess => other
-    }
-  }
-
-  protected lazy val tableColsOrig: Parser[Seq[(String, StructField)]] =
-    "(" ~> repsep(columnOrig, ",") <~ ")"
-
-  /**
-    * copy of the original [[column]] parser in order to keep the original SQL type information
-    * inside the resulting [[DataType]]'s [[Metadata]].
-    */
-  protected lazy val columnOrig: Parser[(String, StructField)] =
-    ident ~ dataTypeOriginalTextParser ~ (COMMENT ~> stringLit).?  ^^ {
-      case columnName ~ typ ~ cm =>
-        val meta = cm match {
-          case Some(comment) =>
-            new MetadataBuilder().putString(COMMENT.str.toLowerCase, comment).build()
-          case None => Metadata.empty
-        }
-        (typ._1, StructField(columnName, typ._2, nullable = true, meta))
-    }
-
-  def dataTypeOriginalTextParser: Parser[(String, DataType)] = {
-    withConsumedInput(dataType) ^^ {
-      case (dt, st) => (st.trim, dt)
     }
   }
 
