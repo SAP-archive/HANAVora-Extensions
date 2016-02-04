@@ -36,6 +36,9 @@
     <mockito.version>1.10.19</mockito.version>
     <scala.version>2.10.4</scala.version>
     <scala.binary.version>2.10</scala.binary.version>
+    <!-- scala 2.10.x are binary compatible so if different components
+         require different 2.10.x then there is no need to issue warnings -->
+    <scala.compat.version>2.10</scala.compat.version>
     <spark15.version>1.5.2</spark15.version>
     <!-- hardcoded to 1.5.2 now, simplify later -->
     <spark.version>${spark15.version}</spark.version>
@@ -382,6 +385,7 @@
         <artifactId>scala-maven-plugin</artifactId>
         <version>${scala.maven.plugin.version}</version>
         <configuration>
+          <scalaCompatVersion>${scala.compat.version}</scalaCompatVersion>
           <recompileMode>incremental</recompileMode>
           <useZincServer>true</useZincServer>
           <args>
