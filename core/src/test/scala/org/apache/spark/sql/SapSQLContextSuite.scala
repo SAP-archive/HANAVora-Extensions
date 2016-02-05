@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 
+import org.mockito.Mockito
 import org.scalatest.FunSuite
 
 class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
@@ -17,6 +18,21 @@ class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
      }
   }
 
+  test("Slightly different versions") {
+    val sap_sqlc = sqlContext.asInstanceOf[CommonSapSQLContext]
+    val spy_sap_sqlc = Mockito.spy(sap_sqlc)
+    Mockito.when(spy_sap_sqlc.getCurrentSparkVersion())
+      .thenReturn(org.apache.spark.SPARK_VERSION + "-CDH")
+
+    // should not throw!
+    spy_sap_sqlc.checkSparkVersion(spy_sap_sqlc.supportedVersions)
+
+    Mockito.when(spy_sap_sqlc.getCurrentSparkVersion())
+      .thenReturn("something- " + org.apache.spark.SPARK_VERSION)
+
+    // should not throw!
+    spy_sap_sqlc.checkSparkVersion(spy_sap_sqlc.supportedVersions)
+  }
 
   test("Ignore USE keyword") {
     // Behaviour:

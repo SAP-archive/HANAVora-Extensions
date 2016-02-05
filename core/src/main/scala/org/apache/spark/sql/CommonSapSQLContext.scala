@@ -15,7 +15,9 @@ private[sql] trait CommonSapSQLContext
   extends SapSQLContextExtension {
   self: SQLContext =>
 
-  checkSparkVersion(List("1.5.0", "1.5.1", "1.5.2"))
+  val supportedVersions: List[String] = List("1.5.0", "1.5.1", "1.5.2")
+
+  checkSparkVersion(supportedVersions)
   logProjectVersion()
   // check if we have to automatically register tables
   sparkContext.getConf.getOption(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
@@ -28,8 +30,12 @@ private[sql] trait CommonSapSQLContext
       })
   }
 
+  private[sql] def getCurrentSparkVersion(): String = org.apache.spark.SPARK_VERSION
+
   def checkSparkVersion(supportedVersions:List[String]): Unit = {
-     if (!supportedVersions.contains(org.apache.spark.SPARK_VERSION)){
+    // only one of the versions have to match
+     if (!supportedVersions.exists(supportedVersion =>
+            getCurrentSparkVersion().contains(supportedVersion))){
        logError(s"Spark Version mismatch: Supported: ${supportedVersions.mkString(",")}, " +
                 s"Runtime is: ${org.apache.spark.SPARK_VERSION}")
        throw new RuntimeException ("Termination due to Spark version mismatch")
