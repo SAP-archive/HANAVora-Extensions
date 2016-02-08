@@ -268,6 +268,7 @@ class SqlBuilder {
       case expr.UnaryMinus(child) => s"-(${expressionToSql(child)})"
       case expr.IsNull(child) => s"${expressionToSql(child)} IS NULL"
       case expr.IsNotNull(child) => s"${expressionToSql(child)} IS NOT NULL"
+      case expr.Like(left, right) => s"${expressionToSql(left)} LIKE ${expressionToSql(right)}"
       case expr.SortOrder(child,direction) =>
         val sortDirection = if (direction == Ascending) "ASC" else "DESC"
         s"${expressionToSql(child)} $sortDirection"
