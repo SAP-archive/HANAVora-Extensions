@@ -11,7 +11,7 @@ import scala.util.parsing.input.Position
  * SQL parser based on [[org.apache.spark.sql.catalyst.SqlParser]] with
  * extended syntax and fixes.
  *
- * This parser covers only SELECT and CREATE VIEW statements.
+ * This parser covers only SELECT and CREATE [TEMPORARY] VIEW statements.
  * For DML statements see [[SapDDLParser]].
  */
 private object SapSqlParser extends BackportedSqlParser {
@@ -27,6 +27,7 @@ private object SapSqlParser extends BackportedSqlParser {
   /* Views keywords */
   protected val CREATE = Keyword("CREATE")
   protected val VIEW = Keyword("VIEW")
+  protected val TEMPORARY = Keyword("TEMPORARY")
 
   /* Extract keywords */
   protected val EXTRACT = Keyword("EXTRACT")
@@ -77,10 +78,10 @@ private object SapSqlParser extends BackportedSqlParser {
           nodeAttribute = UnresolvedAttribute(nc)))
     }
 
-  /** Create view parser. */
+  /** Create temporary view parser. */
   protected lazy val createView: Parser[LogicalPlan] =
-    (CREATE ~> VIEW ~> ident <~ AS) ~ start1 ^^ {
-      case name ~ query => CreateViewCommand(name, query)
+    (CREATE ~> TEMPORARY.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
+      case temp ~ name ~ query => CreateViewCommand(name, temp.isDefined, query)
     }
 
   /** EXTRACT function. */

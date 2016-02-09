@@ -82,7 +82,7 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
                         |USING com.sap.spark.dstest
                         |OPTIONS ()""".stripMargin)
 
-      sqlContext.sql(s"""CREATE VIEW $someView
+      sqlContext.sql(s"""CREATE TEMPORARY VIEW $someView
                         |AS SELECT * FROM someTable""".stripMargin)
 
       val result = sqlContext.tables().collect()
@@ -108,7 +108,7 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
                       |USING com.sap.spark.dstest
                       |OPTIONS ()""".stripMargin)
 
-    sqlContext.sql(s"""CREATE VIEW someView
+    sqlContext.sql(s"""CREATE TEMPORARY VIEW someView
                       |AS SELECT * FROM $someTable""".stripMargin)
 
     val result = sqlContext.tables().collect()

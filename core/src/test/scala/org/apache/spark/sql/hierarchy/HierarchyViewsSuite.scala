@@ -31,7 +31,7 @@ class HierarchyViewsSuite
   }
 
   test("I can create a hierarchy view") {
-  sqlContext.sql(s""" CREATE VIEW HV AS SELECT * FROM HIERARCHY (
+  sqlContext.sql(s""" CREATE TEMPORARY VIEW HV AS SELECT * FROM HIERARCHY (
                     | USING h_src AS v
                     | JOIN PARENT u ON v.pred = u.succ
                     | START WHERE pred IS NULL
@@ -61,7 +61,7 @@ class HierarchyViewsSuite
   test("I can self-join a hierarchy view") {
     sqlContext.sql(
       s"""
-          | CREATE VIEW HV AS SELECT * FROM HIERARCHY (
+          | CREATE TEMPORARY VIEW HV AS SELECT * FROM HIERARCHY (
           | USING h_src AS v
           | JOIN PARENT u ON v.pred = u.succ
           | START WHERE pred IS NULL
@@ -92,11 +92,13 @@ class HierarchyViewsSuite
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("animals_src")
 
-    sqlContext.sql(s"""CREATE VIEW AnimalsView AS SELECT * FROM animals_src""".stripMargin)
+    sqlContext.sql(
+      s"""CREATE TEMPORARY VIEW AnimalsView AS SELECT *
+         |FROM animals_src""".stripMargin)
 
     sqlContext.sql(
       s"""
-         | CREATE VIEW HV AS SELECT * FROM HIERARCHY (
+         | CREATE TEMPORARY VIEW HV AS SELECT * FROM HIERARCHY (
          | USING AnimalsView AS v
          | JOIN PARENT u ON v.pred = u.succ
          | START WHERE pred IS NULL
@@ -115,7 +117,7 @@ class HierarchyViewsSuite
   test("I can reuse hierarchy view") {
     sqlContext.sql(
       s"""
-         | CREATE VIEW HV1 AS SELECT * FROM HIERARCHY (
+         | CREATE TEMPORARY VIEW HV1 AS SELECT * FROM HIERARCHY (
          | USING h_src AS v
          | JOIN PARENT u ON v.pred = u.succ
          | START WHERE pred IS NULL
@@ -124,7 +126,7 @@ class HierarchyViewsSuite
 
     sqlContext.sql(
       s"""
-         | CREATE VIEW HV2 AS SELECT A.name AS childName, B.name AS parentName
+         | CREATE TEMPORARY VIEW HV2 AS SELECT A.name AS childName, B.name AS parentName
          | FROM HV1 A, HV1 B
          | WHERE IS_CHILD(A.Node, B.Node)=true
        """.stripMargin)
@@ -153,7 +155,7 @@ class HierarchyViewsSuite
 
     sqlContext.sql(
       s"""
-         | CREATE VIEW AnimalsView AS SELECT * FROM HIERARCHY (
+         | CREATE TEMPORARY VIEW AnimalsView AS SELECT * FROM HIERARCHY (
          | USING animals_src AS v
          | JOIN PARENT u ON v.pred = u.succ
          | START WHERE pred IS NULL
@@ -162,7 +164,7 @@ class HierarchyViewsSuite
 
     sqlContext.sql(
       s"""
-         | CREATE VIEW OrgView AS SELECT * FROM HIERARCHY (
+         | CREATE TEMPORARY VIEW OrgView AS SELECT * FROM HIERARCHY (
          | USING h_src AS v
          | JOIN PARENT u ON v.pred = u.succ
          | START WHERE pred IS NULL

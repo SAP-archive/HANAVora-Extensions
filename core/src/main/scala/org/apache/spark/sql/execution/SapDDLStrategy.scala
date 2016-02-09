@@ -41,7 +41,7 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
     case CreatePartitioningFunction(options, name, datatypes, definition, partitionsNo, provider) =>
       ExecutedCommand(CreatePartitioningFunctionCommand(options, name, datatypes, definition,
         partitionsNo, provider)) :: Nil
-    case cv@CreateViewCommand(name, query) =>
+    case cv@CreateViewCommand(name, temp, query) =>
       ExecutedCommand(cv) :: Nil
     case cmd@UseStatementCommand(input) =>
       ExecutedCommand(cmd) :: Nil

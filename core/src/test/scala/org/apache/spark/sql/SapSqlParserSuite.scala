@@ -107,26 +107,35 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
       log.info(s"$analyzed")
   }
 
-  test("create view") {
+  test("create temporary view") {
     val parser = new SapParserDialect
-    val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
-    val expected = CreateViewCommand("myview",
+    val result = parser.parse("CREATE TEMPORARY VIEW myview AS SELECT 1 FROM mytable")
+    val expected = CreateViewCommand("myview", isTemporary = true,
       Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))
     )
     comparePlans(expected, result)
   }
 
-  test("create view of a hierarchy") {
+  test("create view") {
+    val parser = new SapParserDialect
+    val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
+    val expected = CreateViewCommand("myview", isTemporary = false,
+      Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))
+    )
+    comparePlans(expected, result)
+  }
+
+  test("create temporary view of a hierarchy") {
     val parser = new SapParserDialect
     val result = parser.parse("""
-                              CREATE VIEW HV AS SELECT 1 FROM HIERARCHY (
+                              CREATE TEMPORARY VIEW HV AS SELECT 1 FROM HIERARCHY (
                                  USING T1 AS v
                                  JOIN PARENT u ON v.pred = u.succ
                                  START WHERE pred IS NULL
                                  SET Node
                                 ) AS H
                               """.stripMargin)
-    val expected = CreateViewCommand("HV",
+    val expected = CreateViewCommand("HV", isTemporary = true,
       Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
