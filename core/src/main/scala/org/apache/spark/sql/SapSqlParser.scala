@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreateViewCommand, SapDDLParser}
 
@@ -98,6 +99,16 @@ private object SapSqlParser extends BackportedSqlParser {
         | "(?i)MINUTE".r ^^^ { e: Expression => Minute(e) }
         | "(?i)SECOND".r ^^^ { e: Expression => Second(e) }
       )
+
+  override protected lazy val relationFactor: Parser[LogicalPlan] =
+    ident ~ ("(" ~> repsep(start1, ",") <~ ")") ^^ {
+      case name ~ arguments =>
+        UnresolvedTableFunction(name, arguments)
+    } |
+    ( rep1sep(ident, ".") ~ (opt(AS) ~> opt(ident)) ^^ {
+      case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
+    } |
+    ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) })
 
   /**
    * Parser for data source specific functions. That is, functions

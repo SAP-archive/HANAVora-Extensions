@@ -5,6 +5,7 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.SimpleCatalystConf
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.CreateViewCommand
 import org.apache.spark.sql.types._
@@ -51,6 +52,25 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
 
     val analyzed = analyzer.execute(result)
     log.info(s"$analyzed")
+  }
+
+  test("parse table function") {
+    val parsed = SapSqlParser.parse("SELECT * FROM describe_table(SELECT * FROM persons)")
+
+    assert(parsed == Project(                           // SELECT
+      Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
+      UnresolvedTableFunction("describe_table",         // FROM describe_table(
+        Seq(Project(                                    // SELECT
+          Seq(UnresolvedAlias(UnresolvedStar(None))),   // *
+          UnresolvedRelation(Seq("persons"))            // FROM persons
+        )))))                                           // )
+  }
+
+  test("fail on incorrect table function") {
+    // This should fail since a projection statement is required
+    intercept[SapParserException] {
+      SapSqlParser.parse("SELECT * FROM describe_table(persons)")
+    }
   }
 
   test("search by with multiple search by expressions") {
