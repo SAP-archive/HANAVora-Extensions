@@ -21,11 +21,7 @@ private[sql] class ExtendableOptimizer(earlyBatches: Seq[ExtendableOptimizerBatc
   private val preMainBatches = earlyBatches map extendedBatchToInternalBatch
 
   /** Name of the batch to be considered the main one. This varies with the Spark version. */
-  private val mainOptimizationsBatchName = org.apache.spark.SPARK_VERSION match {
-    case v if v startsWith "1.4" => "ConstantFolding"
-    case v if v startsWith "1.5" => "Operator Optimizations"
-    case v => sys.error(s"Unsupported Spark version: $v")
-  }
+  private val mainOptimizationsBatchName = "Operator Optimizations"
 
   /** These are the final batches to be used by this optimizer. */
   override protected val batches: Seq[Batch] =
