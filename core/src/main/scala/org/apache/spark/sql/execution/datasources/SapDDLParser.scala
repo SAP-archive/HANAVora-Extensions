@@ -23,6 +23,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       describeTable |
       refreshTable |
       showTables |
+      showTablesUsing |
       registerAllTables |
       registerTable |
       describeDatasource |
@@ -262,6 +263,16 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       case classId ~ opts =>
         val options = opts.getOrElse(Map.empty[String, String])
         ShowDatasourceTablesCommand(classId, options)
+    }
+
+  /**
+    * Resolves the command: ''SHOW TABLES USING ... OPTIONS''
+    */
+  protected lazy val showTablesUsing: Parser[LogicalPlan] =
+    SHOW ~> TABLES ~> (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+      case classId ~ opts =>
+        val options = opts.getOrElse(Map.empty[String, String])
+        ShowTablesUsingCommand(classId, options)
     }
 
   /**

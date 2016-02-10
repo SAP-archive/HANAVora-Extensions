@@ -521,5 +521,29 @@ OPTIONS (
       """DROP VIEW v5k""".stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement5))
   }
-}
 
+  test("Parse correct SHOW TABLES USING statement") {
+    val statement = """SHOW TABLES
+                      |USING com.sap.spark.vora
+                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[ShowTablesUsingCommand])
+
+    val actual = parsed.asInstanceOf[ShowTablesUsingCommand]
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+  }
+
+  test("Handle incorrect SHOW TABLES USING statement") {
+    val invStatement1 =
+      """SHOW TBLES USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement1))
+
+    val invStatement2 =
+      """SHOW TABLES USNG com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement2))
+  }
+}

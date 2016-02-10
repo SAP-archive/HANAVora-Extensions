@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.sources.commands.{CreatePartitioningFunction, DescribeDatasource}
+import org.apache.spark.sql.sources.commands.{ShowTablesUsingCommand, CreatePartitioningFunction, DescribeDatasource}
 import org.apache.spark.sql.types._
 import org.mockito.Mockito
 import org.scalatest.FunSuite
@@ -104,6 +104,18 @@ class SapDDLStrategySuite extends FunSuite {
       DropPersistentViewRunnableCommand(TableIdentifier("test"), "com.sap.spark.vora",
         Map[String, String](), allowNotExisting = true)) :: Nil)
     Mockito.validateMockitoUsage()
+    Mockito.validateMockitoUsage()
+  }
+
+  test("SHOW TABLES USING test") {
+    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
+    val strategy = new SapDDLStrategy(planner)
+    val showTables = new ShowTablesUsingCommand("com.sap.spark.vora", Map[String, String]())
+
+    val command = strategy.apply(showTables)
+    assert(command == ExecutedCommand(ShowTablesUsingRunnableCommand("com.sap.spark.vora",
+      Map[String, String]())) :: Nil)
+
     Mockito.validateMockitoUsage()
   }
 }

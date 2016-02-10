@@ -5,8 +5,10 @@ import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
 import org.apache.spark.sql.types._
 
 /**
- * Returned for the "SHOW DATASOURCETABLES" command.
- */
+  * Returned for the "SHOW DATASOURCETABLES" command.
+  *
+  * @deprecated (YH) please use [[ShowTablesUsingCommand]] instead.
+  */
 private[sql] case class ShowDatasourceTablesCommand(
                                                      classIdentifier: String,
                                                      options: Map[String, String])

@@ -29,6 +29,8 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
       ExecutedCommand(DropRunnableCommand(allowNotExisting, dropRelation, cascade)) :: Nil
     case ShowDatasourceTablesCommand(provider, options) =>
       ExecutedCommand(ShowDataSourceTablesRunnableCommand(provider, options)) :: Nil
+    case ShowTablesUsingCommand(provider, options) =>
+      ExecutedCommand(ShowTablesUsingRunnableCommand(provider, options)) :: Nil
     case RegisterAllTablesUsing(provider, options, ignoreConflicts) =>
       ExecutedCommand(RegisterAllTablesCommand(provider, options, ignoreConflicts)) :: Nil
     case RegisterTableUsing(tableName, provider, options, ignoreConflicts) =>

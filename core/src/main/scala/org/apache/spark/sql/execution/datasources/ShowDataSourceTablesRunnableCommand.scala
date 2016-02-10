@@ -10,6 +10,8 @@ import org.apache.spark.sql.{Row, SQLContext}
 /**
   * Extracts all the table from the catalog. This is  used
   * to execute SHOW TABLES statements.
+  *
+  * @deprecated (YH) consider using [[ShowTablesUsingRunnableCommand]] instead.
   */
 private[sql] case class ShowDataSourceTablesRunnableCommand(
     provider: String,
@@ -26,6 +28,8 @@ private[sql] case class ShowDataSourceTablesRunnableCommand(
   }
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
+    log.warn("the 'SHOW DATASOURCETABLES statement is deprecated. Please use the more standard" +
+      " 'SHOW TABLES ... USING' statement to get persisted relations from a data source catalog.")
     val source: DatasourceCatalog = instantiateProvider(provider, "show datasource tables action")
     val tableNames = source.getTableNames(sqlContext, options)
     val rows = tableNames.map({ case tableName => Row(tableName) })
