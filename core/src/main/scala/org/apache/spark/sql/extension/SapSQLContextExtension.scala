@@ -3,13 +3,13 @@ package org.apache.spark.sql.extension
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.expressions.tablefunctions.TableFunctionsStrategy
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.SapDDLStrategy
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
-import org.apache.spark.sql.sources._
 
 /**
   * Provides every SAP Spark extension ready to be mixed in with contexts.
@@ -22,6 +22,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
     ResolveReferencesWithHierarchies(analyzer) ::
     ResolveHierarchy(analyzer) ::
+    ResolveTableFunctions(analyzer) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =
@@ -38,7 +39,8 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     SapDDLStrategy(planner) ::
     CreatePersistentTableStrategy ::
     CatalystSourceStrategy ::
-    HierarchyStrategy(planner) :: Nil
+    HierarchyStrategy(planner) ::
+    TableFunctionsStrategy(planner) :: Nil
 
   override protected def extendedParserDialect: ParserDialect = new SapParserDialect
 
