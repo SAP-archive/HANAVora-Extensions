@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.sources.commands.{ShowTablesUsingCommand, CreatePartitioningFunction, DescribeDatasource}
+import org.apache.spark.sql.sources.commands.{DescribeTableUsingCommand, ShowTablesUsingCommand, CreatePartitioningFunction, DescribeDatasource}
 import org.apache.spark.sql.types._
 import org.mockito.Mockito
 import org.scalatest.FunSuite
@@ -116,6 +116,21 @@ class SapDDLStrategySuite extends FunSuite {
     assert(command == ExecutedCommand(ShowTablesUsingRunnableCommand("com.sap.spark.vora",
       Map[String, String]())) :: Nil)
 
+    Mockito.validateMockitoUsage()
+  }
+
+  test("DESCRIBE TABLE USING test") {
+    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
+    val strategy = new SapDDLStrategy(planner)
+    val unresolved = UnresolvedRelation(Seq("test"))
+    val plan = unresolved.select('id)
+
+    val viewCommand = DescribeTableUsingCommand("test" :: Nil, "com.sap.spark.vora", Map.empty)
+    val command = strategy.apply(viewCommand)
+
+    assert(command == ExecutedCommand(
+      DescribeTableUsingRunnableCommand("test" :: Nil, "com.sap.spark.vora", Map.empty)) :: Nil)
+    Mockito.validateMockitoUsage()
     Mockito.validateMockitoUsage()
   }
 }

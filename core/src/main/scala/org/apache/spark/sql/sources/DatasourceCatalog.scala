@@ -28,6 +28,17 @@ trait DatasourceCatalog {
   def getRelations(sqlContext: SQLContext, options: Map[String, String]): Seq[RelationInfo]
 
   /**
+    * Returns information about a relation in the catalog of the data source.
+    *
+    * @param sqlContext The SQL Context.
+    * @param name The relation (qualified) name.
+    * @param options The options map.
+    * @return If the relation exists then it returns its information, otherwise [[None]].
+    */
+  def getRelation(sqlContext: SQLContext, name: Seq[String], options: Map[String, String]):
+    Option[RelationInfo]
+
+  /**
     * Gets the tables names from the catalog.
     *
     * @param sqlContext The SQL Context.

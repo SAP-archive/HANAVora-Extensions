@@ -18,6 +18,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   override protected lazy val ddl: Parser[LogicalPlan] =
       createViewUsingOrig |
       dropViewUsing |
+      describeTableUsing |
       createTable |
       createPartitionFunction |
       appendTable |
@@ -300,6 +301,15 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
 
   /** Partitioning function identifier */
   protected lazy val functionName: Parser[String] = ident
+
+  /**
+    * Parser of the DESCRIBE TABLE ... USING statement.
+    */
+  protected lazy val describeTableUsing: Parser[LogicalPlan] =
+    DESCRIBE ~> TABLE ~> tableIdentifier ~ (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+      case tableIdent ~ provider ~ opts =>
+        DescribeTableUsingCommand(tableIdent.toSeq, provider, opts.getOrElse(Map.empty))
+    }
 
   /**
     * Overridden to appropriately decide which

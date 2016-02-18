@@ -546,4 +546,29 @@ OPTIONS (
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement2))
   }
+
+  test("Parse correct DESCRIBE TABLE USING statement") {
+    val statement = """DESCRIBE TABLE t1
+                      |USING com.sap.spark.vora
+                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[DescribeTableUsingCommand])
+
+    val actual = parsed.asInstanceOf[DescribeTableUsingCommand]
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+  }
+
+  test("Handle incorrect DESCRIBE TABLE USING statement") {
+    val invStatement1 =
+      """DESCRIBE TBLE t1 USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement1))
+
+    val invStatement2 =
+      """DESCRIBE TABLE t1 UZIN com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement2))
+  }
 }

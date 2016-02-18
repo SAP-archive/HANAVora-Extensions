@@ -58,6 +58,8 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
     case DropPersistentViewCommand(viewIdentifier, provider, options, allowNotExisting) =>
       ExecutedCommand(DropPersistentViewRunnableCommand(viewIdentifier, provider,
         options, allowNotExisting)) :: Nil
+    case DescribeTableUsingCommand(provider, name, options) =>
+      ExecutedCommand(DescribeTableUsingRunnableCommand(provider, name, options)) :: Nil
     case _ => Nil
   }).headOption.toSeq
   // scalastyle:on cyclomatic.complexity

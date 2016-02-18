@@ -11,7 +11,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
 with TemporaryAndPersistentRelationProvider
 with PartitionedRelationProvider
 with PartitioningFunctionProvider
-with RegisterAllTableRelations {
+with RegisterAllTableRelations
+with DatasourceCatalog {
 
 
   override def createRelation(sqlContext: SQLContext,
@@ -75,6 +76,22 @@ with RegisterAllTableRelations {
     // nop
   }
 
+  override def getRelation(sqlContext: SQLContext, name: Seq[String], options: Map[String, String])
+    : Option[RelationInfo] = {
+    DefaultSource.relations.find(r => r.equals(name.last))
+      .map(r => RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>")))
+  }
+
+  override def getRelations(sqlContext: SQLContext, options: Map[String, String])
+    : Seq[RelationInfo] = {
+    DefaultSource.relations.map(r =>
+      RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>")))
+  }
+
+  override def getTableNames(sqlContext: SQLContext, parameters: Map[String, String])
+    : Seq[String] = {
+    DefaultSource.relations
+  }
 }
 
 /**
