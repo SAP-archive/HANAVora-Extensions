@@ -474,5 +474,20 @@
         </pluginManagement>
       </build>
     </profile>
+    <profile>
+      <id>mapr50</id>
+      <repositories>
+        <repository>
+          <id>mapr-releases</id>
+          <url>http://repository.mapr.com/maven/</url>
+          <snapshots><enabled>false</enabled></snapshots>
+          <releases><enabled>true</enabled></releases>
+        </repository>
+      </repositories>
+      <properties>
+          <hadoop.version>2.7.0-mapr-1509</hadoop.version>
+      </properties>
+
+    </profile>
   </profiles>
 </project>
