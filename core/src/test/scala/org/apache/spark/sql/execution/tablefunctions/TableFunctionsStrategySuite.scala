@@ -1,6 +1,6 @@
-package org.apache.spark.sql.catalyst.expressions.tablefunctions
+package org.apache.spark.sql.execution.tablefunctions
 
-import org.apache.spark.sql.catalyst.analysis.{TableFunction, ResolvedTableFunction}
+import org.apache.spark.sql.catalyst.analysis.{ResolvedTableFunction, TableFunction}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.mockito.Mockito._

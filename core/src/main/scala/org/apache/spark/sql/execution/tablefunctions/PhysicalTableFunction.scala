@@ -1,4 +1,4 @@
-package org.apache.spark.sql.catalyst.expressions.tablefunctions
+package org.apache.spark.sql.execution.tablefunctions
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
@@ -15,26 +15,26 @@ trait PhysicalTableFunction extends SparkPlan {
     *
     * @return The produced rows.
     */
-  protected def run(): Seq[Row]
+  protected def run(): Seq[Seq[Any]]
 
   /** Executes the run function, then converts them to [[org.apache.spark.rdd.RDD]]s
     *
     * @return The created [[RDD]]s
     */
   override protected def doExecute(): RDD[InternalRow] = {
-    val rows = this.run()
-    convert(rows)
+    val values = this.run()
+    val converted = convert(values)
+    sparkContext.parallelize(converted)
   }
 
   /** Converts the given rows to [[org.apache.spark.rdd.RDD]]s using the specified schema.
     *
-    * @param rows The rows to convert
+    * @param values The values to convert
     * @return The converted [[RDD]]s
     */
-  protected def convert(rows: Seq[Row]): RDD[InternalRow] = {
+  protected def convert(values: Seq[Seq[Any]]): Seq[InternalRow] = {
     val converter = CatalystTypeConverters.createToCatalystConverter(schema)
                                           .andThen(_.asInstanceOf[InternalRow])
-    val internalRows = rows.map(converter)
-    sparkContext.parallelize(internalRows)
+    values.map(value => converter(Row(value:_*)))
   }
 }

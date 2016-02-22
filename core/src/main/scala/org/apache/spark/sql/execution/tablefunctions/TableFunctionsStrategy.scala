@@ -1,4 +1,4 @@
-package org.apache.spark.sql.catalyst.expressions.tablefunctions
+package org.apache.spark.sql.execution.tablefunctions
 
 import org.apache.spark.sql.Strategy
 import org.apache.spark.sql.catalyst.analysis.ResolvedTableFunction

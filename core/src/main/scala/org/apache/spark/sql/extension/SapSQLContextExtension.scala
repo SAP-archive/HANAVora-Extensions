@@ -3,12 +3,12 @@ package org.apache.spark.sql.extension
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.expressions.tablefunctions.TableFunctionsStrategy
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.SapDDLStrategy
 import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.execution.tablefunctions.TableFunctionsStrategy
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
 
 /**
