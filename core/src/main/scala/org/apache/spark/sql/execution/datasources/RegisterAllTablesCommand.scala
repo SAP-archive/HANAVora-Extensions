@@ -3,7 +3,7 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.spark.sql.execution.ProviderUtils._
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources.RegisterAllTableRelations
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import org.apache.spark.sql.{Row, SQLContext}
 
 /**
   * Provides execution for REGISTER ALL TABLES statements. A data source
@@ -41,8 +41,8 @@ private[sql] case class RegisterAllTablesCommand(
 
     /** Register new relations */
     newRelations.foreach({
-      case (name, relation) =>
-        val df = DataFrame(sqlContext, LogicalRelation(relation))
+      case (name, source) =>
+        val df = source.dataFrame(sqlContext)
         sqlContext.registerDataFrameAsTable(df, name)
     })
 

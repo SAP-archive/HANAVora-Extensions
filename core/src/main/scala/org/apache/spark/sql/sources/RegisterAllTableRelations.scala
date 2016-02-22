@@ -6,9 +6,9 @@ trait RegisterAllTableRelations {
 
   def getAllTableRelations(
                             sqlContext: SQLContext,
-                            options: Map[String, String]): Map[String,BaseRelation]
+                            options: Map[String, String]): Map[String, DataFrameSource]
 
   def getTableRelation(tableName: String,
                        sqlContext: SQLContext,
-                       options: Map[String, String]): Option[BaseRelation]
+                       options: Map[String, String]): Option[DataFrameSource]
 }

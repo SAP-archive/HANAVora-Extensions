@@ -2,7 +2,7 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.execution.ProviderUtils._
 import org.apache.spark.sql.execution.RunnableCommand
-import org.apache.spark.sql.sources.RegisterAllTableRelations
+import org.apache.spark.sql.sources.{BaseRelationSource, RegisterAllTableRelations}
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 
 /**
@@ -35,7 +35,7 @@ private[sql] case class RegisterTableCommand(
       case Some(r) if !ignoreConflicts && sqlContext.catalog.tableExists(tableName :: Nil) =>
         sys.error(s"Table $tableName already exists is Spark catalog.")
       case Some(r) =>
-        val df = DataFrame(sqlContext, LogicalRelation(r))
+        val df = r.dataFrame(sqlContext)
         sqlContext.registerDataFrameAsTable(df, tableName)
         Seq.empty
     }
