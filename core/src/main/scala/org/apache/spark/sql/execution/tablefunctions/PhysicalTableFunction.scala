@@ -23,7 +23,11 @@ trait PhysicalTableFunction extends SparkPlan {
     */
   override protected def doExecute(): RDD[InternalRow] = {
     val values = this.run()
-    val converted = convert(values)
+    val enforcer = new SchemaEnforcer(output)
+
+    // This step makes sure that values corresponding to the schema are returned.
+    val enforced = enforcer.enforce(values)
+    val converted = convert(enforced)
     sparkContext.parallelize(converted)
   }
 
