@@ -53,8 +53,9 @@ private[sql] case class DropRunnableCommand(
   private def getReferencingRelations(sqlContext: SQLContext,
                                       relation: DropRelation): Seq[String] = {
     var tablesToDelete: Seq[String] = Seq.empty[String]
+    val analyzer = sqlContext.analyzer
     for (t <- sqlContext.tableNames()) {
-      val r = sqlContext.catalog.lookupRelation(t :: Nil)
+      val r = analyzer.execute(sqlContext.catalog.lookupRelation(t :: Nil))
       tablesToDelete ++= r.flatMap({
         case IsLogicalRelation(inner) if inner == relation =>
           Some(t)

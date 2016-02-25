@@ -133,7 +133,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
     val parser = new SapParserDialect
     val result = parser.parse("CREATE TEMPORARY VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateViewCommand("myview", isTemporary = true,
-      Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))
+      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil)))
     )
     comparePlans(expected, result)
   }
@@ -142,7 +142,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
     val parser = new SapParserDialect
     val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateViewCommand("myview", isTemporary = false,
-      Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))
+      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil)))
     )
     comparePlans(expected, result)
   }
@@ -158,7 +158,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
                                 ) AS H
                               """.stripMargin)
     val expected = CreateViewCommand("HV", isTemporary = true,
-      Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
+      NonPersistedView(Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
@@ -166,7 +166,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
         searchBy = Nil,
         nodeAttribute = UnresolvedAttribute("Node")
-      ))))
+      )))))
     comparePlans(expected, result)
   }
 
@@ -192,9 +192,13 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
 
     assertResult(createView.name)("aview")
 
-    assert(createView.query.isInstanceOf[Project])
+    assert(createView.query.isInstanceOf[NonPersistedView])
 
-    val projection = createView.query.asInstanceOf[Project]
+    val nonPersistedView = createView.query.asInstanceOf[NonPersistedView]
+
+    assert(nonPersistedView.plan.isInstanceOf[Project])
+
+    val projection = nonPersistedView.plan.asInstanceOf[Project]
 
     assertResult(UnresolvedRelation("atable" :: Nil))(projection.child)
 

@@ -3,7 +3,7 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.plans.logical.Project
+import org.apache.spark.sql.catalyst.plans.logical.{PersistedView, Project}
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
@@ -442,8 +442,8 @@ OPTIONS (
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
     assertResult(Some(statement))(actual.options.get("VIEW_SQL"))
-    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil)))(actual.plan)
+    assertResult(PersistedView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation("t" :: Nil))))(actual.plan)
     assertResult(false)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.viewIdentifier)
     assertResult("com.sap.spark.vora")(actual.provider)
@@ -460,8 +460,8 @@ OPTIONS (
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
-    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil)))(actual.plan)
+    assertResult(PersistedView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation("t" :: Nil))))(actual.plan)
     assertResult(true)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.viewIdentifier)
     assertResult("com.sap.spark.vora")(actual.provider)

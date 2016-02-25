@@ -54,8 +54,9 @@ with AnnotationParsingRules{
     | expression ~ metadataFilter ^^ {
       case e ~ f => AnnotationFilter(e)(f)
     }
-    | expression ~ metadata ^^ {
-      case e ~ k => AnnotatedAttribute(e)(k)
+    | rep1sep(ident, ".") ~ metadata ^^ {
+      case e ~ k =>
+        AnnotatedAttribute(Alias(UnresolvedAttribute(e), e.last)())(k)
     }
     | expression ~ (AS.? ~> ident.?) ^^ {
       case e ~ a => a.fold(e)(Alias(e, _)())
@@ -109,7 +110,7 @@ with AnnotationParsingRules{
   /** Create temporary view parser. */
   protected lazy val createView: Parser[LogicalPlan] =
     (CREATE ~> TEMPORARY.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
-      case temp ~ name ~ query => CreateViewCommand(name, temp.isDefined, query)
+      case temp ~ name ~ query => CreateViewCommand(name, temp.isDefined, NonPersistedView(query))
     }
 
   protected lazy val describeTable: Parser[LogicalPlan] =

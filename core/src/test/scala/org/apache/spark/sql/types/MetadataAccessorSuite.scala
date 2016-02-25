@@ -48,36 +48,6 @@ class MetadataAccessorSuite extends FunSuite {
     assertResult(expected)(actual)
   }
 
-  test("propagate metadata handles '*' correctly") {
-    val oldMetadata1 = new MetadataBuilder()
-      .putString("*", "value1")
-      .build()
-
-    val newMetadata1 = new MetadataBuilder()
-      .putString("key", "value")
-      .build()
-
-    val ex1 = intercept[RuntimeException] {
-      MetadataAccessor.propagateMetadata(oldMetadata1, newMetadata1)
-    }
-    assert(ex1.getMessage.contains("older metadata contains '*'"))
-
-    val oldMetadata2 = new MetadataBuilder()
-      .putString("key", "value")
-      .build()
-
-    val newMetadata2 = new MetadataBuilder()
-      .putString("*", "value1")
-      .putString("key", "value2")
-      .build()
-
-    val ex2 = intercept[RuntimeException] {
-      MetadataAccessor.propagateMetadata(oldMetadata2, newMetadata2)
-    }
-    assert(ex2.getMessage
-      .contains("newer metadata contains '*' and other entries which is invalid"))
-  }
-
   test("filter metadata works correctly") {
     val metadata = new MetadataBuilder()
       .putString("key1", "value1")

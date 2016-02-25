@@ -6,7 +6,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.{PersistedView, View, LogicalPlan}
 import org.apache.spark.sql.sources.commands._
 
 import scala.util.parsing.input.Position
@@ -153,8 +153,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
     withConsumedInput(createViewUsing) ^^ {
       case ((name, plan, provider, opts, allowExisting), text) =>
-        CreatePersistentViewCommand(name, plan, provider, opts.updated(VIEW_SQL_STRING, text.trim),
-          allowExisting)
+        CreatePersistentViewCommand(name, PersistedView(plan), provider,
+          opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
     }
 
   /**

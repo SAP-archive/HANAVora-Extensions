@@ -56,11 +56,7 @@ case class AnnotatedAttribute(child: Expression)(
     * @return The metadata after propagation from the underlying node.
     */
   override def metadata: Metadata = {
-    child match {
-      case n:NamedExpression => MetadataAccessor.propagateMetadata(n.metadata,
-        MetadataAccessor.expressionMapToMetadata(annotations))
-      case p => MetadataAccessor.expressionMapToMetadata(annotations)
-    }
+    MetadataAccessor.expressionMapToMetadata(annotations)
   }
 
   override def qualifiers: Seq[String] = Nil

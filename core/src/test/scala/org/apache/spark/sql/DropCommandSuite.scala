@@ -83,12 +83,12 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
                         |OPTIONS ()""".stripMargin)
 
       sqlContext.sql(s"""CREATE TEMPORARY VIEW $someView
-                        |AS SELECT * FROM someTable""".stripMargin)
+                        |AS SELECT * FROM $someTable""".stripMargin)
 
       val result = sqlContext.tables().collect()
       assert(result.contains(Row(someTable, false)))
       assert(result.contains(Row(someTable2, true)))
-      assert(result.contains(Row(someView, false)))
+      assert(result.contains(Row(someView, true)))
       assert(result.length == 3)
 
       sqlContext.sql(s"DROP TABLE $someTable")
@@ -114,7 +114,7 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
     val result = sqlContext.tables().collect()
     assert(result.contains(Row(someTable, false)))
     assert(result.contains(Row(someTable2, true)))
-    assert(result.contains(Row(someView, false)))
+    assert(result.contains(Row(someView, true)))
     assert(result.length == 3)
 
     sqlContext.sql(s"DROP TABLE $someTable CASCADE")

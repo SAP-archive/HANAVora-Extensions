@@ -63,10 +63,6 @@ private[sql] object MetadataAccessor {
     val olderMap = metadataToMap(older)
     val newerMap = metadataToMap(newer)
 
-    if (olderMap.keySet.contains("*")) {
-      sys.error(s"older metadata contains '*': $older")
-    }
-
     val result = newerMap.get("*") match {
       case Some(v) if newerMap.size > 1 =>
         sys.error(s"newer metadata contains '*' and other entries which is invalid: $newer")

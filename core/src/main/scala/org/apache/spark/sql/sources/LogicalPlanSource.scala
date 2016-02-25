@@ -1,25 +1,26 @@
 package org.apache.spark.sql.sources
 
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.{CreatePersistentViewCommand, LogicalRelation}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
-/** Source from which a [[org.apache.spark.sql.DataFrame]] can be obtained. */
-trait DataFrameSource {
-  /** Instantiates a [[org.apache.spark.sql.DataFrame]] with the given sqlContext.
+/** Source from which a [[LogicalPlan]] can be obtained. */
+trait LogicalPlanSource {
+  /** Instantiates a [[LogicalPlan]] with the given sqlContext.
     *
     * @param sqlContext The sqlContext
-    * @return The created [[DataFrame]]
+    * @return The created [[LogicalPlan]]
     */
-  def dataFrame(sqlContext: SQLContext): DataFrame
+  def logicalPlan(sqlContext: SQLContext): LogicalPlan
 }
 
 /** Source of a [[org.apache.spark.sql.DataFrame]] from a BaseRelation.
   *
   * @param baseRelation The baseRelation from which the [[DataFrame]] is created.
   */
-case class BaseRelationSource(baseRelation: BaseRelation) extends DataFrameSource {
-  def dataFrame(sqlContext: SQLContext): DataFrame = {
-    DataFrame(sqlContext, LogicalRelation(baseRelation))
+case class BaseRelationSource(baseRelation: BaseRelation) extends LogicalPlanSource {
+  def logicalPlan(sqlContext: SQLContext): LogicalPlan = {
+    LogicalRelation(baseRelation)
   }
 }
 
@@ -27,11 +28,11 @@ case class BaseRelationSource(baseRelation: BaseRelation) extends DataFrameSourc
   *
   * @param createViewStatement The sql query string.
   */
-case class CreatePersistentViewSource(createViewStatement: String) extends DataFrameSource {
-  def dataFrame(sqlContext: SQLContext): DataFrame = {
+case class CreatePersistentViewSource(createViewStatement: String) extends LogicalPlanSource {
+  def logicalPlan(sqlContext: SQLContext): LogicalPlan = {
     sqlContext.parseSql(createViewStatement) match {
       case CreatePersistentViewCommand(_, plan, _, _, _) =>
-        DataFrame(sqlContext, plan)
+        plan
       case unknown =>
         throw new RuntimeException(s"Could not extract view query from $unknown")
     }

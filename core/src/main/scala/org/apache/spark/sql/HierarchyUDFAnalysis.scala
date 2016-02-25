@@ -34,13 +34,10 @@ private[sql] case class HierarchyUDFAnalysis(catalog: Catalog) extends (LogicalP
       case np: NodePredicate =>
         (np.left, np.right) match {
           case (l: AttributeReference, r: AttributeReference) =>
-            val hl = getHierarchy(plan, l.qualifiers.head)
-            val hr = getHierarchy(plan, r.qualifiers.head)
-            (hl, hr) match {
-              case (Some(h1), Some(h2)) => if (!h1.identifier.equals(h2.identifier)) {
-                failAnalysis(MIXED_NODES_ERROR.format(np.symbol))
-              }
-              case _ => // OK
+            val hl = getReferencedHierarchy(plan, l.exprId)
+            val hr = getReferencedHierarchy(plan, r.exprId)
+            if (!hl.identifier.equals(hr.identifier)) {
+              failAnalysis(MIXED_NODES_ERROR.format(np.symbol))
             }
           case _ => // OK
         }
@@ -49,22 +46,9 @@ private[sql] case class HierarchyUDFAnalysis(catalog: Catalog) extends (LogicalP
     expr.children.foreach(e => supportsExpression(e, plan))
   }
 
-  private def getHierarchy(plan: LogicalPlan, qualifier: String): Option[Hierarchy] = {
-    var hs: Option[Hierarchy] = None
-    plan foreach  {
-      case s: Subquery if s.alias.equals(qualifier) =>
-        internalSubquery(s) match {
-          case Some(h) => hs = Some(h)
-          case None => // OK
-        }
-      case _ => None
-    }
-    hs
-  }
-
-  private def internalSubquery(plan: Subquery): Option[Hierarchy] = plan.child match {
-    case h: Hierarchy => Some(h)
-    case s: Subquery => internalSubquery(s)
-    case _ => None
+  private def getReferencedHierarchy(plan: LogicalPlan, exprId: ExprId): Hierarchy = {
+    plan.collectFirst {
+      case h@Hierarchy(_, _, _, _, _, a) if a.exprId.equals(exprId) => h
+    }.get
   }
 }

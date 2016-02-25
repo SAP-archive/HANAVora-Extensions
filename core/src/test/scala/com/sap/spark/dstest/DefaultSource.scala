@@ -51,7 +51,8 @@ with DatasourceCatalog {
     new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
 
   override def getAllTableRelations(sqlContext: SQLContext,
-                                    options: Map[String, String]): Map[String, DataFrameSource] = {
+                                    options: Map[String, String])
+    : Map[String, LogicalPlanSource] = {
     DefaultSource.relations.map(name =>
       (name, BaseRelationSource(
         new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema, false)))
@@ -60,7 +61,7 @@ with DatasourceCatalog {
 
 
   override def getTableRelation(tableName: String, sqlContext: SQLContext,
-                                options: Map[String, String]): Option[DataFrameSource] = {
+                                options: Map[String, String]): Option[LogicalPlanSource] = {
     if (DefaultSource.relations.contains(tableName)) {
       Some(BaseRelationSource(
         new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema, false)))

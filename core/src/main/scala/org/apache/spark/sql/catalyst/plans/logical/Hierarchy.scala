@@ -4,6 +4,10 @@ import java.util.Locale
 
 import org.apache.spark.sql.catalyst.analysis.Resolver
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.execution.LogicalRDD
+import org.apache.spark.sql.execution.datasources.IsLogicalRelation
+import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.sources.sql.SqlLikeRelation
 
 case class Hierarchy(
     relation: LogicalPlan,
@@ -18,7 +22,13 @@ case class Hierarchy(
    * Calculate an ad-hoc unique identifier of a hierarchy based
    * on its defining clauses.
    */
-  lazy val identifier: String = relation.simpleString
+  // TODO (YH, AC, MC) This is very limited because it takes literal
+  // representation of the source table to determine semantic equality
+  // of hierarchies, a good approach should rely on semantic equality
+  // of source tables (#105063), if we decide not to do this then we
+  // should turn off the check of having different hierarchy node columns
+  // used in the same UDF.
+  lazy val identifier: String = relation.toString()
     .concat(parenthoodExpression.toString())
     .concat("SB")
     .concat(searchBy.mkString("."))

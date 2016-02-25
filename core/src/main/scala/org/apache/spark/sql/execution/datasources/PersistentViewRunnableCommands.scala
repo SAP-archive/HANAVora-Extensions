@@ -2,11 +2,12 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.sources.ViewProvider
 import org.apache.spark.sql.sources.sql.View
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.{PersistedView, LogicalPlan}
 import org.apache.spark.sql.execution.RunnableCommand
+import SqlContextAccessor._
 
 /**
   * Pushes down a view creation and persistence to the given data source.
@@ -38,19 +39,25 @@ case class CreatePersistentViewRunnableCommand(viewIdentifier: TableIdentifier,
   override def output: Seq[Attribute] = Seq.empty
   override def children: Seq[LogicalPlan] = Seq.empty
 
-  override def run(sqlContext: SQLContext): Seq[Row] = {
-    val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
+  override def run(sqlContext: SQLContext): Seq[Row] = plan match {
 
-    dataSource match {
-      case viewProvider: ViewProvider =>
-        viewProvider.createView(sqlContext, View(viewIdentifier, plan),
-          new CaseInsensitiveMap(options), allowExisting)
-        val df = DataFrame(sqlContext, plan)
-        sqlContext.registerDataFrameAsTable(df, viewIdentifier.table)
-        Seq.empty
-      case _ => throw new RuntimeException(s"The provided data source $provider does not support" +
-        "creating and persisting views.")
-    }
+    case PersistedView(child) =>
+      val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
+      dataSource match {
+
+        case viewProvider: ViewProvider =>
+          viewProvider.createView(sqlContext, View(viewIdentifier, plan),
+            new CaseInsensitiveMap(options), allowExisting)
+
+          sqlContext.registerRawPlan(child, viewIdentifier.table)
+          Seq.empty
+
+        case _ => throw new RuntimeException(s"The provided data source $provider " +
+          s"does not support creating and persisting views.")
+      }
+
+    case _ => throw new IllegalArgumentException(s"the ${getClass.getSimpleName} " +
+      s"expects a ${PersistedView.getClass.getSimpleName} plan")
   }
 }
 

@@ -4,6 +4,7 @@ import org.apache.spark.sql.execution.ProviderUtils._
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources.RegisterAllTableRelations
 import org.apache.spark.sql.{Row, SQLContext}
+import SqlContextAccessor._
 
 /**
   * Provides execution for REGISTER ALL TABLES statements. A data source
@@ -42,8 +43,8 @@ private[sql] case class RegisterAllTablesCommand(
     /** Register new relations */
     newRelations.foreach({
       case (name, source) =>
-        val df = source.dataFrame(sqlContext)
-        sqlContext.registerDataFrameAsTable(df, name)
+        val lp = source.logicalPlan(sqlContext)
+        sqlContext.registerRawPlan(lp, name)
     })
 
     // XXX: This could return the list of registered relations

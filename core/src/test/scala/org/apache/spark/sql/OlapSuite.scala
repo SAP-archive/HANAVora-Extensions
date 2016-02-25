@@ -88,6 +88,18 @@ class OlapSuite
       Row("col3", 0, "INTEGER", "foo", "fap") :: Nil)
   }
 
+  test("describe nested simple view 2") {
+    createTable()
+    sqlContext.sql("CREATE VIEW v1 AS SELECT * from t")
+    sqlContext.sql("CREATE VIEW v2 AS SELECT col  AS col1 @(foo='bar2') FROM v1")
+    sqlContext.sql("CREATE VIEW v3 AS SELECT col1 AS col2 @(foo='bar3') FROM v2")
+    sqlContext.sql("CREATE VIEW v4 AS SELECT col2 AS col3 @(foo='bar4') FROM v3")
+    sqlContext.sql("CREATE VIEW v5 AS SELECT col3 AS col4 @(foo='bar5') FROM v4")
+    sqlContext.sql("CREATE VIEW v6 AS SELECT col4 AS col5 @(foo='bar6') FROM v5")
+    verifyDescribe("SELECT col5 AS col6 @ (foo ='fap') FROM v6",
+      Row("col6", 0, "INTEGER", "foo", "fap") :: Nil)
+  }
+
   test("describe nested annotated views with annotation propagation") {
     createTable()
     sqlContext.sql("CREATE VIEW v1 AS SELECT col AS col1 @(v1key = 'v1value') FROM t")
@@ -143,7 +155,7 @@ class OlapSuite
   test("describe with global assignment on simple view") {
     createTable()
     sqlContext.sql("CREATE VIEW v AS SELECT * FROM t")
-    verifyDescribe("SELECT * @(*='override') FROM v",
+    verifyDescribe("SELECT col @(*='override') FROM v",
       Row("col", 0, "INTEGER", "foo", "override") :: Nil)
   }
 
@@ -182,17 +194,39 @@ class OlapSuite
     )
   }
 
-  // scalastyle:off magic.number
+  test("describe column reference more than once") {
+    createTable()
+    verifyDescribe("SELECT col @ (* = 'override')," +
+      "col AS col1 @ (col1 = 'col1x')," +
+      "col AS col2 @ (col2 = 'col2x') FROM t",
+      Row("col", 0, "INTEGER", "foo", "override") ::
+      Row("col1", 1, "INTEGER", "col1", "col1x") ::
+      Row("col1", 1, "INTEGER", "foo", "bar") ::
+      Row("col2", 2, "INTEGER", "foo", "bar") ::
+      Row("col2", 2, "INTEGER", "col2", "col2x") ::
+      Nil
+    )
+  }
+
+  test("describe column reference more than once with subquery") {
+    createTable()
+    verifyDescribe("SELECT sq.col @ (* = 'override2') FROM (" +
+      "SELECT col @ (* = 'override')," +
+      "col AS col1 @ (col1 = 'col1x')," +
+      "col AS col2 @ (col2 = 'col2x') FROM t" +
+      ") AS sq",
+      Row("col", 0, "INTEGER", "foo", "override2") :: Nil
+    )
+  }
+
   test("creating a view using annotated calculated expression throws") {
     // create a table with annotation on its attribute.
     sqlContext.sql(
       """CREATE TEMPORARY TABLE T(A @(foo = 'bar') int) USING com.sap.spark.dstest OPTIONS()""")
 
-    val ex = intercept[RuntimeException] {
+    intercept[SapParserException] {
       sqlContext.sql(
         """CREATE VIEW V AS SELECT A+1 @(foo = 'tar') FROM T""")
     }
-
-    assert(ex.getMessage.contains("Can not convert child 'Add' to Attribute."))
   }
 }

@@ -1,9 +1,10 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.{NonPersistedView, LogicalPlan}
 import org.apache.spark.sql.execution.RunnableCommand
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import org.apache.spark.sql.{Row, SQLContext}
+import SqlContextAccessor._
 
 /**
   * Execution for CREATE TEMPORARY VIEW commands.
@@ -19,17 +20,22 @@ case class CreateViewCommand(name: String, isTemporary: Boolean,
   override def output: Seq[Attribute] = Nil
   override def children: Seq[LogicalPlan] = query :: Nil
 
-  override def run(sqlContext: SQLContext): Seq[Row] = {
-    if(!isTemporary) {
-      log.warn(s"The view: $name will be temporary although it is marked as non-temporary!" +
-        s" in order to create a persistent view please use: 'CREATE VIEW ... USING' syntax")
-    }
+  override def run(sqlContext: SQLContext): Seq[Row] = query match {
+    case NonPersistedView(child) =>
+      if(!isTemporary) {
+        log.warn(s"The view: $name will be temporary although it is marked as non-temporary!" +
+          s" in order to create a persistent view please use: 'CREATE VIEW ... USING' syntax")
+      }
 
-    if (sqlContext.tableNames().contains(name)) {
-      sys.error(s"View $name already exists")
-    }
-    val df = DataFrame(sqlContext, query)
-    sqlContext.registerDataFrameAsTable(df, name)
-    Seq.empty[Row]
+      if (sqlContext.tableNames().contains(name)) {
+        sys.error(s"View $name already exists")
+      }
+
+      sqlContext.registerRawPlan(child, name)
+      Seq.empty[Row]
+
+    case _ =>
+      throw new IllegalArgumentException(s"the ${getClass.getSimpleName} " +
+      s"expects a ${NonPersistedView.getClass.getSimpleName} plan")
   }
 }

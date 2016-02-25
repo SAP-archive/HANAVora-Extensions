@@ -12,184 +12,136 @@ import scala.collection.mutable
 /**
   * Resolves [[AnnotatedAttribute]] in the query by applying a set of rules.
   *
-  * 1. Iterate over the logical plan and if we find any [[AnnotatedAttribute]] node
-  *    that has [[AttributeReference]] child then we will transfer its meta
-  *    data to the [[AttributeReference]] child.
+  * 1. Iterate over the logical plan and transfer the metadata from any
+  *     [[AnnotatedAttribute]] to its child.
   *
-  * 2. Once we have removed all [[AnnotatedAttribute]]s we will fix the metadata
-  *    of the [[AttributeReference]]s by iterating the tree again and transferring
-  *    the metadata bottom-up.
-  *     When this step is done we will apply proper propagation of metadata to all
-  *     related [[Attribute]]s. Finally the top of the tree will have the final
-  *     transformed metadata.
+  * 2. Reconstruct the relations between aliases and attribute references. To do
+  *    we traverse the logical plan bottom up and extract the metadata associated
+  *    with its tree-sequence into a map.
   *
-  * 3. Remove all [[AnnotatedAttribute]]s from the logical plan.
-  *
-  * 4. Copy the annotations again to circumvent optimizer changes to the tree.
-  *    The annotations are broadcasted from any top-level [[AttributeReference]] to
-  *    lower-level [[AttributeReference]] if they are related indirectly to each
-  *    other by a alias.
-  *
-  *
-  * Some extra logic is done here:
-  *    - When transferring meta data from one node to the other, we have to take
-  *      various special cases into account:
-  *      1. if both metadata have the same key/value pair, then the newer one
-  *         overrides it.
-  *      2. if the newer metadata has a key=* and some value, then we override
-  *         all older metadata with that value before transferring it.
-  *    - Filter nodes are kept, it seems they are not causing the optimizer to
-  *      freak out.
-  *
-  * TODO (YH) AttributeReferences must be resolved correctly. We will need a
-  * separate resolver for them.
+  * 3. Apply the collected metadata on the logical plan top-down.
   */
 object ResolveAnnotations extends Rule[LogicalPlan] {
 
   def apply(plan: LogicalPlan): LogicalPlan = {
-    if(plan.resolved) {
-      val result1 = transferMetadataToBottom(plan)
-      val result2 = fixAttributeReferencesMetadata(result1)
-      val result3 = collapseAnnotatedAttributes(result2)
-      val result4 = broadcastMetadataDownTheTree(result3)
-      result4
+    if (shouldApply(plan)) {
+      val (result1, updatedAliases) = transferMetadataToImmediateChild(plan)
+      val map = buildMetadataSets(result1, updatedAliases)
+      val result2 = setMetadata(result1, map)
+      result2
     } else {
       plan
     }
   }
 
-  /**
-    * Moves metadata from [[AnnotatedAttribute]] to the underlying [[AttributeReference]].
-   */
-  private[sql] def transferMetadataToBottom(plan: LogicalPlan): LogicalPlan = {
+  private[sql] def shouldApply(plan: LogicalPlan): Boolean = {
+    plan.resolved && hasAnnotatedAttributes(plan)
+  }
+
+  private[sql] def hasAnnotatedAttributes(plan: LogicalPlan): Boolean = {
+    plan.find {
+      case Project(pl, _) => pl.exists(_.isInstanceOf[AnnotatedAttribute])
+      case _ => false
+    }.isDefined
+  }
+
+  // scalastyle:off cyclomatic.complexity
+  private[sql] def buildMetadataSets(plan: LogicalPlan, updatedAliases: Set[ExprId])
+    : Map[Seq[ExprId], Metadata] = {
+
+    var resultingMap = new mutable.HashMap[Seq[ExprId], Metadata]()
+    plan foreachUp {
+      case lr@IsLogicalRelation(_) =>
+        lr.output.foreach(attr => resultingMap += (Seq(attr.exprId) -> attr.metadata))
+      case Project(projectList, child) =>
+        projectList.foreach {
+
+          case al@Alias(a:AttributeReference, _) =>
+            resultingMap.find {
+              case (seq, _) => seq.nonEmpty && seq.last.equals(a.exprId)
+            } match {
+              case Some((k, v)) if updatedAliases.contains(al.exprId)  =>
+                resultingMap +=
+                  ((k :+ al.exprId) -> MetadataAccessor.propagateMetadata(v, al.metadata))
+              case Some((k, v)) =>
+                resultingMap +=
+                  ((k :+ al.exprId) -> v)
+              case None =>
+                sys.error(s"the attribute $al does not have any reference in $resultingMap")
+            }
+
+          case ar:AttributeReference =>
+            resultingMap.find {
+              case (seq, _) => seq.nonEmpty && seq.last.equals(ar.exprId)
+            } match {
+              case None =>
+                resultingMap += (Seq(ar.exprId) -> ar.metadata)
+              case default => default
+            }
+
+          case default => default
+        }
+      case default =>
+    }
+
+    // remove redundant sets.
+    resultingMap.keys.collect {
+      case k if resultingMap.keySet.exists(s => s.size > k.size && s.startsWith(k)) =>
+        resultingMap -= k
+    }
+
+    resultingMap.toMap
+  }
+
+  private[sql] def setMetadata(plan: LogicalPlan, sets: Map[Seq[ExprId], Metadata]): LogicalPlan = {
     val transformedPlan = plan transformUp {
       case lr@IsLogicalRelation(_) => lr
       case lp: LogicalPlan =>
-        val exprIdMetadataMap = getAnnotations(lp)
+        val planFixed = lp transformExpressionsDown {
+          case attr:AttributeReference =>
+            sets.find {
+              case (k, v) => k.contains(attr.exprId)
+            } match {
+              case Some((_, metadata)) => withMetadata(attr, metadata)
+              case None => attr
+            }
+          case attr:Alias =>
+            sets.find {
+              case (k, v) => k.exists(e => e.equals(attr.exprId))
+            } match {
+              case Some((_, metadata)) => withMetadata(attr, metadata)
+              case None => attr
+            }
+          case p => p
+        }
+        /** Now we need to delete the prefix in all the attributes. SPARK-8658. See below. */
+        DummyPlan2(removeExpressionPrefixes(planFixed))
+    }
+    val temp = removeDummyPlans2(transformedPlan)
+    temp
+  }
+
+  private[sql] def transferMetadataToImmediateChild(plan: LogicalPlan)
+    : (LogicalPlan, Set[ExprId]) = {
+    var seq = new mutable.HashSet[ExprId]()
+
+    val transformedPlan = plan transformUp {
+      case lr@IsLogicalRelation(_) => lr
+      case lp: LogicalPlan =>
         // move metadata from AnnotatedAttribute to the AttributeReference.
         val planFixed = lp transformExpressionsUp {
-          case attr: AttributeReference =>
-            exprIdMetadataMap.get(attr.exprId) match {
-              case Some(q) =>
-                logInfo(s"Using new meta ($q) for attribute: $attr")
-                val b = withMetadata(attr, q)
-                logInfo(s"changed $attr to $b")
-                b
-              case None =>
-                attr
-            }
+          case an@AnnotatedAttribute(al:Alias) =>
+            seq += al.exprId
+            withMetadata(al, an.metadata)
+          case an@AnnotatedAttribute(ar:AttributeReference) =>
+            sys.error(s"I have annotated attribute $an that references an attribute reference $ar")
+          case default => default
         }
         /** Now we need to delete the prefix in all the attributes. SPARK-8658. See below. */
         DummyPlan2(removeExpressionPrefixes(planFixed))
     }
     val temp = removeDummyPlans2(transformedPlan)
-    temp
-  }
-
-  /**
-    * In this method we re-pick all Aliases under [[AnnotatedAttribute]] and create a map of their
-    * exprId and the metadata of the parent annotated attribute. Then any other
-    * [[AttributeReference]] that is using them will have that metadata instead.
-    *
-    * This is implemented to fix the issue that happens when an [[AttributeReference]] is
-    * referencing an alias inside a subquery (e.g. in a JOIN query). The newly created
-    * attribute reference will pick up the older alias metadata because it is created before
-    * our rule. Therefor after we push the annotations from the [[AnnotatedAttribute]] to their
-    * respective [[AttributeReference]] the alias will have a new metadata that does not
-    * necessarily correspond to the one in the referencing [[AttributeReference]]. That is
-    * why we have to fix it using this tree visit.
-    *
-    * @param plan the logical plan.
-    */
-  private[sql] def fixAttributeReferencesMetadata(plan: LogicalPlan): LogicalPlan = {
-    val expressionsMap = collectMetadata(plan)
-    val transformedPlan = plan transformUp {
-      case lr@IsLogicalRelation(_) => lr
-      case lp: LogicalPlan =>
-        val planFixed = lp transformExpressionsDown {
-          case attr:AttributeReference =>
-            val newAttr = expressionsMap.get(attr.exprId) match {
-              case Some(m) if MetadataAccessor.nonEmpty(m) => withMetadata(attr, m)
-              case _ => attr
-            }
-            newAttr
-          case p => p
-        }
-        /** Now we need to delete the prefix in all the attributes. SPARK-8658. See below. */
-        DummyPlan2(removeExpressionPrefixes(planFixed))
-    }
-    val temp = removeDummyPlans2(transformedPlan)
-    temp
-  }
-
-  /**
-    * The analysis can collapse nested projections if they are the same. Which is problematic
-    * because the most recent metadata is propagated up the tree and due to this rule we will
-    * lose that metadata. Therefor we apply this tree visitation that will copy the metadata
-    * from upper [[AttributeReference]] to lower [[AttributeReference]]s that share the same
-    * references.
-    */
-  private[sql] def broadcastMetadataDownTheTree(plan: LogicalPlan): LogicalPlan = {
-    val expressionsMap = finalMetadataMap(plan)
-    val transformedPlan = plan transformUp {
-      case lr@IsLogicalRelation(_) => lr
-      case lp: LogicalPlan =>
-        val planFixed = lp transformExpressionsDown {
-          case attr:AttributeReference =>
-            val newAttr = expressionsMap.get(attr.exprId) match {
-              case Some(m) if MetadataAccessor.nonEmpty(m) => withMetadata(attr, m)
-              case _ => attr
-            }
-            newAttr
-          case p => p
-        }
-        /** Now we need to delete the prefix in all the attributes. SPARK-8658. See below. */
-        DummyPlan2(removeExpressionPrefixes(planFixed))
-    }
-    val temp = removeDummyPlans2(transformedPlan)
-    temp
-  }
-
-  /**
-   * Removes all [[AnnotatedAttribute]] nodes.
-   * @param plan The logical plan.
-   * @return The 'cleansed' logical plan without [[AnnotatedAttribute]].
-   */
-  private[sql] def collapseAnnotatedAttributes(plan: LogicalPlan): LogicalPlan = {
-    val result = plan transformUp {
-      case Project(projectList, child) =>
-        val resolvedProjectionList = projectList.map {
-          /* if !hasUnresolvedAnnotationReferences(i) */
-          case AnnotatedAttribute(x:NamedExpression) => x
-          case x:Expression => x
-        }
-        Project(resolvedProjectionList, child)
-      case p => p
-    }
-    result
-  }
-
-  /**
-    * Returns a [[Map]] containing the [[ExprId]] of all [[AnnotatedAttribute]]s in the plan
-    * with the consolidated metadata with the underlying [[AttributeReference]].
-    *
-    * @param plan The plan.
-    * @return
-    */
-  private def getAnnotations(plan: LogicalPlan): Map[ExprId, Metadata] = {
-    val result = new mutable.HashMap[ExprId, Metadata].empty
-    plan.foreachUp {
-      case Project(list, _) => list.collect {
-        case item:AnnotatedAttribute =>
-          // Maybe I can just pattern-match the item like this:
-          // item@AnnotatedExpression(a@Alias(b@AttributeReference(...))) ...
-          val attr = getReferencedAttribute(item.child)
-          result.update(attr.exprId, MetadataAccessor.propagateMetadata(attr.metadata,
-            MetadataAccessor.expressionMapToMetadata(item.annotations)))
-      }
-      case _ =>
-    }
-    result.toMap
+    (temp, seq.toSet)
   }
 
   // not used for now (should be removed?) (YH)
@@ -219,68 +171,6 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
     res.build()
   }
 
-  /**
-    * Iterates the tree (bottom-up) and for each [[AnnotatedAttribute]] with an [[Alias]].
-    *
-    * It works as follows: When an [[AnnotatedAttribute]] with an [[Alias]] is encountered it first
-    * checks whether the alias's id already exists in the map. If so then it propagates the (old)
-    * alias metadata to the (new, since we visit the tree bottom-up) annotated attribute metadata
-    * and registers the resulting metadata with the alias's id in the map.
-    *
-    * @param plan The logical plan.
-    * @return a map from aliases' ids to their metadata.
-    */
-  private def collectMetadata(plan: LogicalPlan): Map[ExprId, Metadata] = {
-    val result = new mutable.HashMap[ExprId, Metadata].empty
-    plan.foreachUp {
-      case Project(list, _) => list.collect {
-        case item@AnnotatedAttribute(a:Alias) =>
-          val oldMetadata = result.getOrElse(item.exprId, new MetadataBuilder().build())
-          result.update(a.exprId, MetadataAccessor.propagateMetadata(oldMetadata, item.metadata))
-      }
-      case _ =>
-    }
-    result.toMap
-  }
-
-  // scalastyle:off cyclomatic.complexity
-  private def finalMetadataMap(plan: LogicalPlan): Map[ExprId, Metadata] = {
-    val result = new mutable.HashMap[ExprId, Metadata].empty
-    plan.foreach {
-      case Project(list, _) => list.collect {
-        case a:NamedExpression if a.resolved =>
-          a.references.collect {
-            case attr:Attribute if !result.contains(a.exprId) =>
-              result.put(attr.exprId, a.metadata)
-          }
-          a
-      }
-      case _ =>
-    }
-    // the map might contains references to aliases. In this case we have to
-    // expand these entries with the corresponding references of these aliases.
-    plan.foreach {
-      case Project(list, _) => list.collect {
-        case a:Alias if result.contains(a.exprId) =>
-          a.references.collect {
-            case attr:Attribute if !result.contains(attr.exprId) =>
-            result.put(attr.exprId, result.get(a.exprId).get)
-          }
-          a
-      }
-      case _ =>
-    }
-    result.toMap
-  }
-
-  private def getReferencedAttribute(exp: Expression): NamedExpression = {
-    exp match {
-      case a:Alias => getReferencedAttribute(a.child)
-      case a:AttributeReference => a
-      case _ => sys.error(s"'${exp.simpleString}' expression is not valid for annotations.")
-    }
-  }
-
   //
   // Code to workaround SPARK-8658.
   // https://issues.apache.org/jira/browse/SPARK-8658
@@ -307,12 +197,22 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
       newMetadata)(exprId = attr.exprId, qualifiers = attr.qualifiers
     )
 
+  private[this] def withMetadata(
+                                  attr: Alias,
+                                  newMetadata: Metadata): Alias =
+    attr.copy(attr.child, PREFIX.concat(attr.name))(attr.exprId, attr.qualifiers, Some(newMetadata))
+
   /** XXX: Remove prefix from all expression names. SPARK-8658. */
   private[this] def removeExpressionPrefixes(plan: LogicalPlan): LogicalPlan =
     plan transformExpressionsDown {
       case attr: AttributeReference =>
         attr.copy(name = attr.name.replaceFirst(PREFIX, ""))(
           exprId = attr.exprId, qualifiers = attr.qualifiers
+        )
+      case attr: Alias =>
+        attr.copy(child = attr.child, name = attr.name.replaceFirst(PREFIX, ""))(
+          exprId = attr.exprId, qualifiers = attr.qualifiers,
+          explicitMetadata = attr.explicitMetadata
         )
     }
 
