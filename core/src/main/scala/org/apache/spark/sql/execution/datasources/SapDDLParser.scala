@@ -20,7 +20,9 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       dropViewUsing |
       describeTableUsing |
       createTable |
-      createPartitionFunction |
+      createHashPartitionFunction |
+      createRangeSplitPartitionFunction |
+      createRangeIntervalPartitionFunction |
       appendTable |
       dropTable |
       describeTable |
@@ -48,7 +50,14 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val PARTITIONED = Keyword("PARTITIONED")
   protected val PARTITION = Keyword("PARTITION")
   protected val FUNCTION = Keyword("FUNCTION")
+  protected val HASH = Keyword("HASH")
+  protected val RANGE = Keyword("RANGE")
   protected val PARTITIONS = Keyword("PARTITIONS")
+  protected val SPLITTERS = Keyword("SPLITTERS")
+  protected val CLOSED = Keyword("CLOSED")
+  protected val START = Keyword("START")
+  protected val STRIDE = Keyword("STRIDE")
+  protected val PARTS = Keyword("PARTS")
 
   /* VIEW Keyword */
   protected val VIEW = Keyword("VIEW")
@@ -128,12 +137,13 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     }
 
   /**
-   * Resolves the CREATE PARTITIONING FUNCTION statements.
-   * The only parameter is the function definition passed by
-   * the user,
-   */
-  protected lazy val createPartitionFunction: Parser[LogicalPlan] =
-    (CREATE ~> PARTITION ~> FUNCTION ~> ident) ~ datatypes ~ (AS ~> ident) ~
+    * Resolves the CREATE PARTITIONING FUNCTION statements for hash
+    * partitioning functions.
+    * The only parameter is the function definition passed by
+    * the user,
+    */
+  protected lazy val createHashPartitionFunction: Parser[LogicalPlan] =
+    CREATE ~> PARTITION ~> FUNCTION ~> ident ~ datatypes ~ (AS ~> HASH) ~
       (PARTITIONS ~> numericLit).? ~ (USING ~> className) ~
       (OPTIONS ~> options).? ^^ {
       case name ~ types ~ definition ~ partitionsNo ~ provider ~ opts =>
@@ -143,7 +153,67 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         }
         val options = opts.getOrElse(Map.empty[String, String])
         val partitionsNoInt = if (partitionsNo.isDefined) Some(partitionsNo.get.toInt) else None
-        CreatePartitioningFunction(options, name, types, definition, partitionsNoInt, provider)
+        CreateHashPartitioningFunction(options, name, provider, types, partitionsNoInt)
+    }
+
+  /**
+    * Resolves the CREATE PARTITIONING FUNCTION statements for range
+    * partitioning functions defined by splitters.
+    * The only parameter is the function definition passed by
+    * the user,
+    */
+  protected lazy val createRangeSplitPartitionFunction: Parser[LogicalPlan] =
+    CREATE ~> PARTITION ~> FUNCTION ~> ident ~ datatypes ~ (AS ~> RANGE) ~
+      (SPLITTERS ~> (RIGHT ~> CLOSED).?) ~ stringSeq ~
+      (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+      case name ~ types ~ definition ~ closed ~ splitters ~ provider ~ opts =>
+        if (types.size != 1) {
+          if (types.isEmpty) {
+            throw new DDLException(
+              "The hashing function argument list cannot be empty.")
+          } else {
+            throw new DDLException(
+              "The range functions cannot have more than one argument.")
+          }
+        }
+        val rightClosed = closed.isDefined
+        if (splitters.isEmpty){
+          throw new DDLException(
+            "The hashing function splitters cannot be empty.")
+        }
+        val options = opts.getOrElse(Map.empty[String, String])
+        CreateRangeSplittersPartitioningFunction(options, name, provider, types.head,
+          splitters, rightClosed)
+    }
+
+  /**
+    * Resolves the CREATE PARTITIONING FUNCTION statements for range
+    * partitioning functions defined by an interval.
+    * The only parameter is the function definition passed by
+    * the user,
+    */
+  protected lazy val createRangeIntervalPartitionFunction: Parser[LogicalPlan] =
+    CREATE ~> PARTITION ~> FUNCTION ~> ident ~ datatypes ~ (AS ~> RANGE) ~
+      (START ~> stringLit) ~ (END ~> stringLit) ~ (STRIDE | PARTS) ~ numericLit ~
+      (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+      case name ~ types ~ definition ~ start ~ end ~ strideType ~ strideValue ~ provider ~ opts =>
+        if (types.size != 1) {
+          if (types.isEmpty) {
+            throw new DDLException(
+              "The hashing function argument list cannot be empty.")
+          } else {
+            throw new DDLException(
+              "The range functions cannot have more than one argument.")
+          }
+        }
+        val strideParts = if (strideType.compareToIgnoreCase(STRIDE.str) == 0) {
+          Left(strideValue.toInt)
+        } else {
+          Right(strideValue.toInt)
+        }
+        val options = opts.getOrElse(Map.empty[String, String])
+        CreateRangeIntervalPartitioningFunction(options, name, provider, types.head, start, end,
+          strideParts)
     }
 
   /**
@@ -292,6 +362,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val datatypes: Parser[Seq[DataType]] = "(" ~> repsep(primitiveType, ",") <~ ")"
 
   protected lazy val colsNames: Parser[Seq[String]] = "(" ~> repsep(ident, ",") <~ ")"
+
+  protected lazy val stringSeq: Parser[Seq[String]] = "(" ~> repsep(stringLit, ",") <~ ")"
 
   /** Parses the content of OPTIONS and puts the result in a case insensitive map */
   override protected lazy val options: Parser[Map[String, String]] =

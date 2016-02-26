@@ -45,9 +45,17 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
                             .map(_.asInstanceOf[LogicalRelation]
                                   .relation.asInstanceOf[DescribableRelation])
       ExecutedCommand(DescribeDatasourceCommand(relation)) :: Nil
-    case CreatePartitioningFunction(options, name, datatypes, definition, partitionsNo, provider) =>
-      ExecutedCommand(CreatePartitioningFunctionCommand(options, name, datatypes, definition,
-        partitionsNo, provider)) :: Nil
+    case CreateHashPartitioningFunction(options, name, provider, datatypes, partitionsNo) =>
+      ExecutedCommand(CreateHashPartitioningFunctionCommand(options, name, datatypes, partitionsNo,
+        provider)) :: Nil
+    case CreateRangeSplittersPartitioningFunction(options, name, provider, datatype, splitters,
+    rightClosed) =>
+      ExecutedCommand(CreateRangeSplitPartitioningFunctionCommand(options, name, datatype,
+        splitters, rightClosed, provider)) :: Nil
+    case CreateRangeIntervalPartitioningFunction(options, name, provider, datatype, start, end,
+    strideParts) =>
+      ExecutedCommand(CreateRangeIntervalPartitioningFunctionCommand(options, name, datatype,
+        start, end, strideParts, provider)) :: Nil
     case cv@CreateViewCommand(name, temp, query) =>
       ExecutedCommand(cv) :: Nil
     case cmd@UseStatementCommand(input) =>

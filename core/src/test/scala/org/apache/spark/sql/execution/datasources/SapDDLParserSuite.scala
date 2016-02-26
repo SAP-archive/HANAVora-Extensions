@@ -338,7 +338,7 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement))
   }
 
-  test("Parse a correct CREATE PARTITION FUNCTION statement without the PARTITIONS clause") {
+  test("Parse a correct CREATE PARTITION FUNCTION HASH statement without the PARTITIONS clause") {
     val testTable =
       """CREATE PARTITION FUNCTION test (integer, string) AS HASH
         |USING com.sap.spark.vora
@@ -346,18 +346,17 @@ OPTIONS (
         |zkurls "1.1.1.1")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
-    assert(ddlParser.parse(testTable).isInstanceOf[CreatePartitioningFunction])
+    assert(ddlParser.parse(testTable).isInstanceOf[CreateHashPartitioningFunction])
 
-    val cpf = parsedStmt.asInstanceOf[CreatePartitioningFunction]
+    val cpf = parsedStmt.asInstanceOf[CreateHashPartitioningFunction]
     assert(cpf.parameters.contains("zkurls"))
     assert(cpf.parameters("zkurls") == "1.1.1.1")
     assert(cpf.name == "test")
     assert(cpf.datatypes == Seq(IntegerType, StringType))
-    assert(cpf.definition == "HASH")
     assert(cpf.provider == "com.sap.spark.vora")
   }
 
-  test("Parse a correct CREATE PARTITION FUNCTION statement with the PARTITIONS clause") {
+  test("Parse a correct CREATE PARTITION FUNCTION HASH statement with the PARTITIONS clause") {
     val testTable =
       """CREATE PARTITION FUNCTION test (integer, string) AS HASH PARTITIONS 7
         |USING com.sap.spark.vora
@@ -365,17 +364,94 @@ OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
-    assert(ddlParser.parse(testTable).isInstanceOf[CreatePartitioningFunction])
+    assert(ddlParser.parse(testTable).isInstanceOf[CreateHashPartitioningFunction])
 
-    val cpf = parsedStmt.asInstanceOf[CreatePartitioningFunction]
+    val cpf = parsedStmt.asInstanceOf[CreateHashPartitioningFunction]
     assert(cpf.parameters.contains("zkurls"))
     assert(cpf.parameters("zkurls") == "1.1.1.1,2.2.2.2")
     assert(cpf.name == "test")
     assert(cpf.datatypes == Seq(IntegerType, StringType))
-    assert(cpf.definition == "HASH")
     assert(cpf.partitionsNo.isDefined)
     assert(cpf.partitionsNo.get == 7)
     assert(cpf.provider == "com.sap.spark.vora")
+  }
+
+  test("Parse a correct CREATE PARTITION FUNCTION RANGE statement with SPLITTERS") {
+    val testTable1 =
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS ("5", "10", "15")
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val parsedStmt1 = ddlParser.parse(testTable1)
+    assert(ddlParser.parse(testTable1).isInstanceOf[CreateRangeSplittersPartitioningFunction])
+
+    val cpf1 = parsedStmt1.asInstanceOf[CreateRangeSplittersPartitioningFunction]
+    assert(cpf1.parameters.contains("zkurls"))
+    assert(cpf1.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf1.name == "test")
+    assert(cpf1.datatype == IntegerType)
+    assert(!cpf1.rightClosed)
+    assert(cpf1.splitters == Seq("5", "10", "15"))
+    assert(cpf1.provider == "com.sap.spark.vora")
+
+    val testTable2 =
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS RIGHT CLOSED ("5", "20")
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val parsedStmt2 = ddlParser.parse(testTable2)
+    assert(ddlParser.parse(testTable2).isInstanceOf[CreateRangeSplittersPartitioningFunction])
+
+    val cpf2 = parsedStmt2.asInstanceOf[CreateRangeSplittersPartitioningFunction]
+    assert(cpf2.parameters.contains("zkurls"))
+    assert(cpf2.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf2.name == "test")
+    assert(cpf2.datatype == IntegerType)
+    assert(cpf2.rightClosed)
+    assert(cpf2.splitters == Seq("5", "20"))
+    assert(cpf2.provider == "com.sap.spark.vora")
+  }
+
+  test("Parse a correct CREATE PARTITION FUNCTION RANGE statement with START/END") {
+    val testTable1 =
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE START "5" END "20" STRIDE 2
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val parsedStmt1 = ddlParser.parse(testTable1)
+    assert(ddlParser.parse(testTable1).isInstanceOf[CreateRangeIntervalPartitioningFunction])
+
+    val cpf1 = parsedStmt1.asInstanceOf[CreateRangeIntervalPartitioningFunction]
+    assert(cpf1.parameters.contains("zkurls"))
+    assert(cpf1.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf1.name == "test")
+    assert(cpf1.datatype == IntegerType)
+    assert(cpf1.start == "5")
+    assert(cpf1.end == "20")
+    assert(cpf1.strideParts == Left(2))
+    assert(cpf1.provider == "com.sap.spark.vora")
+
+    val testTable2 =
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE START "5" END "25" PARTS 3
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val parsedStmt2 = ddlParser.parse(testTable2)
+    assert(ddlParser.parse(testTable2).isInstanceOf[CreateRangeIntervalPartitioningFunction])
+
+    val cpf2 = parsedStmt2.asInstanceOf[CreateRangeIntervalPartitioningFunction]
+    assert(cpf2.parameters.contains("zkurls"))
+    assert(cpf2.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf2.name == "test")
+    assert(cpf2.datatype == IntegerType)
+    assert(cpf2.start == "5")
+    assert(cpf2.end == "25")
+    assert(cpf2.strideParts == Right(3))
+    assert(cpf2.provider == "com.sap.spark.vora")
   }
 
   test("Do not parse incorrect CREATE PARTITION FUNCTION statements") {
@@ -421,6 +497,7 @@ OPTIONS (
 
     val invStatement8 =
       """CREATE PARTITION FUNCION test (integer, string) AS HASH
+        |USING com.sap.spark.vora
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement8))
 
@@ -430,8 +507,100 @@ OPTIONS (
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
       """.stripMargin
-    val ex = intercept[DDLException](ddlParser.parse(invStatement9))
-    assert(ex.getMessage.contains("The hashing function argument list cannot be empty."))
+    val ex1 = intercept[DDLException](ddlParser.parse(invStatement9))
+    assert(ex1.getMessage.contains("The hashing function argument list cannot be empty."))
+
+    val invStatement10 =
+      """CREATE PARTITION FUNCTION test AS RANGE SPLITTERS ("5", "10", "15")
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement10))
+
+    val invStatement11 =
+      """CREATE PARTITION FUNCTION test () AS RANGE SPLITTERS ()
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val ex4 = intercept[DDLException](ddlParser.parse(invStatement11))
+    assert(ex4.getMessage.contains("The hashing function argument list cannot be empty."))
+
+    val invStatement12 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLITTERS ("5", "10", "15")
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val ex5 = intercept[DDLException](ddlParser.parse(invStatement12))
+    assert(ex5.getMessage.contains("The range functions cannot have more than one argument."))
+
+    val invStatement13 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLIYTTERS ("5", "10", "15")
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement13))
+
+    val invStatement14 =
+      """CREATE PARTITION FUNCTION test AS RANGE START "5" END "10" STRIDE 1
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement14))
+
+    val invStatement15 =
+      """CREATE PARTITION FUNCTION test () AS RANGE START "5" END "10" STRIDE 1
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val ex6 = intercept[DDLException](ddlParser.parse(invStatement15))
+    assert(ex6.getMessage.contains("The hashing function argument list cannot be empty."))
+
+    val invStatement16 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "5" END "10" STRIDE 1
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    val ex7 = intercept[DDLException](ddlParser.parse(invStatement16))
+    assert(ex7.getMessage.contains("The range functions cannot have more than one argument."))
+
+    val invStatement17 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "5" END "10" STRdIDE 1
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement17))
+
+    val invStatement18 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START END "10" STRIDE 1
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement18))
+
+    val invStatement19 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "DF" END STRIDE 1
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement19))
+
+    val invStatement20 =
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "DF" END "ZZ"
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |zkurls "1.1.1.1,2.2.2.2")
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement20))
   }
 
   test("Parse correct CREATE VIEW USING") {
