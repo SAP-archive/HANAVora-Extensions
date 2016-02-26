@@ -12,10 +12,6 @@ class DescribeTableFunctionSuite extends FunSuite {
   val bound = f(planner) _
   val plan = mock(classOf[LogicalPlan])
 
-  test("correct number of arguments given") {
-    assert(bound(plan :: Nil) == RunDescribeTable(plan) :: Nil)
-  }
-
   test("wrong number of arguments given") {
     intercept[IllegalArgumentException] {
       bound(plan :: plan :: Nil)

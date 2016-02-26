@@ -7,13 +7,12 @@ import org.apache.spark.sql.execution.SparkPlan
 
 /** Physical plan of describing a table
   *
-  * @param plan The logical plan to describe.
+  * @param rows The description result.
   */
-case class RunDescribeTable(plan: LogicalPlan)
+case class RunDescribeTable(rows: Seq[Seq[Any]])
   extends PhysicalTableFunction {
   override protected def run(): Seq[Seq[Any]] = {
-    val extractor = new LogicalPlanExtractor(plan)
-    extractor.extract()
+    rows
   }
 
   override lazy val output: Seq[Attribute] = DescribeTableStructure.output
