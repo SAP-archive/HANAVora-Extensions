@@ -4,10 +4,7 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.{CreateViewCommand, SapDDLParser}
-import org.apache.spark.sql.types.{CalendarIntervalType, DataTypeParser}
-import org.apache.spark.sql.types._
-import org.apache.spark.unsafe.types.CalendarInterval
+import org.apache.spark.sql.execution.datasources.{CreateDimensionViewCommand, CreateViewCommand, SapDDLParser}
 import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
 
 import scala.util.parsing.input.Position
@@ -37,6 +34,7 @@ with AnnotationParsingRules{
   protected val CREATE = Keyword("CREATE")
   protected val VIEW = Keyword("VIEW")
   protected val TEMPORARY = Keyword("TEMPORARY")
+  protected val DIMENSION = Keyword("DIMENSION")
 
   /* Extract keywords */
   protected val EXTRACT = Keyword("EXTRACT")
@@ -107,10 +105,16 @@ with AnnotationParsingRules{
           nodeAttribute = UnresolvedAttribute(nc)))
     }
 
-  /** Create temporary view parser. */
+  /** Create temporary [dimension] view parser. */
   protected lazy val createView: Parser[LogicalPlan] =
-    (CREATE ~> TEMPORARY.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
-      case temp ~ name ~ query => CreateViewCommand(name, temp.isDefined, NonPersistedView(query))
+    (CREATE ~> TEMPORARY.?) ~ (DIMENSION.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
+      case temp ~ isDimension ~ name ~ query =>
+        if (isDimension.isDefined) {
+          CreateDimensionViewCommand(name, temp.isDefined,
+            NonPersistedDimensionView(query))
+        } else {
+          CreateViewCommand(name, temp.isDefined, NonPersistedView(query))
+        }
     }
 
   protected lazy val describeTable: Parser[LogicalPlan] =

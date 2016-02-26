@@ -20,6 +20,10 @@ import scala.collection.mutable
   *    with its tree-sequence into a map.
   *
   * 3. Apply the collected metadata on the logical plan top-down.
+  *
+  * TODO (YH, AC) we need to add an extra resolution rule for dimension metadata.
+  * The idea is to add a flag to the annotated attribute that marks it as
+  * generating-dimension-keyword annotation. This flag shall be evaluated here.
   */
 object ResolveAnnotations extends Rule[LogicalPlan] {
 

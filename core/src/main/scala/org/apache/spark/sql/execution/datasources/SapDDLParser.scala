@@ -6,7 +6,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedView, View, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView, View, LogicalPlan}
 import org.apache.spark.sql.sources.commands._
 
 import scala.util.parsing.input.Position
@@ -62,6 +62,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   /* VIEW Keyword */
   protected val VIEW = Keyword("VIEW")
   protected val VIEW_SQL_STRING = "VIEW_SQL"
+  protected val DIMENSION = Keyword("DIMENSION")
 
   /**
     * needed for view parsing.
@@ -222,9 +223,14 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     */
   protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
     withConsumedInput(createViewUsing) ^^ {
-      case ((name, plan, provider, opts, allowExisting), text) =>
-        CreatePersistentViewCommand(name, PersistedView(plan), provider,
-          opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
+      case ((name, plan, provider, opts, allowExisting, isDimension), text) =>
+        if (isDimension) {
+          CreatePersistentDimensionViewCommand(name, PersistedDimensionView(plan), provider,
+            opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
+        } else {
+          CreatePersistentViewCommand(name, PersistedView(plan), provider,
+            opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
+        }
     }
 
   /**
@@ -241,11 +247,12 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
 
   /** Create view parser rule */
   protected lazy val createViewUsing: Parser[(TableIdentifier, LogicalPlan,
-    String, Map[String, String], Boolean)] =
-    CREATE ~> VIEW ~> (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
+    String, Map[String, String], Boolean, Boolean)] =
+    (CREATE ~> DIMENSION.? <~ VIEW) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
       (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
-      case allowExisting ~ name ~ plan ~ provider ~ opts =>
-        (name, plan, provider, opts.getOrElse(Map.empty[String, String]), allowExisting.isDefined)
+      case isDimension ~ allowExisting ~ name ~ plan ~ provider ~ opts =>
+        (name, plan, provider, opts.getOrElse(Map.empty[String, String]), allowExisting.isDefined,
+          isDimension.isDefined)
     }
 
   /**

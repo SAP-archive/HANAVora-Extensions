@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.CreateViewCommand
+import org.apache.spark.sql.execution.datasources.{CreateDimensionViewCommand, CreateViewCommand}
 import org.apache.spark.sql.types._
 import org.scalatest.FunSuite
 import scala.reflect.ClassTag
@@ -272,6 +272,21 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
   test("create table with an annotation without value") {
     assertFailingQuery[SapParserException]("CREATE VIEW aview " +
       "AS SELECT A AS AL @ (key = ) FROM atable")
+  }
+
+  test("create dimension view") {
+    val parser = new SapParserDialect
+    val result = parser.parse("CREATE DIMENSION VIEW myview AS SELECT 1 FROM mytable")
+    val expected = CreateDimensionViewCommand("myview", isTemporary = false,
+      NonPersistedDimensionView(Project(AliasUnresolver(Literal(1)),
+        UnresolvedRelation("mytable" :: Nil)))
+    )
+    comparePlans(expected, result)
+  }
+
+  test("create incorrect dimension view is handled correctly") {
+    assertFailingQuery[SapParserException]("CREATE DIMENSI VIEW myview AS SELECT 1 FROM mytable")
+    assertFailingQuery[SapParserException]("CREATE DIMENSION myview AS SELECT 1 FROM mytable")
   }
 
   /**

@@ -16,6 +16,7 @@ import org.apache.spark.sql.sources.commands._
 private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strategy {
 
   // scalastyle:off cyclomatic.complexity
+  // scalastyle:off method.length
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan.flatMap({
     // TODO (AC) Remove this once table-valued function are rebased on top.
     case DescribeRelationCommand(name) => ExecutedCommand(
@@ -66,6 +67,12 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
     case DropPersistentViewCommand(viewIdentifier, provider, options, allowNotExisting) =>
       ExecutedCommand(DropPersistentViewRunnableCommand(viewIdentifier, provider,
         options, allowNotExisting)) :: Nil
+    case cdv@CreateDimensionViewCommand(name, temp, query) =>
+      ExecutedCommand(cdv) :: Nil
+    case CreatePersistentDimensionViewCommand(viewIdentifier, plan, provider, options,
+    allowExisting) =>
+      ExecutedCommand(CreatePersistentDimensionViewRunnableCommand(viewIdentifier, plan, provider,
+        options, allowExisting)) :: Nil
     case DescribeTableUsingCommand(provider, name, options) =>
       ExecutedCommand(DescribeTableUsingRunnableCommand(provider, name, options)) :: Nil
     case _ => Nil

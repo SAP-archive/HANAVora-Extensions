@@ -118,6 +118,23 @@ class SapDDLStrategySuite extends FunSuite {
     Mockito.validateMockitoUsage()
   }
 
+  test("CREATE DIMENSION VIEW USING test") {
+    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
+    val strategy = new SapDDLStrategy(planner)
+    val unresolved = UnresolvedRelation(Seq("test"))
+    val plan = unresolved.select('id)
+
+    val viewCommand = CreatePersistentDimensionViewCommand(TableIdentifier("test"), plan,
+      "com.sap.spark.vora", Map[String, String](), allowExisting = true)
+    val command = strategy.apply(viewCommand)
+
+    assert(command == ExecutedCommand(
+      CreatePersistentDimensionViewRunnableCommand(TableIdentifier("test"), plan,
+        "com.sap.spark.vora", Map[String, String](), allowExisting = true)) :: Nil)
+    Mockito.validateMockitoUsage()
+    Mockito.validateMockitoUsage()
+  }
+
   test("DROP VIEW USING test") {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
     val strategy = new SapDDLStrategy(planner)
