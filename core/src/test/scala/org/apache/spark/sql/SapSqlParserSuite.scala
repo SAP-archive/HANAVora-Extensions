@@ -9,11 +9,16 @@ import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableF
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreateDimensionViewCommand, CreateViewCommand}
 import org.apache.spark.sql.types._
+import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.FunSuite
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 
-class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
+class SapSqlParserSuite
+  extends FunSuite
+  with PlanTest
+  with AnnotationParsingUtils
+  with Logging {
 
   def t1: LogicalPlan = new LocalRelation(output = Seq(
     new AttributeReference("pred", StringType, nullable = true, metadata = Metadata.empty)(),
@@ -202,7 +207,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
 
     assertResult(UnresolvedRelation("atable" :: Nil))(projection.child)
 
-    val projectionList = projection.projectList
+    val actual = projection.projectList
 
     val expected = Seq(
       ("AL", UnresolvedAttribute("A"), Map("foo" -> Literal.create("bar", StringType))),
@@ -220,27 +225,7 @@ class SapSqlParserSuite extends FunSuite with PlanTest with Logging {
         Map("foo" -> Literal.create(1.23, DoubleType)))
       )
 
-    projectionList.zip(expected).foreach{case (exp: NamedExpression, values: (
-      String, UnresolvedAttribute, Map[String, Expression])) =>
-      assertAnnotatedAttribute(values._1, values._2, values._3, exp)}
-  }
-
-  def assertAnnotatedAttribute(expectedAliasName:String, expectedAliasChild: Expression,
-                               expectedAnnotations: Map[String, Expression],
-                               actual: NamedExpression):
-  Unit = {
-    assert(actual.isInstanceOf[UnresolvedAlias])
-    assert(actual.asInstanceOf[UnresolvedAlias].child.isInstanceOf[AnnotatedAttribute])
-    val attribute = actual.asInstanceOf[UnresolvedAlias].child.asInstanceOf[AnnotatedAttribute]
-    assertResult(expectedAnnotations.keySet)(attribute.annotations.keySet)
-    expectedAnnotations.foreach({
-      case (k, v:Literal) =>
-        assert(v.semanticEquals(attribute.annotations.get(k).get))
-    })
-    assert(attribute.child.isInstanceOf[Alias])
-    val alias = attribute.child.asInstanceOf[Alias]
-    assertResult(expectedAliasName)(alias.name)
-    assertResult(expectedAliasChild)(alias.child)
+    assertAnnotatedProjection(expected)(actual)
   }
 
   test("create table with invalid annotation position") {

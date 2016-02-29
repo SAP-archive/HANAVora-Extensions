@@ -2,11 +2,13 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.expressions.{Literal, Alias, AnnotatedAttribute}
 import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView, Project}
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
+import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}
 
@@ -14,6 +16,7 @@ class SapDDLParserSuite
   extends FunSuite
   with TableDrivenPropertyChecks
   with GivenWhenThen
+  with AnnotationParsingUtils
   with Logging {
 
   val sqlParser = new SapParserDialect
@@ -636,6 +639,35 @@ OPTIONS (
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2",
       "view_sql" -> statement.trim))(actual.options)
+  }
+
+  test("Parse correct CREATE VIEW USING with annotations") {
+    val statement = """CREATE VIEW IF NOT EXISTS v
+                      |AS SELECT a as al @ ( b = 'c' ) FROM t
+                      |USING com.sap.spark.vora
+                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+    val persistedViewCommand = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assertResult(persistedViewCommand.viewIdentifier.table)("v")
+
+    assert(persistedViewCommand.plan.isInstanceOf[PersistedView])
+    val persistedView = persistedViewCommand.plan.asInstanceOf[PersistedView]
+
+    assert(persistedView.plan.isInstanceOf[Project])
+    val projection = persistedView.plan.asInstanceOf[Project]
+
+    assertResult(UnresolvedRelation("t" :: Nil))(projection.child)
+
+    val expected = Seq(
+      ("al", UnresolvedAttribute("a"), Map("b" -> Literal.create("c", StringType))))
+
+    assertAnnotatedProjection(expected)(projection.projectList)
+
+    assertResult("com.sap.spark.vora")(persistedViewCommand.provider)
+    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2",
+      "view_sql" -> statement.trim))(persistedViewCommand.options)
   }
 
   test("Handle incorrect CREATE VIEW statements") {

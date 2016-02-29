@@ -2,10 +2,11 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.expressions.{AnnotationFilter, Alias, AnnotatedAttribute, Expression}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView, View, LogicalPlan}
 import org.apache.spark.sql.sources.commands._
 
@@ -448,6 +449,26 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         throw new SapParserException(input, pos.line, pos.column, failureOrError.toString)
     }
   }
+
+  /**
+   * This is copied from [[projection]] but extended to allow annotations
+   * on the attributes.
+   */
+  override protected lazy val projection: Parser[Expression] =
+    (expression ~ (AS ~> ident) ~ metadata ^^ {
+      case e ~ a ~ k => AnnotatedAttribute(Alias(e, a)())(k)
+    }
+      | expression ~ metadataFilter ^^ {
+      case e ~ f => AnnotationFilter(e)(f)
+    }
+      | rep1sep(ident, ".") ~ metadata ^^ {
+      case e ~ k =>
+        AnnotatedAttribute(Alias(UnresolvedAttribute(e), e.last)())(k)
+    }
+      | expression ~ (AS.? ~> ident.?) ^^ {
+      case e ~ a => a.fold(e)(Alias(e, _)())
+    }
+      )
 
   /**
     * Helper method that keeps in the input of a parsed input using parser 'p'.
