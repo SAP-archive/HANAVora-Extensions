@@ -2,7 +2,7 @@ package org.apache.spark.sql.views
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
-import org.apache.spark.sql.{GlobalSapSQLContext, Row}
+import org.apache.spark.sql.{SQLConf, GlobalSapSQLContext, Row}
 import org.scalatest.FunSuite
 
 import scala.util.Random
@@ -83,5 +83,28 @@ class ViewsSuite extends FunSuite
     assertResult(Seq(
       Row("Animal", null, 1, 1),
       Row("Mammal", 1, 2, 1)).toSet)(result.toSet)
+  }
+
+  test("Views names case-sensitivity is handled correctly") {
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("hSrc")
+
+    val originalConf = sqlContext.conf.caseSensitiveAnalysis
+
+    try {
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, "false")
+      sqlContext.sql("CREATE VIEW VIEW1 AS SELECT * FROM hSrc")
+      intercept[RuntimeException] {
+        sqlContext.sql("CREATE VIEW view1 AS SELECT * FROM hSrc")
+      }
+
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, "true")
+      sqlContext.sql("CREATE VIEW VIEW2 AS SELECT * FROM hSrc")
+      // this will not throw (although we use the same identifier name).
+      sqlContext.sql("CREATE VIEW view2 AS SELECT * FROM hSrc")
+    } finally {
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, originalConf.toString)
+    }
   }
 }

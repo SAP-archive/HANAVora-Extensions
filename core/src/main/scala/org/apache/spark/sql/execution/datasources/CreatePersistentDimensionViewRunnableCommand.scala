@@ -46,6 +46,13 @@ case class CreatePersistentDimensionViewRunnableCommand(viewIdentifier: TableIde
       dataSource match {
 
         case viewProvider: DimensionViewProvider =>
+
+          // use catalog tableExists method as it takes into account whether Spark SQL
+          // is case-sensitive or not
+          if (sqlContext.catalog.tableExists(viewIdentifier.toSeq)) {
+            sys.error(s"Relation ${viewIdentifier.toSeq} already exists")
+          }
+
           viewProvider.createDimensionView(sqlContext, DimensionView(viewIdentifier, plan),
             new CaseInsensitiveMap(options), allowExisting)
 

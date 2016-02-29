@@ -49,6 +49,12 @@ case class CreatePersistentViewRunnableCommand(viewIdentifier: TableIdentifier,
           viewProvider.createView(sqlContext, View(viewIdentifier, plan),
             new CaseInsensitiveMap(options), allowExisting)
 
+          // use catalog tableExists method as it takes into account whether Spark SQL
+          // is case-sensitive or not
+          if (sqlContext.catalog.tableExists(viewIdentifier.toSeq)) {
+            sys.error(s"Relation ${viewIdentifier.toSeq} already exists")
+          }
+
           sqlContext.registerRawPlan(child, viewIdentifier.table)
           Seq.empty
 
@@ -94,14 +100,16 @@ case class DropPersistentViewRunnableCommand(viewIdentifier: TableIdentifier,
 
     dataSource match {
       case viewProvider: ViewProvider =>
-        viewProvider.dropView(sqlContext, viewIdentifier.toSeq,
-          new CaseInsensitiveMap(options), allowNotExisting)
         // it might happen that the user did not register the views yet in Spark catalog. Therefor
         // we will not throw if the view does not exist in Spark catalog, however if it exists we
         // will drop it.
         if(sqlContext.catalog.tableExists(viewIdentifier.toSeq)) {
           sqlContext.catalog.unregisterTable(viewIdentifier.toSeq)
         }
+
+        viewProvider.dropView(sqlContext, viewIdentifier.toSeq,
+          new CaseInsensitiveMap(options), allowNotExisting)
+
         Seq.empty
       case _ => throw new RuntimeException(s"The provided data source $provider does not support" +
         "dropping persisted views.")

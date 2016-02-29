@@ -27,8 +27,10 @@ case class CreateViewCommand(name: String, isTemporary: Boolean,
           s" in order to create a persistent view please use: 'CREATE VIEW ... USING' syntax")
       }
 
-      if (sqlContext.tableNames().contains(name)) {
-        sys.error(s"View $name already exists")
+      // use catalog tableExists method as it takes into account whether Spark SQL
+      // is case-sensitive or not
+      if (sqlContext.catalog.tableExists(Seq(name))) {
+        sys.error(s"Relation $name already exists")
       }
 
       sqlContext.registerRawPlan(child, name)
