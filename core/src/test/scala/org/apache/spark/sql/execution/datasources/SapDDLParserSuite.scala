@@ -4,7 +4,7 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.{Literal, Alias, AnnotatedAttribute}
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView, Project}
+import org.apache.spark.sql.catalyst.plans.logical.{PersistedCubeView, PersistedDimensionView, PersistedView, Project}
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
@@ -810,6 +810,47 @@ OPTIONS (
 
     val invStatement5 =
       """CREATE DIMNESION VIEW v AS SELECT USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement5))
+  }
+
+  test("Parse correct CREATE CUBE VIEW USING OPTIONS") {
+    val statement = """CREATE CUBE VIEW IF NOT EXISTS v
+                      |AS SELECT * FROM t
+                      |USING com.sap.spark.vora
+                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentCubeViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentCubeViewCommand]
+    assertResult(PersistedCubeView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation("t" :: Nil))))(actual.plan)
+    assertResult(true)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2",
+      "view_sql" -> statement.trim))(actual.options)
+  }
+
+  test("Handle incorrect CREATE CUBE VIEW statements") {
+    val invStatement1 =
+      """CREATE CUBEI VIEW v AS SELECT * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement1))
+
+    val invStatement2 =
+      """CREATE CIUBE v AS SELEC * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement2))
+
+    val invStatement3 =
+      """CREATE CBE VIEW v AS SELECT * FROM t USIN com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement3))
+
+    val invStatement5 =
+      """CREATE CUBEN VIEW v AS SELECT USING com.sap.spark.vora
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement5))
   }

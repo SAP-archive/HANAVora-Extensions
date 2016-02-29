@@ -4,8 +4,9 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.{CreateDimensionViewCommand, CreateViewCommand, SapDDLParser}
+import org.apache.spark.sql.execution.datasources.{CreateCubeViewCommand, CreateDimensionViewCommand, CreateViewCommand, SapDDLParser}
 import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
+import org.apache.spark.sql.sources.sql.{ViewKind, Dimension, Cube, Plain}
 
 import scala.util.parsing.input.Position
 
@@ -35,11 +36,14 @@ with AnnotationParsingRules{
   protected val VIEW = Keyword("VIEW")
   protected val TEMPORARY = Keyword("TEMPORARY")
   protected val DIMENSION = Keyword("DIMENSION")
+  protected val CUBE = Keyword("CUBE")
 
   /* Extract keywords */
   protected val EXTRACT = Keyword("EXTRACT")
 
   lexical.delimiters += "$"
+
+  protected lazy val viewKind: Parser[String] = DIMENSION | CUBE
 
   /**
    * This is copied from [[projection]] but extended to allow annotations
@@ -107,14 +111,17 @@ with AnnotationParsingRules{
 
   /** Create temporary [dimension] view parser. */
   protected lazy val createView: Parser[LogicalPlan] =
-    (CREATE ~> TEMPORARY.?) ~ (DIMENSION.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
-      case temp ~ isDimension ~ name ~ query =>
-        if (isDimension.isDefined) {
+    (CREATE ~> TEMPORARY.?) ~ (viewKind.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
+      case temp ~ ViewKind(kind) ~ name ~ query => kind match {
+        case Dimension =>
           CreateDimensionViewCommand(name, temp.isDefined,
             NonPersistedDimensionView(query))
-        } else {
+        case Cube =>
+          CreateCubeViewCommand(name, temp.isDefined,
+            NonPersistedCubeView(query))
+        case Plain =>
           CreateViewCommand(name, temp.isDefined, NonPersistedView(query))
-        }
+      }
     }
 
   protected lazy val describeTable: Parser[LogicalPlan] =

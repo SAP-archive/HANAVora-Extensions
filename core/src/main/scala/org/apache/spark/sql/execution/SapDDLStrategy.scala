@@ -69,6 +69,10 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
         options, allowNotExisting)) :: Nil
     case cdv@CreateDimensionViewCommand(name, temp, query) =>
       ExecutedCommand(cdv) :: Nil
+    case CreatePersistentCubeViewCommand(viewIdentifier, plan, provider, options,
+    allowExisting) =>
+      ExecutedCommand(CreatePersistentCubeViewRunnableCommand(viewIdentifier, plan, provider,
+        options, allowExisting)) :: Nil
     case CreatePersistentDimensionViewCommand(viewIdentifier, plan, provider, options,
     allowExisting) =>
       ExecutedCommand(CreatePersistentDimensionViewRunnableCommand(viewIdentifier, plan, provider,

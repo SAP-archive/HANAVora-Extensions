@@ -3,12 +3,14 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.expressions.{AnnotationFilter, Alias, AnnotatedAttribute, Expression}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.sources.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView, View, LogicalPlan}
 import org.apache.spark.sql.sources.commands._
+import org.apache.spark.sql.catalyst.plans.logical.{PersistedCubeView, PersistedDimensionView, PersistedView}
 
 import scala.util.parsing.input.Position
 
@@ -64,6 +66,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val VIEW = Keyword("VIEW")
   protected val VIEW_SQL_STRING = "VIEW_SQL"
   protected val DIMENSION = Keyword("DIMENSION")
+  protected val CUBE = Keyword("CUBE")
 
   /**
     * needed for view parsing.
@@ -224,14 +227,17 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     */
   protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
     withConsumedInput(createViewUsing) ^^ {
-      case ((name, plan, provider, opts, allowExisting, isDimension), text) =>
-        if (isDimension) {
+      case ((name, plan, provider, opts, allowExisting, ViewKind(kind)), text) => kind match {
+        case Dimension =>
           CreatePersistentDimensionViewCommand(name, PersistedDimensionView(plan), provider,
             opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
-        } else {
+        case Plain =>
           CreatePersistentViewCommand(name, PersistedView(plan), provider,
             opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
-        }
+        case Cube =>
+          CreatePersistentCubeViewCommand(name, PersistedCubeView(plan), provider,
+            opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
+      }
     }
 
   /**
@@ -246,14 +252,16 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           provider, opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
     }
 
+  protected lazy val viewKind: Parser[String] = DIMENSION | CUBE
+
   /** Create view parser rule */
   protected lazy val createViewUsing: Parser[(TableIdentifier, LogicalPlan,
-    String, Map[String, String], Boolean, Boolean)] =
-    (CREATE ~> DIMENSION.? <~ VIEW) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
+    String, Map[String, String], Boolean, Option[String])] =
+    (CREATE ~> viewKind.? <~ VIEW) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
       (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
-      case isDimension ~ allowExisting ~ name ~ plan ~ provider ~ opts =>
+      case kind ~ allowExisting ~ name ~ plan ~ provider ~ opts =>
         (name, plan, provider, opts.getOrElse(Map.empty[String, String]), allowExisting.isDefined,
-          isDimension.isDefined)
+          kind)
     }
 
   /**
