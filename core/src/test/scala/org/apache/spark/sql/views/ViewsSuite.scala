@@ -107,4 +107,60 @@ class ViewsSuite extends FunSuite
       sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, originalConf.toString)
     }
   }
+
+  test("CREATE VIEW IF NOT EXISTS handles case-sensitivity correctly") {
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("hSrc")
+
+    val originalConf = sqlContext.conf.caseSensitiveAnalysis
+
+    try {
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, "false")
+      sqlContext.sql("CREATE VIEW view1 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+      // should not throw.
+      sqlContext.sql("CREATE VIEW IF NOT EXISTS VIEW1 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, "true")
+
+      sqlContext.sql("CREATE VIEW view2 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+      // should not throw.
+      sqlContext.sql("CREATE VIEW IF NOT EXISTS VIEW2 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+
+    } finally {
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, originalConf.toString)
+    }
+  }
+
+  test("CREATE DIMENSION VIEW IF NOT EXISTS handles case-sensitivity correctly") {
+    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
+    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    hSrc.registerTempTable("hSrc")
+
+    val originalConf = sqlContext.conf.caseSensitiveAnalysis
+
+    try {
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, "false")
+      sqlContext.sql("CREATE DIMENSION VIEW view1 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+      // should not throw.
+      sqlContext.sql("CREATE DIMENSION VIEW IF NOT EXISTS VIEW1 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, "true")
+
+      sqlContext.sql("CREATE DIMENSION VIEW view2 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+      // should not throw.
+      sqlContext.sql("CREATE DIMENSION VIEW IF NOT EXISTS VIEW2 AS SELECT * " +
+        "FROM hSrc USING com.sap.spark.dstest")
+
+    } finally {
+      sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, originalConf.toString)
+    }
+  }
 }

@@ -52,7 +52,11 @@ case class CreatePersistentViewRunnableCommand(viewIdentifier: TableIdentifier,
           // use catalog tableExists method as it takes into account whether Spark SQL
           // is case-sensitive or not
           if (sqlContext.catalog.tableExists(viewIdentifier.toSeq)) {
-            sys.error(s"Relation ${viewIdentifier.toSeq} already exists")
+
+            if (!allowExisting) {
+              sys.error(s"Relation ${viewIdentifier.toSeq} already exists")
+            }
+
           }
 
           sqlContext.registerRawPlan(child, viewIdentifier.table)

@@ -2,6 +2,7 @@ package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.sources._
+import org.apache.spark.sql.sources.sql.{View, DimensionView}
 import org.apache.spark.sql.types._
 
 /**
@@ -11,6 +12,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
 with TemporaryAndPersistentRelationProvider
 with PartitionedRelationProvider
 with RegisterAllTableRelations
+with ViewProvider
+with DimensionViewProvider
 with DatasourceCatalog {
 
 
@@ -84,6 +87,40 @@ with DatasourceCatalog {
   override def getTableNames(sqlContext: SQLContext, parameters: Map[String, String])
     : Seq[String] = {
     DefaultSource.relations
+  }
+
+  /**
+   * @inheritdoc
+   */
+  override def createView(sqlContext: SQLContext, view: View, options: Map[String, String],
+                          allowExisting: Boolean): Unit = {
+    DefaultSource.addRelation(view.name.table)
+  }
+
+  /**
+   * @inheritdoc
+   */
+  override def dropView(sqlContext: SQLContext, view: Seq[String], options: Map[String, String],
+                        allowNotExisting: Boolean): Unit = {
+    // no-op
+  }
+
+  /**
+   * @inheritdoc
+   */
+  override def createDimensionView(sqlContext: SQLContext, view: DimensionView,
+                                   options: Map[String, String],
+                                   allowExisting: Boolean): Unit = {
+    DefaultSource.addRelation(view.name.table)
+  }
+
+  /**
+   * @inheritdoc
+   */
+  override def dropDimensionView(sqlContext: SQLContext, view: Seq[String],
+                                 options: Map[String, String],
+                                 allowNotExisting: Boolean): Unit = {
+    // no-op
   }
 }
 
