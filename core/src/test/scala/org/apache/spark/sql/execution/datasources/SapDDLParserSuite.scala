@@ -379,9 +379,10 @@ OPTIONS (
     assert(cpf.provider == "com.sap.spark.vora")
   }
 
+  // scalastyle:off magic.number
   test("Parse a correct CREATE PARTITION FUNCTION RANGE statement with SPLITTERS") {
     val testTable1 =
-      """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS ("5", "10", "15")
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS (5, 10, 15)
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -395,11 +396,11 @@ OPTIONS (
     assert(cpf1.name == "test")
     assert(cpf1.datatype == IntegerType)
     assert(!cpf1.rightClosed)
-    assert(cpf1.splitters == Seq("5", "10", "15"))
+    assert(cpf1.splitters == Seq(5, 10, 15))
     assert(cpf1.provider == "com.sap.spark.vora")
 
     val testTable2 =
-      """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS RIGHT CLOSED ("5", "20")
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS RIGHT CLOSED (5, 20)
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -413,13 +414,13 @@ OPTIONS (
     assert(cpf2.name == "test")
     assert(cpf2.datatype == IntegerType)
     assert(cpf2.rightClosed)
-    assert(cpf2.splitters == Seq("5", "20"))
+    assert(cpf2.splitters == Seq(5, 20))
     assert(cpf2.provider == "com.sap.spark.vora")
   }
 
   test("Parse a correct CREATE PARTITION FUNCTION RANGE statement with START/END") {
     val testTable1 =
-      """CREATE PARTITION FUNCTION test (integer) AS RANGE START "5" END "20" STRIDE 2
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE START 5 END 20 STRIDE 2
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -432,13 +433,13 @@ OPTIONS (
     assert(cpf1.parameters("zkurls") == "1.1.1.1,2.2.2.2")
     assert(cpf1.name == "test")
     assert(cpf1.datatype == IntegerType)
-    assert(cpf1.start == "5")
-    assert(cpf1.end == "20")
+    assert(cpf1.start == 5)
+    assert(cpf1.end == 20)
     assert(cpf1.strideParts == Left(2))
     assert(cpf1.provider == "com.sap.spark.vora")
 
     val testTable2 =
-      """CREATE PARTITION FUNCTION test (integer) AS RANGE START "5" END "25" PARTS 3
+      """CREATE PARTITION FUNCTION test (integer) AS RANGE START 5 END 25 PARTS 3
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -451,11 +452,12 @@ OPTIONS (
     assert(cpf2.parameters("zkurls") == "1.1.1.1,2.2.2.2")
     assert(cpf2.name == "test")
     assert(cpf2.datatype == IntegerType)
-    assert(cpf2.start == "5")
-    assert(cpf2.end == "25")
+    assert(cpf2.start == 5)
+    assert(cpf2.end == 25)
     assert(cpf2.strideParts == Right(3))
     assert(cpf2.provider == "com.sap.spark.vora")
   }
+  // scalastyle:on magic.number
 
   test("Do not parse incorrect CREATE PARTITION FUNCTION statements") {
     val invStatement1 =
@@ -528,10 +530,10 @@ OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
       """.stripMargin
     val ex4 = intercept[DDLException](ddlParser.parse(invStatement11))
-    assert(ex4.getMessage.contains("The hashing function argument list cannot be empty."))
+    assert(ex4.getMessage.contains("The range function argument list cannot be empty."))
 
     val invStatement12 =
-      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLITTERS ("5", "10", "15")
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLITTERS (5, 10, 15)
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -540,7 +542,7 @@ OPTIONS (
     assert(ex5.getMessage.contains("The range functions cannot have more than one argument."))
 
     val invStatement13 =
-      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLIYTTERS ("5", "10", "15")
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLIYTTERS (5, 10, 15)
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -548,7 +550,7 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement13))
 
     val invStatement14 =
-      """CREATE PARTITION FUNCTION test AS RANGE START "5" END "10" STRIDE 1
+      """CREATE PARTITION FUNCTION test AS RANGE START 5 END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -556,16 +558,16 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement14))
 
     val invStatement15 =
-      """CREATE PARTITION FUNCTION test () AS RANGE START "5" END "10" STRIDE 1
+      """CREATE PARTITION FUNCTION test () AS RANGE START 5 END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
       """.stripMargin
     val ex6 = intercept[DDLException](ddlParser.parse(invStatement15))
-    assert(ex6.getMessage.contains("The hashing function argument list cannot be empty."))
+    assert(ex6.getMessage.contains("The range function argument list cannot be empty."))
 
     val invStatement16 =
-      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "5" END "10" STRIDE 1
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START 5 END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -574,7 +576,7 @@ OPTIONS (
     assert(ex7.getMessage.contains("The range functions cannot have more than one argument."))
 
     val invStatement17 =
-      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "5" END "10" STRdIDE 1
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START 5 END 10 STRdIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
@@ -582,7 +584,7 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement17))
 
     val invStatement18 =
-      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START END "10" STRIDE 1
+      """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")

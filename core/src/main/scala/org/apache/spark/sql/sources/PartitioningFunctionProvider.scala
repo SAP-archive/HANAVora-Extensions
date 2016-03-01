@@ -44,7 +44,7 @@ trait PartitioningFunctionProvider {
                                            parameters: Map[String, String],
                                            name: String,
                                            datatype: DataType,
-                                           splitters: Seq[String],
+                                           splitters: Seq[Int],
                                            rightClosed: Boolean): Unit
 
   /**
@@ -65,8 +65,8 @@ trait PartitioningFunctionProvider {
                                               parameters: Map[String, String],
                                               name: String,
                                               datatype: DataType,
-                                              start: String,
-                                              end: String,
+                                              start: Int,
+                                              end: Int,
                                               strideParts: Either[Int, Int]): Unit
 
 }

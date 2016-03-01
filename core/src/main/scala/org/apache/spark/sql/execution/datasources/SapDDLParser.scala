@@ -169,26 +169,28 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     */
   protected lazy val createRangeSplitPartitionFunction: Parser[LogicalPlan] =
     CREATE ~> PARTITION ~> FUNCTION ~> ident ~ datatypes ~ (AS ~> RANGE) ~
-      (SPLITTERS ~> (RIGHT ~> CLOSED).?) ~ stringSeq ~
+      (SPLITTERS ~> (RIGHT ~> CLOSED).?) ~ numbers ~
       (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
       case name ~ types ~ definition ~ closed ~ splitters ~ provider ~ opts =>
         if (types.size != 1) {
           if (types.isEmpty) {
             throw new DDLException(
-              "The hashing function argument list cannot be empty.")
+              "The range function argument list cannot be empty.")
           } else {
             throw new DDLException(
               "The range functions cannot have more than one argument.")
           }
         }
         val rightClosed = closed.isDefined
-        if (splitters.isEmpty){
+        val splittersConv = if (splitters.isEmpty){
           throw new DDLException(
-            "The hashing function splitters cannot be empty.")
+            "The range function splitters cannot be empty.")
+        } else {
+          splitters.map(_.toInt)
         }
         val options = opts.getOrElse(Map.empty[String, String])
         CreateRangeSplittersPartitioningFunction(options, name, provider, types.head,
-          splitters, rightClosed)
+          splittersConv, rightClosed)
     }
 
   /**
@@ -199,13 +201,13 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     */
   protected lazy val createRangeIntervalPartitionFunction: Parser[LogicalPlan] =
     CREATE ~> PARTITION ~> FUNCTION ~> ident ~ datatypes ~ (AS ~> RANGE) ~
-      (START ~> stringLit) ~ (END ~> stringLit) ~ (STRIDE | PARTS) ~ numericLit ~
+      (START ~> numericLit) ~ (END ~> numericLit) ~ (STRIDE | PARTS) ~ numericLit ~
       (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
       case name ~ types ~ definition ~ start ~ end ~ strideType ~ strideValue ~ provider ~ opts =>
         if (types.size != 1) {
           if (types.isEmpty) {
             throw new DDLException(
-              "The hashing function argument list cannot be empty.")
+              "The range function argument list cannot be empty.")
           } else {
             throw new DDLException(
               "The range functions cannot have more than one argument.")
@@ -217,8 +219,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           Right(strideValue.toInt)
         }
         val options = opts.getOrElse(Map.empty[String, String])
-        CreateRangeIntervalPartitioningFunction(options, name, provider, types.head, start, end,
-          strideParts)
+        CreateRangeIntervalPartitioningFunction(options, name, provider, types.head,
+          start.toInt, end.toInt, strideParts)
     }
 
   /**
@@ -379,7 +381,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
 
   protected lazy val colsNames: Parser[Seq[String]] = "(" ~> repsep(ident, ",") <~ ")"
 
-  protected lazy val stringSeq: Parser[Seq[String]] = "(" ~> repsep(stringLit, ",") <~ ")"
+  protected lazy val numbers: Parser[Seq[String]] = "(" ~> repsep(numericLit, ",") <~ ")"
 
   /** Parses the content of OPTIONS and puts the result in a case insensitive map */
   override protected lazy val options: Parser[Map[String, String]] =

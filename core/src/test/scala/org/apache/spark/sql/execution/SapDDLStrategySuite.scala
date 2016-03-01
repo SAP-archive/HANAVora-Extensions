@@ -73,15 +73,16 @@ class SapDDLStrategySuite extends FunSuite {
     Mockito.validateMockitoUsage()
   }
 
+  // scalastyle:off magic.number
   test("CREATE RANGE SPLIT PARTITION function test") {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
     val strategy = new SapDDLStrategy(planner)
     val cpf = new CreateRangeSplittersPartitioningFunction(Map[String, String](), "test",
-      "com.sap.spark.vora", IntegerType, Seq("5", "10"), false)
+      "com.sap.spark.vora", IntegerType, Seq(5, 10), false)
 
     val command = strategy.apply(cpf)
     assert(command == ExecutedCommand(CreateRangeSplitPartitioningFunctionCommand(
-      Map[String, String](), "test", IntegerType, Seq("5", "10"), rightClosed = false,
+      Map[String, String](), "test", IntegerType, Seq(5, 10), rightClosed = false,
       "com.sap.spark.vora")) :: Nil)
 
     Mockito.validateMockitoUsage()
@@ -91,15 +92,16 @@ class SapDDLStrategySuite extends FunSuite {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
     val strategy = new SapDDLStrategy(planner)
     val cpf = new CreateRangeIntervalPartitioningFunction(Map[String, String](), "test",
-      "com.sap.spark.vora", IntegerType, "0", "100", Left(1))
+      "com.sap.spark.vora", IntegerType, 0, 100, Left(1))
 
     val command = strategy.apply(cpf)
     assert(command == ExecutedCommand(CreateRangeIntervalPartitioningFunctionCommand(
       Map[String, String](), "test", IntegerType,
-      "0", "100", Left(1), "com.sap.spark.vora")) :: Nil)
+      0, 100, Left(1), "com.sap.spark.vora")) :: Nil)
 
     Mockito.validateMockitoUsage()
   }
+  // scalastyle:on magic.number
 
   test("CREATE VIEW USING test") {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])

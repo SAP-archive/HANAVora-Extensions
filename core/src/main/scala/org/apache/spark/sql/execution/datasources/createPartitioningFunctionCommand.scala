@@ -53,7 +53,7 @@ private[sql] case class CreateHashPartitioningFunctionCommand(parameters: Map[St
 private[sql] case class CreateRangeSplitPartitioningFunctionCommand(parameters: Map[String, String],
                                                                     name: String,
                                                                     datatype: DataType,
-                                                                    splitters: Seq[String],
+                                                                    splitters: Seq[Int],
                                                                     rightClosed: Boolean,
                                                                     provider: String)
   extends CreatePartitioningFunctionCommand {
@@ -87,7 +87,7 @@ private[sql] case class CreateRangeSplitPartitioningFunctionCommand(parameters: 
   */
 private[sql] case class CreateRangeIntervalPartitioningFunctionCommand
 (parameters: Map[String, String], name: String, datatype: DataType,
- start: String, end: String, strideParts: Either[Int, Int], provider: String)
+ start: Int, end: Int, strideParts: Either[Int, Int], provider: String)
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {

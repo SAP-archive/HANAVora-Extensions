@@ -47,7 +47,7 @@ case class CreateRangeSplittersPartitioningFunction(parameters: Map[String, Stri
                                                     name: String,
                                                     provider: String,
                                                     datatype: DataType,
-                                                    splitters: Seq[String],
+                                                    splitters: Seq[Int],
                                                     rightClosed: Boolean = false)
 extends CreatePartitioningFunction
 
@@ -67,7 +67,7 @@ case class CreateRangeIntervalPartitioningFunction(parameters: Map[String, Strin
                                                    name: String,
                                                    provider: String,
                                                    datatype: DataType,
-                                                   start: String,
-                                                   end: String,
+                                                   start: Int,
+                                                   end: Int,
                                                    strideParts: Either[Int, Int])
 extends CreatePartitioningFunction
