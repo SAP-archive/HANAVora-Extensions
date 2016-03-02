@@ -17,6 +17,7 @@ with DimensionViewProvider
 with DatasourceCatalog {
 
 
+  // (YH) shouldn't we also add the created table name to the tables sequence in DefaultSource?
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String]): BaseRelation =
     createRelation(sqlContext, parameters, None, None, isTemporary = false, allowExisting = false)
@@ -55,38 +56,46 @@ with DatasourceCatalog {
   override def getAllTableRelations(sqlContext: SQLContext,
                                     options: Map[String, String])
     : Map[String, LogicalPlanSource] = {
-    DefaultSource.relations.map(name =>
+    DefaultSource.tables.map(name =>
       (name, BaseRelationSource(
         new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema, false)))
-    ).toMap
+    ).toMap ++
+    DefaultSource.views.map {
+      case (name, (_, query)) =>
+        name -> CreatePersistentViewSource(query)
+    }
   }
 
 
   override def getTableRelation(tableName: String, sqlContext: SQLContext,
                                 options: Map[String, String]): Option[LogicalPlanSource] = {
-    if (DefaultSource.relations.contains(tableName)) {
+    if (DefaultSource.tables.contains(tableName)) {
       Some(BaseRelationSource(
         new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema, false)))
     } else {
-      None
+      if (DefaultSource.views.contains(tableName)) {
+        Some(CreatePersistentViewSource(DefaultSource.views(tableName)._2))
+      } else {
+        None
+      }
     }
   }
 
   override def getRelation(sqlContext: SQLContext, name: Seq[String], options: Map[String, String])
     : Option[RelationInfo] = {
-    DefaultSource.relations.find(r => r.equals(name.last))
+    DefaultSource.tables.find(r => r.equals(name.last))
       .map(r => RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>")))
   }
 
   override def getRelations(sqlContext: SQLContext, options: Map[String, String])
     : Seq[RelationInfo] = {
-    DefaultSource.relations.map(r =>
+    DefaultSource.tables.map(r =>
       RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>")))
   }
 
   override def getTableNames(sqlContext: SQLContext, parameters: Map[String, String])
     : Seq[String] = {
-    DefaultSource.relations
+    DefaultSource.tables
   }
 
   /**
@@ -94,7 +103,7 @@ with DatasourceCatalog {
    */
   override def createView(sqlContext: SQLContext, view: View, options: Map[String, String],
                           allowExisting: Boolean): Unit = {
-    DefaultSource.addRelation(view.name.table)
+    DefaultSource.addView(view.name.table, "view", options("VIEW_SQL"))
   }
 
   /**
@@ -111,7 +120,7 @@ with DatasourceCatalog {
   override def createDimensionView(sqlContext: SQLContext, view: DimensionView,
                                    options: Map[String, String],
                                    allowExisting: Boolean): Unit = {
-    DefaultSource.addRelation(view.name.table)
+    DefaultSource.addView(view.name.table, "dimension", options("VIEW_SQL"))
   }
 
   /**
@@ -131,14 +140,20 @@ object DefaultSource {
 
   private val standardSchema = StructType(Seq(StructField("field", IntegerType, nullable = true)))
 
-  private var relations = Seq.empty[String]
+  private var tables = Seq.empty[String]
+  private var views = Map.empty[String, (String, String)]
 
   def addRelation(name: String): Unit = {
-    relations = relations ++ Seq(name)
+    tables = tables ++ Seq(name)
+  }
+
+  def addView(name: String, kind: String, query: String): Unit = {
+    views = views + (name -> (kind, query))
   }
 
   def reset(): Unit = {
-    relations = Seq.empty[String]
+    tables = Seq.empty[String]
+    views = Map.empty[String, (String, String)]
   }
 
 }

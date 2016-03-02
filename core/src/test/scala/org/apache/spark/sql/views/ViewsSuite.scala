@@ -1,6 +1,8 @@
 package org.apache.spark.sql.views
 
 import org.apache.spark.Logging
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedRelation, UnresolvedAlias, UnresolvedStar}
+import org.apache.spark.sql.catalyst.plans.logical.{Project, Subquery}
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
 import org.apache.spark.sql.{SQLConf, GlobalSapSQLContext, Row}
 import org.scalatest.FunSuite
@@ -162,5 +164,23 @@ class ViewsSuite extends FunSuite
     } finally {
       sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, originalConf.toString)
     }
+  }
+
+  test("Put correct view logical plan in catalog") {
+    sqlContext.sql("CREATE TABLE t USING com.sap.spark.dstest")
+    // add the table name manually to dstest's 'catalog'.
+    com.sap.spark.dstest.DefaultSource.addRelation("t")
+    sqlContext.sql("CREATE VIEW v AS SELECT * FROM t USING com.sap.spark.dstest")
+
+    sqlContext.catalog.unregisterAllTables()
+    sqlContext.sql("REGISTER ALL TABLES USING com.sap.spark.dstest")
+
+    val actual = sqlContext.catalog.lookupRelation(Seq("v"))
+
+    assertResult(Subquery(
+      "v",
+      Project(
+        UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+        UnresolvedRelation(Seq("t")))))(actual)
   }
 }
