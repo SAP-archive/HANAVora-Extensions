@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.DDLParser
@@ -76,6 +77,19 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
   protected val ALL = Keyword("ALL")
   protected val BY = Keyword("BY")
 
+  protected lazy val dmlStart: Parser[LogicalPlan] =
+    start1 | insert | cte
+
+  protected lazy val insert: Parser[LogicalPlan] =
+    INSERT ~> (OVERWRITE ^^^ true | INTO ^^^ false) ~ (TABLE ~> relation) ~ select ^^ {
+      case o ~ r ~ s => InsertIntoTable(r, Map.empty[String, Option[String]], s, o, false)
+    }
+
+  protected lazy val cte: Parser[LogicalPlan] =
+    WITH ~> rep1sep(ident ~ (AS ~ "(" ~> start1 <~ ")"), ",") ~ (start1 | insert) ^^ {
+      case r ~ s => With(s, r.map({case n ~ s => (n, Subquery(n, s))}).toMap)
+    }
+
   protected lazy val start1: Parser[LogicalPlan] =
     (select | ("(" ~> select <~ ")")) *
       ( UNION ~ ALL        ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2) }
@@ -123,11 +137,14 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
     joinedRelation | relationFactor
 
   protected lazy val relationFactor: Parser[LogicalPlan] =
-    (rep1sep(ident, ".") ~ (opt(AS) ~> opt(ident)) ^^ {
-      case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
-    }
-      | ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) }
-      )
+    ident ~ ("(" ~> repsep(start1, ",") <~ ")") ^^ {
+      case name ~ arguments =>
+        UnresolvedTableFunction(name, arguments)
+    } |
+      ( rep1sep(ident, ".") ~ (opt(AS) ~> opt(ident)) ^^ {
+        case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
+      } |
+        ("(" ~> dmlStart <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) })
 
   protected lazy val joinedRelation: Parser[LogicalPlan] =
     relationFactor ~ rep1(joinType.? ~ (JOIN ~> relationFactor) ~ joinConditions.?) ^^ {

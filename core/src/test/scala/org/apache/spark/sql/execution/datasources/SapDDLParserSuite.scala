@@ -4,7 +4,7 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.{Literal, Alias, AnnotatedAttribute}
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedCubeView, PersistedDimensionView, PersistedView, Project}
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
@@ -615,9 +615,35 @@ OPTIONS (
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
-    assertResult(Some(statement))(actual.options.get("VIEW_SQL"))
     assertResult(PersistedView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation("t" :: Nil))))(actual.plan)
+    assertResult(false)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("VIEW_SQL" -> statement))(actual.options)
+  }
+
+  test("Parse correct CREATE VIEW USING with sub-select (bug 105558") {
+    val statement = "CREATE VIEW v AS SELECT sq.a FROM " +
+      "(SELECT * FROM t) sq USING com.sap.spark.vora"
+
+    val parsed = ddlParser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+
+    assertResult(
+      PersistedView(
+        Project(
+          UnresolvedAlias(UnresolvedAttribute(Seq("sq", "a"))) :: Nil,
+          Subquery(
+            "sq",
+            Project(
+              UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+              UnresolvedRelation(Seq("t"), None)
+            )
+          )
+    )))(actual.plan)
     assertResult(false)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.viewIdentifier)
     assertResult("com.sap.spark.vora")(actual.provider)
