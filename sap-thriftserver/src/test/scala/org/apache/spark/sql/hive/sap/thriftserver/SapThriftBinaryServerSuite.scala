@@ -8,6 +8,7 @@ import org.apache.hive.service.cli.GetInfoType
 import org.apache.hive.service.cli.thrift.TCLIService.Client
 import org.apache.hive.service.cli.thrift.ThriftCLIServiceClient
 import org.apache.spark.Logging
+import org.apache.spark.sql.CommonSapSQLContext
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.TSocket
 import org.scalatest.{FunSuite, BeforeAndAfterAll}
@@ -22,7 +23,9 @@ class SapThriftBinaryServerSuite extends FunSuite with BeforeAndAfterAll
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    thriftServer = new SapThriftServer2Test()
+    // auto register feature test
+    val conf = s"""${CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES}=com.sap.spark.dstest"""
+    thriftServer = new SapThriftServer2Test(additionalConfOptions = Option(Seq(conf)))
     thriftServer.startThriftServer()
     thriftJdbcTest = new SapThriftJdbcHiveDriverTest(thriftServer)
     thriftJdbcTest.withJdbcStatement { statement =>
@@ -82,6 +85,18 @@ class SapThriftBinaryServerSuite extends FunSuite with BeforeAndAfterAll
   }
 
   // scalastyle:off magic.number
+  test("Auto Register Feature") {
+    thriftJdbcTest.withJdbcStatement { statement =>
+      val resultSet = statement.executeQuery("SHOW TABLES")
+
+      val results = Stream.continually(resultSet)
+        .takeWhile(_.next())
+        .map(value => value.getString(1)).toList
+      // result has to contain the standard relation (which was auto registered)
+      assert(results contains (com.sap.spark.dstest.DefaultSource.standardRelation.toLowerCase))
+    }
+  }
+
   test("JDBC query execution") {
     thriftJdbcTest.withJdbcStatement { statement =>
       assertResult(4, "Row count mismatch") {

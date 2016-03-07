@@ -67,10 +67,10 @@ private[sql] trait CommonSapSQLContext
 
 private[sql] object CommonSapSQLContext {
   val PROPERTY_IGNORE_USE_STATEMENTS = "spark.vora.ignore_use_statements"
-  val PROPERTY_AUTO_REGISTER_TABLES = "spark.vora.autoregister"
+  val PROPERTY_AUTO_REGISTER_TABLES = "spark.sap.autoregister"
 
   private def registerTablesFromDs(provider: String, sqlc: SQLContext,
-                                   options: Map[String,String], ignoreConflicts: Boolean): Unit = {
+                                   options: Map[String, String], ignoreConflicts: Boolean): Unit = {
     DataFrame(sqlc, new RegisterAllTablesUsing(provider, options, ignoreConflicts))
   }
 }

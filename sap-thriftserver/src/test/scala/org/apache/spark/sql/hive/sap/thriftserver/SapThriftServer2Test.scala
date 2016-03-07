@@ -21,7 +21,8 @@ class SapThriftServer2Test(val master: String = "local",
                             val mode: ServerMode.Value = ServerMode.binary,
                             val bindHost: String = "localhost",
                             val applicationJar: Option[String] = None,
-                            val additionalJars: Option[String] = None
+                            val additionalJars: Option[String] = None,
+                            val additionalConfOptions: Option[Seq[String]] = None
                           )
   extends Logging {
 
@@ -59,6 +60,11 @@ class SapThriftServer2Test(val master: String = "local",
       case Some(s) => s
     }
 
+    val additionalConfParam = additionalConfOptions match {
+      case None => ""
+      case Some(s) => s.map(opt => s"--conf ${opt}").mkString(" ")
+    }
+
     /*
 
     This test should only start a local thriftserver during unit
@@ -71,6 +77,7 @@ class SapThriftServer2Test(val master: String = "local",
         |  --deploy-mode client
         |  --master $master
         |   $additionalJarsParam
+        |   $additionalConfParam
         |  --class org.apache.spark.sql.hive.thriftserver.SapThriftServer
         |  $applicationJarParam
         |  spark-internal

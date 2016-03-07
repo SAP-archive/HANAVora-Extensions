@@ -135,12 +135,18 @@ with DatasourceCatalog {
 
 /**
  * Companion Object handling already existing relations
+  *
+  * Contains a relation with the name "StandardTestTable" you might add additional ones. This one
+  * is for the thriftserver test.
+  *
  */
 object DefaultSource {
 
   private val standardSchema = StructType(Seq(StructField("field", IntegerType, nullable = true)))
 
-  private var tables = Seq.empty[String]
+  val standardRelation = "StandardTestTable"
+
+  private var tables = Seq(standardRelation)
   private var views = Map.empty[String, (String, String)]
 
   def addRelation(name: String): Unit = {
@@ -151,8 +157,12 @@ object DefaultSource {
     views = views + (name -> (kind, query))
   }
 
-  def reset(): Unit = {
-    tables = Seq.empty[String]
+  def reset(keepStandardRelations: Boolean = true): Unit = {
+    if (keepStandardRelations) {
+      tables = Seq(standardRelation)
+    } else {
+      tables = Seq.empty[String]
+    }
     views = Map.empty[String, (String, String)]
   }
 
