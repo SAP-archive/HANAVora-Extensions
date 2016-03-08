@@ -24,8 +24,8 @@ class RunDescribeTableSuite
     val values = result.map(_.toSeq.toList).toSet
     val expected =
       Set(
-        List("", "persons", "name", 0, true, "VARCHAR(*)", null, null, "", ""),
-        List("", "persons", "age", 1, false, "INTEGER", null, null, "", ""))
+        List("", "persons", "name", 1, true, "VARCHAR(*)", null, null, "", ""),
+        List("", "persons", "age", 2, false, "INTEGER", null, null, "", ""))
 
     assert(values == expected)
   }

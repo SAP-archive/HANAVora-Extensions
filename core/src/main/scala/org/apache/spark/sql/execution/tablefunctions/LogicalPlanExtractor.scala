@@ -34,7 +34,8 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
           Field.from(tableNameFor(e.exprId), e)
         }.zipWithIndex.flatMap {
           case (field, index) =>
-            FieldExtractor(index, field, checkStar).extract()
+            // + 1 since ordinal should start at 1
+            FieldExtractor(index + 1, field, checkStar).extract()
         }
     }
   }
