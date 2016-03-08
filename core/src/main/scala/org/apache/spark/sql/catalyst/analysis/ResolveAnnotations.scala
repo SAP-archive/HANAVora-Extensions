@@ -50,6 +50,7 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
   }
 
   // scalastyle:off cyclomatic.complexity
+  // scalastyle:off method.length
   private[sql] def buildMetadataSets(plan: LogicalPlan, updatedAliases: Set[ExprId])
     : Map[Seq[ExprId], Metadata] = {
 
@@ -72,6 +73,20 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
                   ((k :+ al.exprId) -> v)
               case None =>
                 sys.error(s"the attribute $al does not have any reference in $resultingMap")
+            }
+
+          case al@Alias(e:Expression, _) =>
+            resultingMap.find {
+              case (seq, _) => seq.nonEmpty && seq.last.equals(al.exprId)
+            } match {
+              case Some((k, v)) if updatedAliases.contains(al.exprId)  =>
+                resultingMap +=
+                  ((k :+ al.exprId) -> MetadataAccessor.propagateMetadata(v, al.metadata))
+              case Some((k, v)) =>
+                resultingMap +=
+                  ((k :+ al.exprId) -> v)
+              case None =>
+                resultingMap += (Seq(al.exprId) -> al.metadata)
             }
 
           case ar:AttributeReference =>

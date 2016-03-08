@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import com.sap.spark.dstest.DefaultSource
 import org.apache.spark.Logging
 import org.scalatest.FunSuite
 
@@ -8,6 +9,10 @@ class OlapSuite
   extends FunSuite
   with GlobalSapSQLContext
   with Logging {
+
+  override def beforeAll(): Unit = {
+    DefaultSource.reset()
+  }
 
   def createTable(): Unit = {
     sqlContext.sql(
@@ -228,5 +233,15 @@ class OlapSuite
       sqlContext.sql(
         """CREATE VIEW V AS SELECT A+1 @(foo = 'tar') FROM T""")
     }
+  }
+
+  test("annotations defined on aliased expression works correctly (bug 106027)") {
+    sqlContext.sql("""CREATE TABLE T (x int, y int) USING com.sap.spark.dstest""")
+
+    sqlContext.sql("""CREATE VIEW V
+                      |AS SELECT x + y as z@(Something='new') from T
+                      |USING com.sap.spark.dstest""".stripMargin)
+
+    verifyDescribe("SELECT * FROM V", Row("z", 0, "INTEGER", "Something", "new") :: Nil)
   }
 }

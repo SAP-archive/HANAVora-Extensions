@@ -1,5 +1,6 @@
 package org.apache.spark.sql.views
 
+import com.sap.spark.dstest.DefaultSource
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedRelation, UnresolvedAlias, UnresolvedStar}
 import org.apache.spark.sql.catalyst.plans.logical.{Project, Subquery}
@@ -13,6 +14,10 @@ class ViewsSuite extends FunSuite
   with HierarchyTestUtils
   with GlobalSapSQLContext
   with Logging {
+
+  override def beforeAll(): Unit = {
+    DefaultSource.reset()
+  }
 
   test("Rewire nested view after dropping and recreating nested view (bug 104634)") {
     val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
