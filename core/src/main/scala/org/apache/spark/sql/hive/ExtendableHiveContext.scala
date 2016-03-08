@@ -22,6 +22,10 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
   extends HiveContext(sparkContext) with SQLContextExtensionBase {
   self =>
 
+  // register the functions on instantiation
+  registerBuiltins(functionRegistry)
+  registerFunctions(functionRegistry)
+
   override protected[sql] def getSQLDialect(): ParserDialect = extendedParserDialect
 
   @transient
@@ -32,15 +36,6 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
     DataFrame(this,
       ddlParser.parse(sqlText, exceptionOnError = false)
     )
-  }
-
-  @transient
-  override protected[sql]
-  lazy val functionRegistry = {
-    val registry = new HiveFunctionRegistry(new SimpleFunctionRegistry)
-    registerBuiltins(registry)
-    registerFunctions(registry)
-    registry
   }
 
   @transient
