@@ -72,6 +72,21 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
       simpleTable, Nil, Seq(sources.Not(sources.In("a", Array(1, 2, 3, 4))))
     )
 
+  testBuildSelect(
+    "SELECT * FROM \"t\" WHERE \"a\" LIKE '%b'")(
+      simpleTable, Nil, Seq(sources.StringEndsWith("a", "b"))
+  )
+
+  testBuildSelect(
+    "SELECT * FROM \"t\" WHERE \"a\" LIKE 'b%'")(
+    simpleTable, Nil, Seq(sources.StringStartsWith("a", "b"))
+  )
+
+  testBuildSelect(
+    "SELECT * FROM \"t\" WHERE \"a\" LIKE '%b%'")(
+    simpleTable, Nil, Seq(sources.StringContains("a", "b"))
+  )
+
   testExpressionToSql("AVG(1) AS \"PartialAvg\"")(avg(1) as "PartialAvg")
   testExpressionToSql("SUM(1) AS \"PartialSum\"")(sum(1) as "PartialSum")
   testExpressionToSql("COUNT(1) AS \"PartialCount\"")(count(1) as "PartialCount")

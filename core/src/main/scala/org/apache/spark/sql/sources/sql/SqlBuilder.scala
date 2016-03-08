@@ -229,6 +229,9 @@ class SqlBuilder {
       case src.And(left, right) => s"(${filterToSql(left)} AND ${filterToSql(right)})"
       case src.Or(left, right) => s"(${filterToSql(left)} OR ${filterToSql(right)})"
       case src.Not(child) => s"NOT(${filterToSql(child)})"
+      case src.StringStartsWith(name, value) => s""""$name" LIKE '$value%'"""
+      case src.StringEndsWith(name, value) => s""""$name" LIKE '%$value'"""
+      case src.StringContains(name, value) => s""""$name" LIKE '%$value%'"""
       case x => sys.error(s"Failed to parse filter: $x")
     }
 
