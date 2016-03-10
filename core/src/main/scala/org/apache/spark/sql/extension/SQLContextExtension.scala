@@ -16,6 +16,14 @@ import org.apache.spark.sql.execution.datasources.DDLParser
 private[sql] trait SQLContextExtension {
 
   /**
+   * Additional check rules on a plan.
+   *
+   * @param analyzer The analyzer
+   * @return A sequence with additional check rules
+   */
+  protected def extendedCheckRules(analyzer: Analyzer): Seq[LogicalPlan => Unit]
+
+  /**
    * Additional resolution rules for the [[Analyzer]].
    *
    * @param analyzer The analyzer.

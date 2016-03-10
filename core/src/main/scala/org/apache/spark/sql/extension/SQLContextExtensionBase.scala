@@ -18,6 +18,8 @@ import scala.util.control.NonFatal
 private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
   self: SQLContext =>
 
+  override protected def extendedCheckRules(analyzer: Analyzer): Seq[LogicalPlan => Unit] = Nil
+
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] = Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] = Nil

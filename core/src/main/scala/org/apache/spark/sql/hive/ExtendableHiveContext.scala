@@ -6,6 +6,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.{Analyzer, _}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.ParserDialect
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.ExtractPythonUDFs
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension._
@@ -43,6 +44,10 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
     new HiveMetastoreCatalog(metadataHive, this)
       with OverrideCatalog with TemporaryFlagProxyCatalog
 
+
+  override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
+    PreWriteCheck(catalog) :: HierarchyUDFAnalysis(catalog) :: Nil
+
   /**
    * Copy of [[HiveContext]]'s [[Analyzer]] adding rules from our extensions.
    */
@@ -58,11 +63,7 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
           PreInsertCastAndRename ::
           Nil)
 
-      override val extendedCheckRules = Seq(
-        PreWriteCheck(catalog),
-        // TODO: Move this once bug #95571 is fixed.
-        HierarchyUDFAnalysis(catalog)
-      )
+      override val extendedCheckRules = ExtendableHiveContext.this.extendedCheckRules(this)
     }
 
   @transient

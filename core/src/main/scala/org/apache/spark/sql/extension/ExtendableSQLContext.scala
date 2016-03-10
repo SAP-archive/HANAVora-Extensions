@@ -4,6 +4,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.{ParserDialect, SimpleCatalystConf}
 import org.apache.spark.sql.execution.ExtractPythonUDFs
 import org.apache.spark.sql.execution.datasources._
@@ -56,6 +57,10 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
     catalog.unregisterTable(Seq(tableName))
   }
 
+
+  override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
+    PreWriteCheck(catalog) :: HierarchyUDFAnalysis(catalog) :: Nil
+
   /**
     * Use a [[SimpleCatalog]] (Spark default) mixed in with our [[TemporaryFlagProxyCatalog]].
     *
@@ -77,11 +82,7 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
           PreInsertCastAndRename ::
           Nil)
 
-      override val extendedCheckRules = Seq(
-        PreWriteCheck(catalog),
-        // TODO: Move this once bug #95571 is fixed.
-        HierarchyUDFAnalysis(catalog)
-      )
+      override val extendedCheckRules = ExtendableSQLContext.this.extendedCheckRules(this)
     }
 
   /**
