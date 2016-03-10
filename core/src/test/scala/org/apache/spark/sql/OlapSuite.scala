@@ -137,18 +137,28 @@ class OlapSuite
     )
   }
 
-  // TODO (YH) add more (similar) tests for INTERSECT and EXCEPT.
-  ignore("describe view of union adds up annotations column-wise") {
+  test("describe view on nested UNION works correctly") {
     createTable()
     sqlContext.sql("CREATE VIEW v AS SELECT * FROM" +
-      " (SELECT col @(key1 = 'value1') FROM t) t1" +
+      " (SELECT col AS col1 @(key1 = 'value1') FROM t) t1" +
       " UNION" +
-      " SELECT col @(key2 = 'value2') FROM t")
+      " SELECT col AS col1 @(key2 = 'value2') FROM t")
     verifyDescribe("v",
-      Row("col", "int", true, "foo", "bar") ::
-        Row("col", "int", true, "key1", "value1") ::
-        Row("col", "int", true, "key2", "value2") :: Nil
+      Row("col1", 0, "INTEGER", "foo", "bar") ::
+        Row("col1", 0, "INTEGER", "key1", "value1") :: Nil
     )
+  }
+
+  test("describe view on UNION works correctly") {
+    createTable()
+    sqlContext.sql("CREATE VIEW v AS SELECT * FROM t UNION SELECT * FROM t WHERE col > 1")
+    verifyDescribe("v", Row("col", 0, "INTEGER", "foo", "bar") :: Nil)
+  }
+
+  test("describe view on UNION ALL works correctly") {
+    createTable()
+    sqlContext.sql("CREATE VIEW v AS SELECT * FROM t UNION ALL SELECT * FROM t WHERE col > 1")
+    verifyDescribe("v", Row("col", 0, "INTEGER", "foo", "bar") :: Nil)
   }
 
   test("describe with filter on simple view") {

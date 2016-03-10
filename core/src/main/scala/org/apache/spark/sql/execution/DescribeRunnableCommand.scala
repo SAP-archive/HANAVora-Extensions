@@ -1,5 +1,6 @@
 package org.apache.spark.sql.execution
 
+import org.apache.spark.sql.catalyst.expressions.NamedExpression
 import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.IsLogicalRelation
@@ -32,15 +33,27 @@ case class DescribeRunnableCommand(plan: LogicalPlan) extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     val (fields: Seq[(Metadata, String, DataType)] , checkStar) = plan match {
-      case logical.Project(attributes, _) =>
-        (attributes.map(a => (a.metadata, a.name, a.dataType)), true)
-      case lr@IsLogicalRelation(_) =>
-        (lr.schema.fields.map(a => (a.metadata, a.name, a.dataType)).toSeq, false)
+      case logical.Aggregate(_, _, logical.Union(left, _)) =>
+        getAttributes(left)
+      case logical.Union(left, _) =>
+        getAttributes(left)
+      case default =>
+        getAttributes(default)
     }
     fields.zipWithIndex.flatMap {
       case ((metadata, name, dataType), index) =>
         getRows(metadata, name, dataType, index)(checkStar)
+      case default =>
+        throw new RuntimeException(s"could not get attributes of plan $default")
     }
+  }
+
+  private[this] def getAttributes(plan: LogicalPlan):
+  (Seq[(Metadata, String, DataType)], Boolean) = plan match {
+    case logical.Project(attributes, _) =>
+      (attributes.map(a => (a.metadata, a.name, a.dataType)), true)
+    case lr@IsLogicalRelation(_) =>
+      (lr.schema.fields.map(a => (a.metadata, a.name, a.dataType)).toSeq, false)
   }
 
   private def getRows(data: Metadata, name: String, dataType: DataType, index: Int)

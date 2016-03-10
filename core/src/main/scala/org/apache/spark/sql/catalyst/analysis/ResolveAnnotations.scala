@@ -2,12 +2,11 @@ package org.apache.spark.sql.catalyst.analysis
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.datasources.IsLogicalRelation
 import org.apache.spark.sql.types._
-import org.apache.spark.unsafe.types.UTF8String
+import org.apache.spark.sql.util.PlanUtils._
 
-
-import scala.collection.mutable
+import scala.collection.immutable.Queue
+import org.apache.spark.sql.util.CollectionUtil.RichSeq
 
 /**
   * Resolves [[AnnotatedAttribute]] in the query by applying a set of rules.
@@ -29,10 +28,10 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
 
   def apply(plan: LogicalPlan): LogicalPlan = {
     if (shouldApply(plan)) {
-      val (result1, updatedAliases) = transferMetadataToImmediateChild(plan)
-      val map = buildMetadataSets(result1, updatedAliases)
-      val result2 = setMetadata(result1, map)
-      result2
+      val withAppliedAnnotatedAttributes = applyAnnotatedAttributes(plan)
+      val pruned = prune(withAppliedAnnotatedAttributes)
+      val metadata = aggregateMetadata(pruned)
+      setMetadata(withAppliedAnnotatedAttributes, metadata)
     } else {
       plan
     }
@@ -49,73 +48,65 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
     }.isDefined
   }
 
-  // scalastyle:off cyclomatic.complexity
-  // scalastyle:off method.length
-  private[sql] def buildMetadataSets(plan: LogicalPlan, updatedAliases: Set[ExprId])
-    : Map[Seq[ExprId], Metadata] = {
-
-    var resultingMap = new mutable.HashMap[Seq[ExprId], Metadata]()
-    plan foreachUp {
-      case lr@IsLogicalRelation(_) =>
-        lr.output.foreach(attr => resultingMap += (Seq(attr.exprId) -> attr.metadata))
-      case Project(projectList, child) =>
-        projectList.foreach {
-
-          case al@Alias(a:AttributeReference, _) =>
-            resultingMap.find {
-              case (seq, _) => seq.nonEmpty && seq.last.equals(a.exprId)
-            } match {
-              case Some((k, v)) if updatedAliases.contains(al.exprId)  =>
-                resultingMap +=
-                  ((k :+ al.exprId) -> MetadataAccessor.propagateMetadata(v, al.metadata))
-              case Some((k, v)) =>
-                resultingMap +=
-                  ((k :+ al.exprId) -> v)
-              case None =>
-                sys.error(s"the attribute $al does not have any reference in $resultingMap")
-            }
-
-          case al@Alias(e:Expression, _) =>
-            resultingMap.find {
-              case (seq, _) => seq.nonEmpty && seq.last.equals(al.exprId)
-            } match {
-              case Some((k, v)) if updatedAliases.contains(al.exprId)  =>
-                resultingMap +=
-                  ((k :+ al.exprId) -> MetadataAccessor.propagateMetadata(v, al.metadata))
-              case Some((k, v)) =>
-                resultingMap +=
-                  ((k :+ al.exprId) -> v)
-              case None =>
-                resultingMap += (Seq(al.exprId) -> al.metadata)
-            }
-
-          case ar:AttributeReference =>
-            resultingMap.find {
-              case (seq, _) => seq.nonEmpty && seq.last.equals(ar.exprId)
-            } match {
-              case None =>
-                resultingMap += (Seq(ar.exprId) -> ar.metadata)
-              case default => default
-            }
-
-          case default => default
-        }
-      case default =>
-    }
-
-    // remove redundant sets.
-    resultingMap.keys.collect {
-      case k if resultingMap.keySet.exists(s => s.size > k.size && s.startsWith(k)) =>
-        resultingMap -= k
-    }
-
-    resultingMap.toMap
+  private[sql] def prune(plan: LogicalPlan): LogicalPlan = plan transformUp {
+    case Union(left, _) => left
+    case default => default
   }
 
+  private[sql] def applyAnnotatedAttributes(plan: LogicalPlan): LogicalPlan = {
+    removeDummyPlans2(plan transformUp {
+      case node =>
+        val planFixed = node transformExpressionsUp {
+          case attribute@AnnotatedAttribute(expr) => expr match {
+            case reference: AttributeReference =>
+              sys.error(s"I have annotated attribute $attribute that references an " +
+                s"attribute reference $reference")
+            case alias: Alias =>
+              withMetadata(alias, attribute.metadata)
+          }
+        }
+        DummyPlan2(removeExpressionPrefixes(planFixed))
+    })
+  }
+
+  private[sql] def collectNamedExpressions(plan: LogicalPlan): Queue[NamedExpression] = {
+    plan.toPostOrderSeq.foldLeft(Queue.empty[NamedExpression]) {
+      case (acc, node) =>
+        acc ++ node.expressions.flatMap(_.toPostOrderSeq).collect {
+          case n: NamedExpression => n
+        }
+    }.orderPreservingDistinct
+  }
+
+  private[sql] def aggregateMetadata(plan: LogicalPlan) = {
+    collectNamedExpressions(plan).foldLeft(Map.empty[Seq[ExprId], Metadata]) {
+      case (acc, item) =>
+        val targetId = item match {
+          case Alias(child: NamedExpression, _) => child.exprId
+          case default => default.exprId
+        }
+        acc.find {
+          case (seq, _) => seq.contains(targetId)
+        } match {
+          // Only aliases may override
+          case Some((k, v)) if item.isInstanceOf[Alias] =>
+            val newSeq = k.lastOption
+              .filter(_ != item.exprId)
+              .map(_ => k :+ item.exprId)
+              .getOrElse(k)
+            acc + (newSeq -> MetadataAccessor.propagateMetadata(v, item.metadata))
+          case default if !acc.keys.exists(_.contains(item.exprId)) =>
+            acc + (Seq(item.exprId) -> item.metadata)
+          case _ =>
+            acc
+        }
+    }
+  }
+
+  // scalastyle:off cyclomatic.complexity
   private[sql] def setMetadata(plan: LogicalPlan, sets: Map[Seq[ExprId], Metadata]): LogicalPlan = {
     val transformedPlan = plan transformUp {
-      case lr@IsLogicalRelation(_) => lr
-      case lp: LogicalPlan =>
+      case lp =>
         val planFixed = lp transformExpressionsDown {
           case attr:AttributeReference =>
             sets.find {
@@ -139,56 +130,7 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
     val temp = removeDummyPlans2(transformedPlan)
     temp
   }
-
-  private[sql] def transferMetadataToImmediateChild(plan: LogicalPlan)
-    : (LogicalPlan, Set[ExprId]) = {
-    var seq = new mutable.HashSet[ExprId]()
-
-    val transformedPlan = plan transformUp {
-      case lr@IsLogicalRelation(_) => lr
-      case lp: LogicalPlan =>
-        // move metadata from AnnotatedAttribute to the AttributeReference.
-        val planFixed = lp transformExpressionsUp {
-          case an@AnnotatedAttribute(al:Alias) =>
-            seq += al.exprId
-            withMetadata(al, an.metadata)
-          case an@AnnotatedAttribute(ar:AttributeReference) =>
-            sys.error(s"I have annotated attribute $an that references an attribute reference $ar")
-          case default => default
-        }
-        /** Now we need to delete the prefix in all the attributes. SPARK-8658. See below. */
-        DummyPlan2(removeExpressionPrefixes(planFixed))
-    }
-    val temp = removeDummyPlans2(transformedPlan)
-    (temp, seq.toSet)
-  }
-
-  // not used for now (should be removed?) (YH)
-  def hasUnresolvedAnnotationReferences(attr: AnnotatedAttribute): Boolean = {
-    attr.annotations.exists(p => p._2.isInstanceOf[AnnotationReference] && !p._2.resolved)
-  }
-
-  /**
-   * Transforms a metadata map to [[Metadata]] object which is used in table attributes.
-    *
-    * @param metadata the metadata map.
-   * @return the [[Metadata]] object.
-   */
-  protected def toTableMetadata(metadata: Map[String, Expression]): Metadata = {
-    val res = new MetadataBuilder()
-    metadata.foreach {
-      case (k, v:Literal) =>
-        v.dataType match {
-          case StringType => res.putString(k, v.value.asInstanceOf[UTF8String].toString())
-          case IntegerType => res.putLong(k, v.value.asInstanceOf[Long])
-          case DoubleType => res.putDouble(k, v.value.asInstanceOf[Double])
-          case NullType => res.putString(k, null)
-        }
-      case (k, v:AnnotationReference) =>
-        sys.error("column metadata can not have a reference to another column metadata")
-    }
-    res.build()
-  }
+  // scalastyle:on cyclomatic.complexity
 
   //
   // Code to workaround SPARK-8658.
@@ -216,9 +158,8 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
       newMetadata)(exprId = attr.exprId, qualifiers = attr.qualifiers
     )
 
-  private[this] def withMetadata(
-                                  attr: Alias,
-                                  newMetadata: Metadata): Alias =
+  private[this] def withMetadata(attr: Alias,
+                                 newMetadata: Metadata): Alias =
     attr.copy(attr.child, PREFIX.concat(attr.name))(attr.exprId, attr.qualifiers, Some(newMetadata))
 
   /** XXX: Remove prefix from all expression names. SPARK-8658. */

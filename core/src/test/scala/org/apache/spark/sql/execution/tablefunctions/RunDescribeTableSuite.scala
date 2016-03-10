@@ -1,6 +1,6 @@
 package org.apache.spark.sql.execution.tablefunctions
 
-import org.apache.spark.sql.GlobalSapSQLContext
+import org.apache.spark.sql.{Row, GlobalSapSQLContext}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class RunDescribeTableSuite
@@ -50,6 +50,29 @@ class RunDescribeTableSuite
       ("name" :: "persons" :: Nil) ::
       ("petName" :: "pets" :: Nil) :: Nil
     assert(values == expected)
+  }
+
+  test("describe view on UNION works correctly") {
+    testUnion()
+  }
+
+  test("describe view on UNION ALL works correctly") {
+    testUnion(unique = false)
+  }
+
+  def testUnion(unique: Boolean = true): Unit = {
+    sqlc.sql("CREATE VIEW v AS " +
+      "SELECT name AS leftOwner@(foo = 'bar') FROM persons " +
+      s"UNION ${if (!unique) "ALL" else ""} " +
+      "SELECT name AS rightOwner@(baz = 'qux') FROM persons")
+
+    val result = sqlc.sql("SELECT * FROM DESCRIBE_TABLE(SELECT * FROM v)").collect()
+    val actual = result.map(_.toSeq.toList).toSet
+
+    val expected =
+      Set(List("", "persons", "leftOwner", 1, true, "VARCHAR(*)", null, null, null, "foo", "bar"))
+
+    assert(actual == expected)
   }
 
   test("Run describe table if exists on non existent table returns empty result") {

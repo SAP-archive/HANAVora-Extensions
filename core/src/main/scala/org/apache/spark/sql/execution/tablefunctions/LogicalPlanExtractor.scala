@@ -1,10 +1,12 @@
 package org.apache.spark.sql.execution.tablefunctions
 
-import org.apache.spark.sql.catalyst.expressions.{NamedExpression, ExprId, Attribute}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.IsLogicalRelation
+import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.sql.SqlLikeRelation
-import org.apache.spark.sql.util.GenericUtil.RichGeneric
+import org.apache.spark.sql.util.PlanUtils._
+
+import scala.collection.immutable.Queue
 
 /** Extracts informations from a given logical plan.
   *
@@ -14,52 +16,44 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
   /** Intentionally left empty for now. */
   val tableSchema: String = ""
 
-  private object ExtractAttributes {
-    def unapply(plan: LogicalPlan): Option[(Seq[NamedExpression], Boolean)] = plan matchOptional {
-      case Project(projectList, _) => (projectList, true)
-      case lr@IsLogicalRelation(_) => (lr.output, false)
-    }
-  }
-
   lazy val columns: Seq[Seq[Any]] = {
-    val expressionIdMap = collectExpressionIdMap(plan)
-    def tableNameFor(id: ExprId): String = expressionIdMap.getOrElse(id, {
-      throw new Exception(s"NO ENTRY FOR $id, $expressionIdMap")
-      "UNKNOWN"
-    })
-
-    plan match {
-      case ExtractAttributes(expressions, checkStar) =>
-        expressions.map { e =>
-          Field.from(tableNameFor(e.exprId), e)
-        }.zipWithIndex.flatMap {
-          case (field, index) =>
-            // + 1 since ordinal should start at 1
-            FieldExtractor(index + 1, field, checkStar).extract()
-        }
+    val attributes = plan.output
+    val shouldCheckStar = plan.isInstanceOf[LogicalRelation]
+    attributes.map { e =>
+      Field.from(tableNameFor(e), e)
+    }.zipWithIndex.flatMap {
+      case (field, index) =>
+        // + 1 since ordinal should start at 1
+        FieldExtractor(index + 1, field, shouldCheckStar).extract()
     }
   }
 
-  /** Aggregates the table names with the corresponding expression ids
-    *
-    * @param plan The plan to traverse
-    * @return The relations between table identifiers and expression ids
-    */
-  private def collectExpressionIdMap(plan: LogicalPlan): Map[ExprId, String] = plan.collect {
-    case s@Subquery(alias, _) =>
-      s.output.map(out => (out.exprId, alias))
+  def tableNameFor(attribute: Attribute): String = {
+    val preOrderSeq = plan.toPreOrderSeq
+    val originalAttribute = preOrderSeq.foldLeft(attribute) {
+      case (attr, Project(projectList, _)) =>
+        projectList.collectFirst {
+          case alias@Alias(child: Attribute, _) if alias.exprId == attr.exprId =>
+            child
+        }.getOrElse(attr)
+      case (attr, default) =>
+        attr
+    }
 
-    case lr@IsLogicalRelation(r: SqlLikeRelation) =>
-      lr.output.map(out => (out.exprId, r.tableName))
+    val candidates = preOrderSeq.filter(_.output.exists(_.contains(originalAttribute))).reverse
 
-    case h: Hierarchy =>
-      h.parenthoodExpression.references flatMap {
-        case a: Attribute if h.child.output.exists(_.exprId == a.exprId) =>
-          None
-        case a =>
-          Some(a.exprId -> h.childAlias)
-      }
-  }.flatten.reverse.toMap
+    val nameCandidates = candidates.map(extractName)
+
+    nameCandidates.collectFirst {
+      case Some(name) => name
+    }.getOrElse(candidates.head.nodeName)
+  }
+
+  def extractName(plan: LogicalPlan): Option[String] = plan match {
+    case Subquery(alias, _) => Some(alias)
+    case LogicalRelation(r: SqlLikeRelation, _) => Some(r.tableName)
+    case _ => None
+  }
 
   def tablePart: Seq[Any] = {
     tableSchema :: Nil
