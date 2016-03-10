@@ -18,14 +18,21 @@ class RunDescribeTableSuite
     sqlc.createDataFrame(pets).registerTempTable("pets")
   }
 
+  val numericInt = new {
+    val precision = 32
+    val radix = 2
+    val scale = 0
+  }
+
   test("Run describe table on in memory data") {
     val result = sqlc.sql("SELECT * FROM describe_table(SELECT * FROM persons)").collect()
 
     val values = result.map(_.toSeq.toList).toSet
     val expected =
       Set(
-        List("", "persons", "name", 1, true, "VARCHAR(*)", null, null, "", ""),
-        List("", "persons", "age", 2, false, "INTEGER", null, null, "", ""))
+        List("", "persons", "name", 1, true, "VARCHAR(*)", null, null, null, null, null),
+        List("", "persons", "age", 2, false, "INTEGER",
+          numericInt.precision, numericInt.radix, numericInt.scale, null, null))
 
     assert(values == expected)
   }

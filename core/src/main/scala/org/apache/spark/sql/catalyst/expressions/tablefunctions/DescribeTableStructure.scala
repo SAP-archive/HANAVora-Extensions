@@ -28,15 +28,16 @@ object DescribeTableStructure {
 
   /** Fields used for the description of a column */
   object ColumnField {
-    val tableName: Attribute        = ("TABLE_NAME", StringType, NotNullable)
-    val name: Attribute             = ("COLUMN_NAME", StringType, NotNullable)
-    val ordinalPosition: Attribute  = ("ORDINAL_POSITION", IntegerType, NotNullable)
-    val isNullable: Attribute       = ("IS_NULLABLE", BooleanType, NotNullable)
-    val dataType: Attribute         = ("DATA_TYPE", StringType, NotNullable)
-    val numericPrecision: Attribute = ("NUMERIC_PRECISION", IntegerType, Nullable)
-    val numericScale: Attribute     = ("NUMERIC_SCALE", IntegerType, Nullable)
-    val annotationKey: Attribute    = ("ANNOTATION_KEY", StringType, Nullable)
-    val annotationValue: Attribute  = ("ANNOTATION_VALUE", StringType, Nullable)
+    val tableName: Attribute              = ("TABLE_NAME", StringType, NotNullable)
+    val name: Attribute                   = ("COLUMN_NAME", StringType, NotNullable)
+    val ordinalPosition: Attribute        = ("ORDINAL_POSITION", IntegerType, NotNullable)
+    val isNullable: Attribute             = ("IS_NULLABLE", BooleanType, NotNullable)
+    val dataType: Attribute               = ("DATA_TYPE", StringType, NotNullable)
+    val numericPrecision: Attribute       = ("NUMERIC_PRECISION", IntegerType, Nullable)
+    val numericPrecisionRadix: Attribute  = ("NUMERIC_PRECISION_RADIX", IntegerType, Nullable)
+    val numericScale: Attribute           = ("NUMERIC_SCALE", IntegerType, Nullable)
+    val annotationKey: Attribute          = ("ANNOTATION_KEY", StringType, Nullable)
+    val annotationValue: Attribute        = ("ANNOTATION_VALUE", StringType, Nullable)
   }
 
   /** The output structure that only has values related to column information. */
@@ -47,6 +48,7 @@ object DescribeTableStructure {
     ColumnField.isNullable ::
     ColumnField.dataType ::
     ColumnField.numericPrecision ::
+    ColumnField.numericPrecisionRadix ::
     ColumnField.numericScale ::
     ColumnField.annotationKey ::
     ColumnField.annotationValue :: Nil
