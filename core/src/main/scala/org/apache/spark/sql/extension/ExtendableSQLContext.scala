@@ -59,7 +59,9 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
 
 
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
-    PreWriteCheck(catalog) :: HierarchyUDFAnalysis(catalog) :: Nil
+    RecursiveViewAnalysis.apply _ ::
+      PreWriteCheck(catalog) ::
+      HierarchyUDFAnalysis(catalog) :: Nil
 
   /**
     * Use a [[SimpleCatalog]] (Spark default) mixed in with our [[TemporaryFlagProxyCatalog]].

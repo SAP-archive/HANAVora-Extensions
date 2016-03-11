@@ -5,7 +5,7 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedRelation, UnresolvedAlias, UnresolvedStar}
 import org.apache.spark.sql.catalyst.plans.logical.{Project, Subquery}
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
-import org.apache.spark.sql.{SQLConf, GlobalSapSQLContext, Row}
+import org.apache.spark.sql.{AnalysisException, SQLConf, GlobalSapSQLContext, Row}
 import org.scalatest.FunSuite
 
 import scala.util.Random
@@ -16,6 +16,7 @@ class ViewsSuite extends FunSuite
   with Logging {
 
   override def beforeAll(): Unit = {
+    super.beforeAll()
     DefaultSource.reset()
   }
 
@@ -168,6 +169,12 @@ class ViewsSuite extends FunSuite
 
     } finally {
       sqlContext.setConf(SQLConf.CASE_SENSITIVE.key, originalConf.toString)
+    }
+  }
+
+  test("Prohibit definition of recursive views (Bug 106028)") {
+    intercept[AnalysisException] {
+      sqlContext.sql("CREATE VIEW v AS SELECT * FROM v")
     }
   }
 

@@ -46,7 +46,10 @@ private[hive] class ExtendableHiveContext(@transient override val sparkContext: 
 
 
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
-    PreWriteCheck(catalog) :: HierarchyUDFAnalysis(catalog) :: Nil
+    RecursiveViewAnalysis.apply _ ::
+      PreWriteCheck(catalog) ::
+      HierarchyUDFAnalysis(catalog) ::
+      Nil
 
   /**
    * Copy of [[HiveContext]]'s [[Analyzer]] adding rules from our extensions.
