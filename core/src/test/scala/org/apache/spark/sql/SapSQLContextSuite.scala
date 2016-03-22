@@ -114,4 +114,10 @@ class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
 
     sqlContext.sql("SELECT * FROM test WHERE rand() < 0.1")
   }
+
+  test("test version fields") {
+    val sapSqlContext = sqlContext.asInstanceOf[CommonSapSQLContext]
+    assert(sapSqlContext.EXTENSIONS_VERSION.isEmpty)
+    assert(sapSqlContext.DATASOURCES_VERSION.isEmpty)
+  }
 }

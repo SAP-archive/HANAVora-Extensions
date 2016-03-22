@@ -6,6 +6,8 @@ import java.util.Properties
 import org.apache.spark.sql.extension._
 import org.apache.spark.sql.sources.commands.RegisterAllTablesUsing
 
+import scala.util.Try
+
 /**
   * Mixin for [[SQLContext]] derivatives providing functionality specific to SAP Spark extensions.
   * This trait is used both by [[SapSQLContext]] and [[org.apache.spark.sql.hive.SapHiveContext]]
@@ -18,6 +20,23 @@ private[sql] trait CommonSapSQLContext
   val supportedVersions: List[String] = List("1.5.0", "1.5.1", "1.5.2")
 
   checkSparkVersion(supportedVersions)
+
+  lazy private val projectProperties: Option[Properties] = Try {
+    val props = new Properties()
+    val stream = getClass.getResourceAsStream("/project.properties")
+    try {
+      props.load(stream)
+    } finally {
+      stream.close()
+    }
+    props
+  }.toOption
+
+  val EXTENSIONS_VERSION: Option[String] =
+    projectProperties.flatMap(props => Option(props.get("sapextensions.version").toString))
+  val DATASOURCES_VERSION: Option[String] =
+    projectProperties.flatMap(props => Option(props.get("datasourcedist.version").toString))
+
   logProjectVersion()
   // check if we have to automatically register tables
   sparkContext.getConf.getOption(CommonSapSQLContext.PROPERTY_AUTO_REGISTER_TABLES) match {
@@ -43,26 +62,13 @@ private[sql] trait CommonSapSQLContext
   }
 
   private[this] def logProjectVersion(): Unit = {
-    val prop = new Properties()
-    var input: InputStream = null
-    try {
-      input = getClass.getResourceAsStream("/project.properties")
-      prop.load(input)
-      logInfo(s"SapSQLContext [version: ${prop.getProperty("datasourcedist.version")}] created")
-    }
-    catch {
-      case e: Exception => logDebug("project.properties file does not exist")
-    }
-    if(input != null) {
-      try {
-        input.close()
+    DATASOURCES_VERSION match {
+      case None => {
+        logDebug("hanalite-spark-datasources version unknown")
       }
-      catch {
-        case e: Exception =>
-      }
+      case Some(version) => logInfo(s"SapSQLContext [version: $version] created")
     }
   }
-
 }
 
 private[sql] object CommonSapSQLContext {
