@@ -1,21 +1,19 @@
 package org.apache.spark.sql.sources.commands
 
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.catalyst.plans.logical.{Command, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{Command, LeafNode}
 
 /**
  * Returned for the "DROP TABLE [dbName.]tableName" command.
- * @param table The table to be dropped
+ * @param tableIdentifier The identifier of the table to be dropped
  */
 private[sql] case class DropCommand(
-                                     allowNotExisting: Boolean,
-                                     table: UnresolvedRelation,
-                                     cascade: Boolean)
-  extends LogicalPlan
+    allowNotExisting: Boolean,
+    tableIdentifier: TableIdentifier,
+    cascade: Boolean)
+  extends LeafNode
   with Command {
 
   override def output: Seq[Attribute] = Seq.empty
-
-  override def children: Seq[LogicalPlan] = Seq.empty
 }

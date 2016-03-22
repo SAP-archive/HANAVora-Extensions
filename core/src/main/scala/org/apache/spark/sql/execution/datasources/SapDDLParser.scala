@@ -334,14 +334,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val dropTable: Parser[LogicalPlan] =
     DROP ~> TABLE ~> (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
       case allowNotExisting ~ db ~ tbl ~ cascade =>
-        val tblIdentifier = db match {
-          case Some(dbName) =>
-            Seq(dbName, tbl)
-          case None =>
-            Seq(tbl)
-        }
-        DropCommand(allowNotExisting.isDefined,
-          UnresolvedRelation(tblIdentifier, None), cascade.isDefined)
+        val tableIdent = TableIdentifier(tbl, db)
+        DropCommand(allowNotExisting.isDefined, tableIdent, cascade.isDefined)
     }
 
   /**

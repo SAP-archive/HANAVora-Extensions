@@ -9,6 +9,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources.DDLParser
 import org.apache.spark.util.Utils
 
+import scala.util.Try
 import scala.util.control.NonFatal
 
 /**
@@ -17,6 +18,18 @@ import scala.util.control.NonFatal
   */
 private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
   self: SQLContext =>
+
+  /**
+   * Drops the temporary table with the given table name in the catalog. If the table has been
+   * cached/persisted before, it's also unpersisted. If there is an error in the cache
+   * resolution, still the table is dropped from the catalog.
+   *
+   * @param tableName the name of the table to be unregistered.
+   */
+  override def dropTempTable(tableName: String): Unit = {
+    Try(cacheManager.tryUncacheQuery(table(tableName)))
+    catalog.unregisterTable(Seq(tableName))
+  }
 
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[LogicalPlan => Unit] = Nil
 
