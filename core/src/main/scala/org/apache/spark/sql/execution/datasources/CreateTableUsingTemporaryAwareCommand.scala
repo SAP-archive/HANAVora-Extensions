@@ -37,6 +37,9 @@ case class CreateTableUsingTemporaryAwareCommand(
     dataSource match {
       case _: TemporaryAndPersistentNature =>
         // make sure we register that properly in the catalog
+        if(sqlContext.catalog.tableExists(Seq(tableIdentifier.table)) && !allowExisting) {
+          throw new RuntimeException(s"Table ${tableIdentifier.toString()} already exists")
+        }
         sqlContext.registerDataFrameAsTable(
           DataFrame(sqlContext, LogicalRelation(resolved.relation)), tableIdentifier.table)
         Seq.empty

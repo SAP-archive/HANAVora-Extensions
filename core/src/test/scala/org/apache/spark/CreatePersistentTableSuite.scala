@@ -64,6 +64,22 @@ class CreatePersistentTableSuite extends FunSuite with GlobalSapSQLContext {
     assert(result.contains(Row(twiceTest, false)))
   }
 
+  test("Create a table twice without if not exists flag -- should fail") {
+    sqlContext.sql(s"""CREATE TABLE $twiceTest
+                       |USING com.sap.spark.dstest
+                       |OPTIONS ()""".stripMargin)
+
+    intercept[RuntimeException] {
+      sqlContext.sql(s"""CREATE TABLE $twiceTest
+                         |USING com.sap.spark.dstest
+                         |OPTIONS ()""".stripMargin)
+    }
+
+    val result = sqlContext.tables().collect()
+
+    assert(result.contains(Row(twiceTest, false)))
+  }
+
   test(
     "Cannot create persistent table using a datasource that is not a TemporaryAndPersistentNature"
   ) {
