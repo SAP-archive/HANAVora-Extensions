@@ -1,9 +1,10 @@
 package org.apache.spark.sql.execution
 
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.sources.sql.View
-import org.apache.spark.sql.{AliasUnresolver, SQLContext}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.dsl.expressions._
+import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension.ExtendedPlanner
 import org.apache.spark.sql.sources._
@@ -11,54 +12,11 @@ import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.mockito.Mockito
 import org.scalatest.FunSuite
-import org.apache.spark.sql.catalyst.dsl.expressions._
-import org.apache.spark.sql.catalyst.dsl.plans._
-import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
 
 /**
  * Suite for testing the SapDDLStrategy.
  */
 class SapDDLStrategySuite extends FunSuite {
-  test("DescribeDatasource with no actual relation") {
-    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
-    val strategy = new SapDDLStrategy(planner)
-    val unresolved = UnresolvedRelation(Seq("test"))
-    val describe = new DescribeDatasource(unresolved)
-
-    Mockito.when(planner.optimizedRelationLookup(unresolved))
-           .thenReturn(None)
-
-    val command = strategy.apply(describe)
-    assert(command == ExecutedCommand(DescribeDatasourceCommand(None)) :: Nil)
-
-    Mockito.validateMockitoUsage()
-  }
-
-  test("DescribeDatasource with an actual relation") {
-    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
-    val strategy = new SapDDLStrategy(planner)
-    val unresolved = UnresolvedRelation(Seq("test"))
-    val describe = new DescribeDatasource(unresolved)
-    val logical = Mockito.mock[LogicalRelation](classOf[LogicalRelation])
-
-    val describable = new BaseRelation with DescribableRelation {
-      override def sqlContext: SQLContext = null
-      override def schema: StructType = null
-      override def describe: Map[String, String] = Map.empty
-    }
-
-
-    Mockito.when(logical.relation).thenReturn(describable)
-    Mockito.when(planner.optimizedRelationLookup(unresolved))
-           .thenReturn(Some(logical))
-
-    val command = strategy.apply(describe)
-    assert(command == ExecutedCommand(
-      DescribeDatasourceCommand(Some(describable))) :: Nil)
-
-    Mockito.validateMockitoUsage()
-  }
-
   test("CREATE HASH PARTITION function test") {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
     val strategy = new SapDDLStrategy(planner)

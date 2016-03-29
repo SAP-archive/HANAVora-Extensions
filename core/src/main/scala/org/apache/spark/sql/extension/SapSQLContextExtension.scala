@@ -25,6 +25,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveStarAnnotations(analyzer) ::
     ResolveAnnotations ::
     ResolveTableFunctions(analyzer) ::
+    ResolveDeepDescribe(analyzer) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =

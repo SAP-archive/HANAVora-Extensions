@@ -22,9 +22,9 @@ class SapDDLParserSuite
   val sqlParser = new SapParserDialect
   val ddlParser = new SapDDLParser(sqlParser.parse)
 
-  test("DESCRIBE DATASOURCE command") {
-    val parsed = ddlParser.parse("DESCRIBE DATASOURCE test")
-    assert(parsed == DescribeDatasource(UnresolvedRelation(Seq("test"))))
+  test("DEEP DESCRIBE command") {
+    val parsed = ddlParser.parse("DEEP DESCRIBE test")
+    assert(parsed == UnresolvedDeepDescribe(UnresolvedRelation(Seq("test"))))
   }
 
   test("OPTIONS (CONTENT) command") {

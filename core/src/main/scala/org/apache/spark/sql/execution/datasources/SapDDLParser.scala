@@ -49,7 +49,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val IGNORING = Keyword("IGNORING")
   protected val CONFLICTS = Keyword("CONFLICTS")
   protected val USE = Keyword("USE")
-  protected val DATASOURCE = Keyword("DATASOURCE")
+  protected val DEEP = Keyword("DEEP")
   protected val PARTITIONED = Keyword("PARTITIONED")
   protected val PARTITION = Keyword("PARTITION")
   protected val FUNCTION = Keyword("FUNCTION")
@@ -74,9 +74,9 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   lexical.delimiters += "$"
 
   protected lazy val describeDatasource: Parser[LogicalPlan] =
-    DESCRIBE ~> DATASOURCE ~> ident ^^ {
+    DEEP ~> DESCRIBE ~> ident ^^ {
       case tableName =>
-        DescribeDatasource(new UnresolvedRelation(Seq(tableName)))
+        UnresolvedDeepDescribe(new UnresolvedRelation(Seq(tableName)))
     }
 
   override protected lazy val createTable: Parser[LogicalPlan] =
