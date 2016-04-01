@@ -1,22 +1,12 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
-import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.sources.TemporaryFlagRelation
-
 /**
  * This trait is a thin wrapper of a logical plan for a cube view statement.
  */
-sealed trait CubeView extends LeafNode {
-  val plan: LogicalPlan
-
-  override def output: Seq[Attribute] = Seq.empty
-}
+sealed trait CubeView extends LeafNode with AbstractView with NoOutput
 
 object CubeView {
-  def unapply(plan: LogicalPlan): Option[LogicalPlan] = plan match {
-    case c: CubeView => Some(c.plan)
-    case _ => None
-  }
+  def unapply(cubeView: CubeView): Option[LogicalPlan] = Some(cubeView.plan)
 }
 
 /**
@@ -24,16 +14,12 @@ object CubeView {
  *
  * @param plan The query plan of the view.
  */
-case class PersistedCubeView(plan: LogicalPlan)
-  extends CubeView with TemporaryFlagRelation {
-  override def isTemporary(): Boolean = false
-}
+case class PersistedCubeView(plan: LogicalPlan) extends CubeView with Persisted
 
 /**
  * This class represents a cube view that is not persisted in a data source.
  *
  * @param plan The query plan of the view.
  */
-case class NonPersistedCubeView(plan: LogicalPlan)
-  extends CubeView
+case class NonPersistedCubeView(plan: LogicalPlan) extends CubeView with NonPersisted
 

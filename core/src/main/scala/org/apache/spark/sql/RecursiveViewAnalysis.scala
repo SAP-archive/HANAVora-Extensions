@@ -1,7 +1,7 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.plans.logical.{View, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan, View}
 import org.apache.spark.sql.execution.datasources.CreateViewCommand
 
 /**
@@ -19,7 +19,7 @@ object RecursiveViewAnalysis {
   private def containsViewIdentifier(name: String, plan: LogicalPlan): Boolean = plan.find {
     case UnresolvedRelation(ident, _) if Seq(name) == ident =>
       true
-    case View(child) => containsViewIdentifier(name, child)
+    case AbstractView(child) => containsViewIdentifier(name, child)
     case _ =>
       false
   }.isDefined

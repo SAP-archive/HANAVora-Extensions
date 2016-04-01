@@ -1,23 +1,12 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
-import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.sources.TemporaryFlagRelation
-
 /**
  * This trait is a thin wrapper of a logical plan for a dimension view statement.
  */
-sealed trait DimensionView extends LeafNode {
-  val plan: LogicalPlan
-
-  override def output: Seq[Attribute] = Seq.empty
-}
+sealed trait DimensionView extends LeafNode with AbstractView with NoOutput
 
 object DimensionView {
-  def unapply(plan: LogicalPlan): Option[LogicalPlan] = plan match {
-    case p: PersistedDimensionView => Some(p.plan)
-    case n: NonPersistedDimensionView => Some(n.plan)
-    case _ => None
-  }
+  def unapply(view: DimensionView): Option[LogicalPlan] = Some(view.plan)
 }
 
 /**
@@ -26,9 +15,7 @@ object DimensionView {
  * @param plan The query plan of the view.
  */
 case class PersistedDimensionView(plan: LogicalPlan)
-  extends DimensionView with TemporaryFlagRelation {
-  override def isTemporary(): Boolean = false
-}
+  extends DimensionView with Persisted
 
 /**
  * This class represents a dimension view that is not persisted in a data source.
@@ -36,5 +23,5 @@ case class PersistedDimensionView(plan: LogicalPlan)
  * @param plan The query plan of the view.
  */
 case class NonPersistedDimensionView(plan: LogicalPlan)
-  extends DimensionView
+  extends DimensionView with NonPersisted
 
