@@ -1,12 +1,28 @@
 package org.apache.spark.sql.sources.sql
 
-sealed trait ViewKind
+import org.apache.spark.sql.catalyst.plans.logical._
 
-object Plain extends ViewKind
+import scala.reflect._
 
-object Dimension extends ViewKind
+sealed trait ViewKind {
+  type A <: AbstractView with Persisted
+  val relatedTag: ClassTag[A]
+}
 
-object Cube extends ViewKind
+object Plain extends ViewKind {
+  type A = PersistedView
+  val relatedTag = classTag[A]
+}
+
+object Dimension extends ViewKind {
+  type A = PersistedDimensionView
+  val relatedTag = classTag[A]
+}
+
+object Cube extends ViewKind {
+  type A = PersistedCubeView
+  val relatedTag = classTag[A]
+}
 
 object ViewKind {
   def unapply(string: Option[String]): Option[ViewKind] = string match {

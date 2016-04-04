@@ -1,8 +1,8 @@
 package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView}
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.sources.sql.{View, DimensionView}
 import org.apache.spark.sql.types._
 
 /**
@@ -101,34 +101,28 @@ with DatasourceCatalog {
   /**
    * @inheritdoc
    */
-  override def createView(sqlContext: SQLContext, view: View, options: Map[String, String],
-                          allowExisting: Boolean): Unit = {
-    DefaultSource.addView(view.name.table, "view", options("VIEW_SQL"))
+  override def createView(input: CreateViewInput[PersistedView]): Unit = {
+    DefaultSource.addView(input.identifier.table, "view", input.options("VIEW_SQL"))
   }
 
   /**
    * @inheritdoc
    */
-  override def dropView(sqlContext: SQLContext, view: Seq[String], options: Map[String, String],
-                        allowNotExisting: Boolean): Unit = {
+  override def dropView(dropViewInput: DropViewInput): Unit = {
     // no-op
   }
 
   /**
    * @inheritdoc
    */
-  override def createDimensionView(sqlContext: SQLContext, view: DimensionView,
-                                   options: Map[String, String],
-                                   allowExisting: Boolean): Unit = {
-    DefaultSource.addView(view.name.table, "dimension", options("VIEW_SQL"))
+  override def createDimensionView(input: CreateViewInput[PersistedDimensionView]): Unit = {
+    DefaultSource.addView(input.identifier.table, "dimension", input.options("VIEW_SQL"))
   }
 
   /**
    * @inheritdoc
    */
-  override def dropDimensionView(sqlContext: SQLContext, view: Seq[String],
-                                 options: Map[String, String],
-                                 allowNotExisting: Boolean): Unit = {
+  override def dropDimensionView(dropViewInput: DropViewInput): Unit = {
     // no-op
   }
 }

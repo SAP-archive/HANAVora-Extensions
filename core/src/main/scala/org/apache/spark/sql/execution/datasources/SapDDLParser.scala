@@ -229,37 +229,36 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     */
   protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
     withConsumedInput(createViewUsing) ^^ {
-      case ((name, plan, provider, opts, allowExisting, ViewKind(kind)), text) => kind match {
-        case Dimension =>
-          CreatePersistentDimensionViewCommand(name, PersistedDimensionView(plan), provider,
-            opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
-        case Plain =>
-          CreatePersistentViewCommand(name, PersistedView(plan), provider,
-            opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
-        case Cube =>
-          CreatePersistentCubeViewCommand(name, PersistedCubeView(plan), provider,
-            opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
+      case ((name, plan, provider, opts, allowExisting, kind), text) =>
+        val view = kind match {
+          case Dimension => PersistedDimensionView(plan)
+          case Plain => PersistedView(plan)
+          case Cube => PersistedCubeView(plan)
+        }
+        CreatePersistentViewCommand(view, name, provider,
+          opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
       }
-    }
 
   /**
     * Resolves a DROP VIEW ... USING statement. For more information about the rationale behind
-    * this command please take a look at [[DropPersistentViewRunnableCommand]]
+    * this command please take a look at [[DropPersistentViewCommand]]
     */
   protected lazy val dropViewUsing: Parser[LogicalPlan] =
-    DROP ~> VIEW ~> (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ (USING ~> className) ~
+    DROP ~> viewKind ~ (IF ~> EXISTS).? ~ tableIdentifier ~ (USING ~> className) ~
       (OPTIONS ~> options).? ^^ {
-      case allowNotExisting ~ db ~ tbl ~ provider ~ opts =>
-        DropPersistentViewCommand(TableIdentifier(tbl, db),
-          provider, opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
+      case kind ~ allowNotExisting ~ identifier ~ provider ~ opts =>
+        DropPersistentViewCommand(identifier, provider,
+          opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)(kind.relatedTag)
     }
 
-  protected lazy val viewKind: Parser[String] = DIMENSION | CUBE
+  protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
+    case ViewKind(kind) => kind
+  }
 
   /** Create view parser rule */
   protected lazy val createViewUsing: Parser[(TableIdentifier, LogicalPlan,
-    String, Map[String, String], Boolean, Option[String])] =
-    (CREATE ~> viewKind.? <~ VIEW) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
+    String, Map[String, String], Boolean, ViewKind)] =
+    (CREATE ~> viewKind) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
       (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
       case kind ~ allowExisting ~ name ~ plan ~ provider ~ opts =>
         (name, plan, provider, opts.getOrElse(Map.empty[String, String]), allowExisting.isDefined,
@@ -311,8 +310,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
    * OPTIONS (hosts "host1,host2",
    *          paths "path1/to/file/file1.csv,path2/to/file/file2.csv",
    *          [eagerLoad "false"])`
-
-   * The eagerLoad parameter is set to "true" by default.
+    *
+    * The eagerLoad parameter is set to "true" by default.
    */
   protected lazy val appendTable: Parser[LogicalPlan] =
     APPEND ~> TABLE ~> (ident <~ ".").? ~ ident ~ (OPTIONS ~> options) ^^ {

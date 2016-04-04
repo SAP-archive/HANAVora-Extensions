@@ -612,13 +612,13 @@ OPTIONS (
     val statement = "CREATE VIEW v AS SELECT * FROM t USING com.sap.spark.vora"
 
     val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand[_]])
 
-    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.plan)
+      UnresolvedRelation("t" :: Nil))))(actual.view)
     assertResult(false)(actual.allowExisting)
-    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("VIEW_SQL" -> statement))(actual.options)
   }
@@ -628,9 +628,9 @@ OPTIONS (
       "(SELECT * FROM t) sq USING com.sap.spark.vora"
 
     val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand[_]])
 
-    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
 
     assertResult(
       PersistedView(
@@ -643,9 +643,9 @@ OPTIONS (
               UnresolvedRelation(Seq("t"), None)
             )
           )
-    )))(actual.plan)
+    )))(actual.view)
     assertResult(false)(actual.allowExisting)
-    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("VIEW_SQL" -> statement))(actual.options)
   }
@@ -657,13 +657,13 @@ OPTIONS (
                    |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand[_]])
 
-    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.plan)
+      UnresolvedRelation("t" :: Nil))))(actual.view)
     assertResult(true)(actual.allowExisting)
-    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2",
       "view_sql" -> statement.trim))(actual.options)
@@ -676,12 +676,12 @@ OPTIONS (
                       |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
-    val persistedViewCommand = parsed.asInstanceOf[CreatePersistentViewCommand]
-    assertResult(persistedViewCommand.viewIdentifier.table)("v")
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand[_]])
+    val persistedViewCommand = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
+    assertResult(persistedViewCommand.identifier.table)("v")
 
-    assert(persistedViewCommand.plan.isInstanceOf[PersistedView])
-    val persistedView = persistedViewCommand.plan.asInstanceOf[PersistedView]
+    assert(persistedViewCommand.view.isInstanceOf[PersistedView])
+    val persistedView = persistedViewCommand.view.asInstanceOf[PersistedView]
 
     assert(persistedView.plan.isInstanceOf[Project])
     val projection = persistedView.plan.asInstanceOf[Project]
@@ -726,11 +726,11 @@ OPTIONS (
                       |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[DropPersistentViewCommand])
+    assert(parsed.isInstanceOf[DropPersistentViewCommand[_]])
 
-    val actual = parsed.asInstanceOf[DropPersistentViewCommand]
+    val actual = parsed.asInstanceOf[DropPersistentViewCommand[_]]
     assertResult(true)(actual.allowNotExisting)
-    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
   }
@@ -808,13 +808,13 @@ OPTIONS (
                       |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[CreatePersistentDimensionViewCommand])
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand[_]])
 
-    val actual = parsed.asInstanceOf[CreatePersistentDimensionViewCommand]
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedDimensionView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.plan)
+      UnresolvedRelation("t" :: Nil))))(actual.view)
     assertResult(true)(actual.allowExisting)
-    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2",
       "view_sql" -> statement.trim))(actual.options)
@@ -849,13 +849,13 @@ OPTIONS (
                       |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[CreatePersistentCubeViewCommand])
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand[_]])
 
-    val actual = parsed.asInstanceOf[CreatePersistentCubeViewCommand]
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand[_]]
     assertResult(PersistedCubeView(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-      UnresolvedRelation("t" :: Nil))))(actual.plan)
+      UnresolvedRelation("t" :: Nil))))(actual.view)
     assertResult(true)(actual.allowExisting)
-    assertResult(TableIdentifier("v"))(actual.viewIdentifier)
+    assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2",
       "view_sql" -> statement.trim))(actual.options)

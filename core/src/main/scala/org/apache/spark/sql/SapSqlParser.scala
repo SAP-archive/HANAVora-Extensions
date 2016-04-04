@@ -1,12 +1,13 @@
 package org.apache.spark.sql
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.{CreateCubeViewCommand, CreateDimensionViewCommand, CreateViewCommand, SapDDLParser}
+import org.apache.spark.sql.execution.datasources.{CreateNonPersistentViewCommand, SapDDLParser}
 import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
-import org.apache.spark.sql.sources.sql.{ViewKind, Dimension, Cube, Plain}
+import org.apache.spark.sql.sources.sql.{Cube, Dimension, Plain, ViewKind}
 
 import scala.util.parsing.input.Position
 
@@ -112,16 +113,16 @@ with AnnotationParsingRules{
   /** Create temporary [dimension] view parser. */
   protected lazy val createView: Parser[LogicalPlan] =
     (CREATE ~> TEMPORARY.?) ~ (viewKind.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
-      case temp ~ ViewKind(kind) ~ name ~ query => kind match {
+      case temp ~ ViewKind(kind) ~ name ~ query =>
+        val view = kind match {
         case Dimension =>
-          CreateDimensionViewCommand(name, temp.isDefined,
-            NonPersistedDimensionView(query))
+          NonPersistedDimensionView(query)
         case Cube =>
-          CreateCubeViewCommand(name, temp.isDefined,
-            NonPersistedCubeView(query))
+          NonPersistedCubeView(query)
         case Plain =>
-          CreateViewCommand(name, temp.isDefined, NonPersistedView(query))
-      }
+          NonPersistedView(query)
+        }
+        CreateNonPersistentViewCommand(view, TableIdentifier(name), temp.isDefined)
     }
 
   protected lazy val describeTable: Parser[LogicalPlan] =

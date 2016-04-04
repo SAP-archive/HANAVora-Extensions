@@ -1,13 +1,10 @@
 package org.apache.spark.sql.execution
 
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.extension.ExtendedPlanner
-import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.mockito.Mockito
@@ -60,57 +57,6 @@ class SapDDLStrategySuite extends FunSuite {
     Mockito.validateMockitoUsage()
   }
   // scalastyle:on magic.number
-
-  test("CREATE VIEW USING test") {
-    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
-    val strategy = new SapDDLStrategy(planner)
-    val unresolved = UnresolvedRelation(Seq("test"))
-    val plan = unresolved.select('id)
-
-    val viewCommand = CreatePersistentViewCommand(TableIdentifier("test"), plan,
-      "com.sap.spark.vora", Map[String, String](), allowExisting = true)
-    val command = strategy.apply(viewCommand)
-
-    assert(command == ExecutedCommand(
-      CreatePersistentViewRunnableCommand(TableIdentifier("test"), plan,
-        "com.sap.spark.vora", Map[String, String](), allowExisting = true)) :: Nil)
-    Mockito.validateMockitoUsage()
-    Mockito.validateMockitoUsage()
-  }
-
-  test("CREATE DIMENSION VIEW USING test") {
-    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
-    val strategy = new SapDDLStrategy(planner)
-    val unresolved = UnresolvedRelation(Seq("test"))
-    val plan = unresolved.select('id)
-
-    val viewCommand = CreatePersistentDimensionViewCommand(TableIdentifier("test"), plan,
-      "com.sap.spark.vora", Map[String, String](), allowExisting = true)
-    val command = strategy.apply(viewCommand)
-
-    assert(command == ExecutedCommand(
-      CreatePersistentDimensionViewRunnableCommand(TableIdentifier("test"), plan,
-        "com.sap.spark.vora", Map[String, String](), allowExisting = true)) :: Nil)
-    Mockito.validateMockitoUsage()
-    Mockito.validateMockitoUsage()
-  }
-
-  test("DROP VIEW USING test") {
-    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
-    val strategy = new SapDDLStrategy(planner)
-    val unresolved = UnresolvedRelation(Seq("test"))
-    val plan = unresolved.select('id)
-
-    val viewCommand = DropPersistentViewCommand(TableIdentifier("test"), "com.sap.spark.vora",
-      Map[String, String](), allowNotExisting = true)
-    val command = strategy.apply(viewCommand)
-
-    assert(command == ExecutedCommand(
-      DropPersistentViewRunnableCommand(TableIdentifier("test"), "com.sap.spark.vora",
-        Map[String, String](), allowNotExisting = true)) :: Nil)
-    Mockito.validateMockitoUsage()
-    Mockito.validateMockitoUsage()
-  }
 
   test("SHOW TABLES USING test") {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])

@@ -56,26 +56,8 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
     strideParts) =>
       ExecutedCommand(CreateRangeIntervalPartitioningFunctionCommand(options, name, datatype,
         start, end, strideParts, provider)) :: Nil
-    case cv@CreateViewCommand(name, temp, query) =>
-      ExecutedCommand(cv) :: Nil
     case cmd@UseStatementCommand(input) =>
       ExecutedCommand(cmd) :: Nil
-    case CreatePersistentViewCommand(viewIdentifier, plan, provider, options, allowExisting) =>
-      ExecutedCommand(CreatePersistentViewRunnableCommand(viewIdentifier, plan, provider,
-        options, allowExisting)) :: Nil
-    case DropPersistentViewCommand(viewIdentifier, provider, options, allowNotExisting) =>
-      ExecutedCommand(DropPersistentViewRunnableCommand(viewIdentifier, provider,
-        options, allowNotExisting)) :: Nil
-    case cdv@CreateDimensionViewCommand(name, temp, query) =>
-      ExecutedCommand(cdv) :: Nil
-    case CreatePersistentCubeViewCommand(viewIdentifier, plan, provider, options,
-    allowExisting) =>
-      ExecutedCommand(CreatePersistentCubeViewRunnableCommand(viewIdentifier, plan, provider,
-        options, allowExisting)) :: Nil
-    case CreatePersistentDimensionViewCommand(viewIdentifier, plan, provider, options,
-    allowExisting) =>
-      ExecutedCommand(CreatePersistentDimensionViewRunnableCommand(viewIdentifier, plan, provider,
-        options, allowExisting)) :: Nil
     case DescribeTableUsingCommand(provider, name, options) =>
       ExecutedCommand(DescribeTableUsingRunnableCommand(provider, name, options)) :: Nil
     case _ => Nil

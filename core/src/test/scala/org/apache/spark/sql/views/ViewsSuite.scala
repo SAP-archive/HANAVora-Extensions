@@ -2,18 +2,31 @@ package org.apache.spark.sql.views
 
 import com.sap.spark.dstest.DefaultSource
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedRelation, UnresolvedAlias, UnresolvedStar}
-import org.apache.spark.sql.catalyst.plans.logical.{Project, Subquery}
+import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedRelation, UnresolvedStar}
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.execution.datasources.{CreatePersistentViewCommand, ProviderException}
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
-import org.apache.spark.sql.{AnalysisException, SQLConf, GlobalSapSQLContext, Row}
+import org.apache.spark.sql.sources._
+import org.mockito.Mockito._
 import org.scalatest.FunSuite
+import org.scalatest.mock.MockitoSugar
 
 import scala.util.Random
 
 class ViewsSuite extends FunSuite
   with HierarchyTestUtils
   with GlobalSapSQLContext
+  with MockitoSugar
   with Logging {
+
+  case object Dummy extends LeafNode with NoOutput
+
+  class DummyViewProvider extends ViewProvider {
+    override def createView(createViewInput: CreateViewInput[PersistedView]): Unit = ()
+    override def dropView(dropViewInput: DropViewInput): Unit = ()
+  }
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -34,6 +47,7 @@ class ViewsSuite extends FunSuite
 
     // drop the view v1.
     sqlContext.catalog.unregisterTable("v1" :: Nil)
+
 
     // create v1 again using different schema.
     sqlContext.sql("CREATE VIEW v1 AS SELECT * FROM animals")
@@ -194,5 +208,38 @@ class ViewsSuite extends FunSuite
       Project(
         UnresolvedAlias(UnresolvedStar(None)) :: Nil,
         UnresolvedRelation(Seq("t")))))(actual)
+  }
+
+  test("Valid view provider is issued to create view") {
+    val provider = spy(new DummyViewProvider)
+
+    implicit val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOf("qux")).thenReturn(provider)
+
+    val viewCommand =
+      CreatePersistentViewCommand(PersistedView(Dummy),
+        TableIdentifier("foo"), "qux", Map.empty, allowExisting = true)
+
+    viewCommand.execute(sqlContext)
+    verify(provider, times(1)).toSingleViewProvider
+    verify(provider, times(1))
+      .createView(CreateViewInput(sqlContext, Map.empty, TableIdentifier("foo"),
+        PersistedView(Dummy), allowExisting = true))
+  }
+
+  test("Upon invalid providers, an exception is thrown") {
+    val provider = spy(new DummyViewProvider)
+
+    implicit val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOf("qux")).thenReturn(provider)
+
+    val viewCommand =
+      CreatePersistentViewCommand(PersistedDimensionView(Dummy),
+        TableIdentifier("foo"), "qux", Map.empty, allowExisting = true)
+
+    intercept[ProviderException] {
+      viewCommand.execute(sqlContext)
+    }
+    verify(provider, times(1)).toSingleViewProvider
   }
 }

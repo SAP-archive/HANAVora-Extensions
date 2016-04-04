@@ -1,8 +1,9 @@
 package org.apache.spark.sql
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan, View}
-import org.apache.spark.sql.execution.datasources.CreateViewCommand
+import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan}
+import org.apache.spark.sql.execution.datasources.AbstractCreateViewCommand
 
 /**
  * Checks that views cannot be recursively defined on themselves.
@@ -10,14 +11,16 @@ import org.apache.spark.sql.execution.datasources.CreateViewCommand
 object RecursiveViewAnalysis {
   def apply(plan: LogicalPlan): Unit = {
     plan.foreach {
-      case CreateViewCommand(name, _, query) if containsViewIdentifier(name, query) =>
-        throw new AnalysisException(s"The view $name cannot be defined recursively.")
+      case c:AbstractCreateViewCommand[_] if containsViewIdentifier(c.identifier, c.view.plan) =>
+        throw new AnalysisException(s"The view ${c.identifier.table} " +
+          s"cannot be defined recursively.")
       case _ =>
     }
   }
 
-  private def containsViewIdentifier(name: String, plan: LogicalPlan): Boolean = plan.find {
-    case UnresolvedRelation(ident, _) if Seq(name) == ident =>
+  private def containsViewIdentifier(name: TableIdentifier,
+                                     plan: LogicalPlan): Boolean = plan.find {
+    case UnresolvedRelation(ident, _) if ident == name.toSeq =>
       true
     case AbstractView(child) => containsViewIdentifier(name, child)
     case _ =>

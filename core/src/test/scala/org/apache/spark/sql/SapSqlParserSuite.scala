@@ -2,15 +2,16 @@ package org.apache.spark.sql
 
 import com.sap.spark.PlanTest
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.SimpleCatalystConf
+import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.{CreateDimensionViewCommand, CreateViewCommand}
+import org.apache.spark.sql.execution.datasources.CreateNonPersistentViewCommand
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.FunSuite
+
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 
@@ -137,18 +138,18 @@ class SapSqlParserSuite
   test("create temporary view") {
     val parser = new SapParserDialect
     val result = parser.parse("CREATE TEMPORARY VIEW myview AS SELECT 1 FROM mytable")
-    val expected = CreateViewCommand("myview", isTemporary = true,
-      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil)))
-    )
+    val expected = CreateNonPersistentViewCommand(
+      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))),
+      TableIdentifier("myview"), temporary = true)
     comparePlans(expected, result)
   }
 
   test("create view") {
     val parser = new SapParserDialect
     val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
-    val expected = CreateViewCommand("myview", isTemporary = false,
-      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil)))
-    )
+    val expected = CreateNonPersistentViewCommand(
+      NonPersistedView(Project(AliasUnresolver(Literal(1)), UnresolvedRelation("mytable" :: Nil))),
+      TableIdentifier("myview"), temporary = false)
     comparePlans(expected, result)
   }
 
@@ -162,7 +163,7 @@ class SapSqlParserSuite
                                  SET Node
                                 ) AS H
                               """.stripMargin)
-    val expected = CreateViewCommand("HV", isTemporary = true,
+    val expected = CreateNonPersistentViewCommand(
       NonPersistedView(Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation("T1" :: Nil, Some("v")),
         parenthoodExpression =
@@ -171,7 +172,7 @@ class SapSqlParserSuite
         startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
         searchBy = Nil,
         nodeAttribute = UnresolvedAttribute("Node")
-      )))))
+      )))), TableIdentifier("HV"), temporary = true)
     comparePlans(expected, result)
   }
 
@@ -191,15 +192,15 @@ class SapSqlParserSuite
       "H AS HL @ (foo = 1.23) " +
       "FROM atable")
 
-    assert(result.isInstanceOf[CreateViewCommand])
+    assert(result.isInstanceOf[CreateNonPersistentViewCommand[_]])
 
-    val createView = result.asInstanceOf[CreateViewCommand]
+    val createView = result.asInstanceOf[CreateNonPersistentViewCommand[_]]
 
-    assertResult(createView.name)("aview")
+    assertResult(createView.identifier.table)("aview")
 
-    assert(createView.query.isInstanceOf[NonPersistedView])
+    assert(createView.view.isInstanceOf[NonPersistedView])
 
-    val nonPersistedView = createView.query.asInstanceOf[NonPersistedView]
+    val nonPersistedView = createView.view.asInstanceOf[NonPersistedView]
 
     assert(nonPersistedView.plan.isInstanceOf[Project])
 
@@ -262,10 +263,9 @@ class SapSqlParserSuite
   test("create dimension view") {
     val parser = new SapParserDialect
     val result = parser.parse("CREATE DIMENSION VIEW myview AS SELECT 1 FROM mytable")
-    val expected = CreateDimensionViewCommand("myview", isTemporary = false,
+    val expected = CreateNonPersistentViewCommand(
       NonPersistedDimensionView(Project(AliasUnresolver(Literal(1)),
-        UnresolvedRelation("mytable" :: Nil)))
-    )
+        UnresolvedRelation("mytable" :: Nil))), TableIdentifier("myview"), temporary = false)
     comparePlans(expected, result)
   }
 
