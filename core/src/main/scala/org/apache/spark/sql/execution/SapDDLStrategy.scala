@@ -56,6 +56,9 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
     strideParts) =>
       ExecutedCommand(CreateRangeIntervalPartitioningFunctionCommand(options, name, datatype,
         start, end, strideParts, provider)) :: Nil
+    case DropPartitioningFunction(options, name, provider, allowNotExisting) =>
+      ExecutedCommand(DropPartitioningFunctionCommand(options, name, allowNotExisting,
+        provider)) :: Nil
     case cmd@UseStatementCommand(input) =>
       ExecutedCommand(cmd) :: Nil
     case DescribeTableUsingCommand(provider, name, options) =>

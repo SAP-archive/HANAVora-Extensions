@@ -69,4 +69,23 @@ trait PartitioningFunctionProvider {
                                               end: Int,
                                               strideParts: Either[Int, Int]): Unit
 
+  /**
+   * Drops an existing partitioning function. If the provided function is referenced by any
+   * existing table or it does not exist, the [[RuntimeException]] is thrown. No exception
+   * will be thrown if the IF EXIST statement has been used for a non-existing function.
+   *
+   * @param sqlContext The Spark SQL context
+   * @param parameters The configuration parameters
+   * @param name Name of the function to create
+   * @param allowNotExisting The flag pointing whether an exception should
+   *                         be thrown when the function does not exist
+   */
+  @throws[RuntimeException]("if no function with the provided name and datatypes is defined " +
+    "and the IF EXIST statement has not been used")
+  @throws[RuntimeException]("if the provided function is referenced by any existing table")
+  def dropPartitioningFunction(sqlContext: SQLContext,
+                               parameters: Map[String, String],
+                               name: String,
+                               allowNotExisting: Boolean)
+
 }

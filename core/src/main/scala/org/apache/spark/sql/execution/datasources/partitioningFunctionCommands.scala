@@ -104,3 +104,30 @@ private[sql] case class CreateRangeIntervalPartitioningFunctionCommand
   }
 
 }
+
+/**
+ * This command drops a partitioning function with the provided definition.
+ *
+ * @param parameters The configuration parameters
+ * @param name The function name
+ * @param allowNotExisting The flag pointing whether an exception should
+ *                         be thrown when the function does not exist
+ * @param provider The datasource provider (has to implement [[PartitioningFunctionProvider]])
+ */
+private[sql] case class DropPartitioningFunctionCommand
+(parameters: Map[String, String], name: String, allowNotExisting: Boolean, provider: String)
+  extends RunnableCommand {
+
+  override def run(sqlContext: SQLContext): Seq[Row] = {
+    val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
+
+    dataSource match {
+      case pfp: PartitioningFunctionProvider =>
+        pfp.dropPartitioningFunction(sqlContext, parameters, name, allowNotExisting)
+        Seq.empty
+      case _ => throw new RuntimeException("The provided datasource does not support " +
+        "definition of partitioning functions.")
+    }
+  }
+
+}

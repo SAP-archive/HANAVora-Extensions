@@ -26,6 +26,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       createHashPartitionFunction |
       createRangeSplitPartitionFunction |
       createRangeIntervalPartitionFunction |
+      dropPartitionFunction |
       appendTable |
       dropTable |
       describeTable |
@@ -335,6 +336,19 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       case allowNotExisting ~ db ~ tbl ~ cascade =>
         val tableIdent = TableIdentifier(tbl, db)
         DropCommand(allowNotExisting.isDefined, tableIdent, cascade.isDefined)
+    }
+
+  /**
+   * Resolves the DROP PARTITIONING FUNCTION statement.
+   * The only parameter is the function definition passed by
+   * the user,
+   */
+  protected lazy val dropPartitionFunction: Parser[LogicalPlan] =
+    DROP ~> PARTITION ~> FUNCTION ~> (IF ~> EXISTS).? ~ ident ~
+      (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+      case allowNotExisting ~ name ~ provider ~ opts =>
+        val options = opts.getOrElse(Map.empty[String, String])
+        DropPartitioningFunction(options, name, provider, allowNotExisting.isDefined)
     }
 
   /**

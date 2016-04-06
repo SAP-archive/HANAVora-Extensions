@@ -3,7 +3,7 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.{Literal, Alias, AnnotatedAttribute}
+import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
@@ -606,6 +606,67 @@ OPTIONS (
         |zkurls "1.1.1.1,2.2.2.2")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement20))
+  }
+
+  test("Parse a correct DROP PARTITION FUNCTION statement") {
+    val testTable =
+      """DROP PARTITION FUNCTION test
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |discovery "local")
+      """.stripMargin
+    val parsedStmt = ddlParser.parse(testTable)
+    assert(ddlParser.parse(testTable).isInstanceOf[DropPartitioningFunction])
+
+    val dpf = parsedStmt.asInstanceOf[DropPartitioningFunction]
+    assert(dpf.parameters.contains("discovery"))
+    assert(dpf.parameters("discovery") == "local")
+    assert(dpf.name == "test")
+    assert(!dpf.allowNotExisting)
+    assert(dpf.provider == "com.sap.spark.vora")
+  }
+
+  test("Parse a correct DROP PARTITION FUNCTION IF EXISTS statement") {
+    val testTable =
+      """DROP PARTITION FUNCTION IF EXISTS test
+        |USING com.sap.spark.vora
+        |OPTIONS (
+        |discovery "local")
+      """.stripMargin
+    val parsedStmt = ddlParser.parse(testTable)
+    assert(ddlParser.parse(testTable).isInstanceOf[DropPartitioningFunction])
+
+    val dpf = parsedStmt.asInstanceOf[DropPartitioningFunction]
+    assert(dpf.parameters.contains("discovery"))
+    assert(dpf.parameters("discovery") == "local")
+    assert(dpf.name == "test")
+    assert(dpf.allowNotExisting)
+    assert(dpf.provider == "com.sap.spark.vora")
+  }
+
+  test("Do not parse incorrect DROP PARTITION FUNCTION statements") {
+    val invStatement1 =
+      """DROP FUNCTION test
+        |USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement1))
+
+    val invStatement2 =
+      """DROP PARTITION FUNCTION
+        |USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement2))
+
+    val invStatement3 =
+      """DROP PARTITION FUNCTION test
+        |USG com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement3))
+
+    val invStatement4 =
+      """DROP PARTITION FUNCTION test
+      """.stripMargin
+    intercept[SapParserException](ddlParser.parse(invStatement4))
   }
 
   test("Parse correct CREATE VIEW USING") {

@@ -71,3 +71,23 @@ case class CreateRangeIntervalPartitioningFunction(parameters: Map[String, Strin
                                                    end: Int,
                                                    strideParts: Either[Int, Int])
 extends CreatePartitioningFunction
+
+/**
+ * Used to represent the operation of deletion of a partitioning function.
+ *
+ * @param parameters The configuration parameters
+ * @param name The function name
+ * @param provider The provider of the datasource for the function
+ * @param allowNotExisting The flag pointing whether an exception should
+ *                         be thrown when the function does not exist
+ */
+sealed case class DropPartitioningFunction(parameters: Map[String, String],
+                                           name: String,
+                                           provider: String,
+                                           allowNotExisting: Boolean)
+  extends LogicalPlan with Command {
+
+  override def output: Seq[Attribute] = Seq.empty
+  override def children: Seq[LogicalPlan] = Seq.empty
+
+}

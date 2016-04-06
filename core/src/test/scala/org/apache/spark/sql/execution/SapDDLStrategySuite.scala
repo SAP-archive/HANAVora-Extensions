@@ -58,6 +58,19 @@ class SapDDLStrategySuite extends FunSuite {
   }
   // scalastyle:on magic.number
 
+  test("DROP PARTITION function test") {
+    val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
+    val strategy = new SapDDLStrategy(planner)
+    val dpf = new DropPartitioningFunction(Map.empty, "test", "com.sap.spark.vora",
+      false)
+
+    val command = strategy.apply(dpf)
+    assert(command == ExecutedCommand(DropPartitioningFunctionCommand(Map.empty,
+      "test", allowNotExisting = false, "com.sap.spark.vora")) :: Nil)
+
+    Mockito.validateMockitoUsage()
+  }
+
   test("SHOW TABLES USING test") {
     val planner = Mockito.mock[ExtendedPlanner](classOf[ExtendedPlanner])
     val strategy = new SapDDLStrategy(planner)
