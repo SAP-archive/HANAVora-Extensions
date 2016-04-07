@@ -20,20 +20,9 @@ class HierarchyUDFsSuite
   }
 
   def testBinaryUdf(udf: String, expected: Set[Row], buildStrategy: String): Unit = {
-    val rdd = sc.parallelize(animalsHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    createAnimalsTable(sqlContext)
     sc.conf.set("hierarchy.always", buildStrategy)
-    hSrc.registerTempTable("h_src")
-    val queryString = """
-    SELECT name, node FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred IS NULL
-      SET node
-      ) AS H"""
-
-    val hierarchy = sqlContext.sql(queryString)
+    val hierarchy = sqlContext.sql(hierarchySQL(animalsTable, "name, node"))
     hierarchy.registerTempTable("h")
     val query = s"SELECT l.name, r.name, $udf(l.node, r.node) FROM h l, h r"
     val result = sqlContext.sql(query).collect().toSet
@@ -50,20 +39,9 @@ class HierarchyUDFsSuite
   }
 
   def testUnaryUdf(udf: String, expected: Set[Row], buildStrategy: String): Unit = {
-    val rdd = sc.parallelize(animalsHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
+    createAnimalsTable(sqlContext)
     sc.conf.set("hierarchy.always", buildStrategy)
-    hSrc.registerTempTable("h_src")
-    val queryString = """
-    SELECT name, node FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred IS NULL
-      SET node
-      ) AS H"""
-
-    val hierarchy = sqlContext.sql(queryString)
+    val hierarchy = sqlContext.sql(hierarchySQL(animalsTable, "name, node"))
     hierarchy.registerTempTable("h10")
     val query = s"SELECT name, $udf(node) FROM h10"
     val result = sqlContext.sql(query).collect().toSet

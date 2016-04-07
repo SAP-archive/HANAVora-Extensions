@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.expressions.{IsNull, EqualTo, AttributeRefe
 import org.apache.spark.sql.types.Node
 import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.apache.spark.sql.types._
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import scala.util.Random
 
@@ -13,12 +13,19 @@ import scala.util.Random
 // scalastyle:off file.size.limit
 class HierarchySuite
   extends FunSuite
+  with BeforeAndAfter
   with HierarchyTestUtils
   with GlobalSapSQLContext
   with Logging {
 
+  before {
+    createOrgTable(sqlContext)
+    createPartsTable(sqlContext)
+    createAddressesTable(sqlContext)
+  }
+
   implicit class Crossable[X](xs: Traversable[X]) {
-    def cross[Y](ys: Traversable[Y]): Traversable[(X,Y)] =
+    def cross[Y](ys: Traversable[Y]): Traversable[(X, Y)] =
       for { x <- xs; y <- ys } yield (x, y)
   }
 
@@ -26,38 +33,21 @@ class HierarchySuite
     val unexpectedElements = actual -- expected
     val missingElements = expected -- actual
     if (unexpectedElements.nonEmpty || missingElements.nonEmpty) {
-      fail(
-        s"""
-           |Failed set comparison:
-           |  Unexpected elements:
-           |    $unexpectedElements
-           |  Missing elements:
-           |    $missingElements
-         """.stripMargin)
+      fail(s"""|Failed set comparison:
+               |  Unexpected elements:
+               |    $unexpectedElements
+               |  Missing elements:
+               |    $missingElements""".stripMargin)
     }
   }
 
   test("test hierarchy self join on hierarchy-UDF using repeated derivation") {
-    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
-    hSrc.registerTempTable("hSrc")
-
     val queryString =
-      """
+      s"""
         |SELECT A.name, B.name
         |FROM
-        |(SELECT name, node
-        |  FROM HIERARCHY
-        |     (USING hSrc AS v JOIN PARENT u ON v.pred = u.succ
-        |     SEARCH BY ord ASC
-        |     START WHERE pred IS NULL
-        |     SET node) AS H) A,
-        |(SELECT name, node
-        |  FROM HIERARCHY
-        |     (USING hSrc AS v JOIN PARENT u ON v.pred = u.succ
-        |     SEARCH BY ord ASC
-        |     START WHERE pred IS NULL
-        |     SET node) AS H) B
+        |${hierarchySQL(orgTbl, "name, node")} A,
+        |${hierarchySQL(orgTbl, "name, node")} B
         |WHERE IS_CHILD(A.node, B.node)
       """.stripMargin
 
@@ -77,72 +67,33 @@ class HierarchySuite
 
   test("use numerical startWhere predicate") {
 
-    def parts: Seq[ComponentRow] = Seq(
-      ComponentRow("bla", "mat-for-stuff",0L,1L,1L),
-      ComponentRow("bla", "item-a-gen",1L,2L,2L),
-      ComponentRow("bla", "item-o-piece",2L,3L,3L),
-      ComponentRow("bla", "object-for-entity",3L,4L,4L),
-      ComponentRow("bla", "whack-to-piece",3L,5L,5L),
-      ComponentRow("bla", "gen-a-stuff",3L,6L,6L),
-      ComponentRow("bla", "mat-with-whack",5L,7L,7L)
-    )
-
-    val rdd = sc.parallelize(parts.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
-    hSrc.registerTempTable("hSrc")
-
-    val hierarchy = sqlContext.sql("""
-                                     |SELECT name, node FROM HIERARCHY (
-                                     |USING hSrc AS v
-                                     |  JOIN PARENT u ON v.pred = u.succ
-                                     |  SEARCH BY ord ASC
-                                     |START WHERE pred = 0
-                                     |SET node
-                                     |) AS H
-                                   """.stripMargin)
+    val hierarchy = sqlContext.sql(s"""|SELECT name, node FROM HIERARCHY (
+                                      |USING $partsTable AS v
+                                      |  JOIN PARENT u ON v.pred = u.succ
+                                      |  SEARCH BY ord ASC
+                                      |START WHERE pred = 0
+                                      |SET node
+                                      |) AS H""".stripMargin)
     hierarchy.registerTempTable("h")
-
-    val result = sqlContext.sql("select name from h where IS_ROOT(node)").collect()
-
-    val expected = Set(
-      Row("mat-for-stuff")
-    )
-
-    assertResult(expected)(result.toSet)
+    val result = sqlContext.sql("select name from h where IS_ROOT(node)").collect().toSet
+    val expected = Set(Row("mat-for-stuff"))
+    assertResult(expected)(result)
   }
 
   test("hierarchy without any roots results in empty results") {
-    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
-    hSrc.registerTempTable("h_src")
-
-    val queryString = """
-    SELECT name, node FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred = 10000
-      SET node
-      ) AS H
-    """
-
-    val result = sqlc.sql(queryString).collect()
+    val result = sqlc.sql(s"""SELECT name, node FROM HIERARCHY (
+                              USING $orgTbl AS v
+                                JOIN PARENT u ON v.pred = u.succ
+                                SEARCH BY ord ASC
+                              START WHERE pred = 10000
+                              SET node
+                              ) AS H""").collect()
     assert(result.isEmpty)
   }
 
   test("create hierarchy without start where and search by clause") {
-    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd)
-    log.error(s"hSrc: ${hSrc.collect().mkString("|")}")
-    hSrc.registerTempTable("h_src")
-    val queryString = """
-      | SELECT name, LEVEL(node), IS_ROOT(node) FROM HIERARCHY (
-      |   USING h_src AS v
-      |     JOIN PARENT u ON v.pred = u.succ
-      |   SET node
-      |   ) AS H""".stripMargin
-
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(
+      hierarchySQL(orgTbl, "name, LEVEL(node), IS_ROOT(node)")).collect().toSet
     val expected = Set(
       Row("THE BOSS", 1, true),
       Row("The Other Middle Manager", 2, false),
@@ -152,35 +103,14 @@ class HierarchySuite
       Row("Minion 2", 4, false),
       Row("Minion 3", 4, false)
     )
-    assertResult(expected)(result.toSet)
+    assertResult(expected)(result)
   }
 
   test("use join predicates") {
-    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
-    hSrc.registerTempTable("h_src")
-
-    val queryString = """
-    SELECT name, node FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred IS NULL
-      SET node
-      ) AS H
-                      """
-
-    val hierarchy = sqlContext.sql(queryString)
-    hierarchy.registerTempTable("h")
-
-    val joinQuery =
-      """
-        |SELECT l.name, r.name, IS_DESCENDANT(l.node, r.node),
-        | IS_DESCENDANT_OR_SELF(l.node, r.node), IS_PARENT(r.node, l.node)
-        |FROM h l, h r
-      """.stripMargin
-    val result = sqlContext.sql(joinQuery).collect()
-
+    sqlContext.sql(hierarchySQL(orgTbl, "name, node")).registerTempTable("h")
+    val result = sqlContext.sql("""|SELECT l.name, r.name, IS_DESCENDANT(l.node, r.node),
+                                   |IS_DESCENDANT_OR_SELF(l.node, r.node), IS_PARENT(r.node, l.node)
+                                   |FROM h l, h r """.stripMargin).collect()
     val expectedPositives = Set(
       Row("The Other Middle Manager", "THE BOSS", true, true, true),
       Row("The Middle Manager", "THE BOSS", true, true, true),
@@ -213,22 +143,8 @@ class HierarchySuite
   }
 
   test("integration: build join hierarchy from SQL using RDD[Row] with UDFs") {
-    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
-    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
-    hSrc.registerTempTable("h_src")
-    val queryString = """
-    SELECT name, LEVEL(node), IS_ROOT(node) FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred IS NULL
-      SET node
-      ) AS H
-                      """
-
-    val result = sqlContext.sql(queryString).collect()
-
+    val result = sqlContext.sql(
+      hierarchySQL(orgTbl, "name, LEVEL(node), IS_ROOT(node)")).collect().toSet
     val expected = Set(
       Row("THE BOSS", 1, true),
       Row("The Other Middle Manager", 2, false),
@@ -238,27 +154,11 @@ class HierarchySuite
       Row("Minion 2", 4, false),
       Row("Minion 3", 4, false)
     )
-
-    assertSetEqual(expected)(result.toSet)
+    assertSetEqual(expected)(result)
   }
 
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
-    val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(rdd).cache()
-    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
-    hSrc.registerTempTable("h_src")
-    val queryString = """
-    SELECT * FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred IS NULL
-      SET node
-      ) AS H
-                      """
-
-    val result = sqlContext.sql(queryString).collect()
-
+    val result = sqlContext.sql(hierarchySQL(orgTbl)).collect()
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 7, isLeaf = false)),
       Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), 7, 6, isLeaf = true)),
@@ -268,7 +168,6 @@ class HierarchySuite
       Row("Minion 2", 4L, 6L, 1, Node(List(1L, 2L, 4L, 6L), 4, 1, isLeaf = true)),
       Row("Minion 3", 4L, 7L, 2, Node(List(1L, 2L, 4L, 7L), 5, 2, isLeaf = true))
     )
-
     assertSetEqual(expected)(result.toSet)
   }
 
@@ -280,17 +179,7 @@ class HierarchySuite
     )
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val queryString = """
-    SELECT * FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred IS NULL
-      SET node
-      ) AS H
-                      """
-
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(hierarchySQL("h_src")).collect()
 
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 6, isLeaf = false)),
@@ -318,17 +207,7 @@ class HierarchySuite
     )
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val queryString = """
-    SELECT * FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE pred IS NULL
-      SET node
-      ) AS H
-                      """
-
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(hierarchySQL("h_src")).collect()
 
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), 1, 6, isLeaf = false)),
@@ -351,17 +230,11 @@ class HierarchySuite
     val rdd = sc.parallelize(cycleHierarchy)
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val queryString = """
-    SELECT * FROM HIERARCHY (
-      USING h_src AS v
-        JOIN PARENT u ON v.pred = u.succ
-        SEARCH BY ord ASC
-      START WHERE succ = 1
-      SET node
-      ) AS H
-                      """
-
-    val result = sqlContext.sql(queryString).collect().toSet
+    val result = sqlContext.sql("""SELECT * FROM HIERARCHY(
+                                   USING h_src AS v JOIN PARENT u ON v.pred = u.succ
+                                   SEARCH BY ord ASC
+                                   START WHERE succ = 1
+                                   SET node) AS H""").collect().toSet
 
     val expected = Set(
       Row("Parent", 3L, 1L, 1, Node(List(1L), 1, 3, isLeaf = false)),
@@ -407,7 +280,6 @@ class HierarchySuite
       builder.getClass.getName.split("\\$").head.split("\\.").last){
       val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
       val hSrc = sqlContext.createDataFrame(rdd)
-      hSrc.registerTempTable("h_src")
 
       val result = builder.buildFromAdjacencyList(hSrc.rdd)
 
@@ -472,57 +344,37 @@ class HierarchySuite
       val hierarchy = builder.buildFromAdjacencyList(rdd)
 
       val expected = Set(
-        PartialResult(List(1),1),
-        PartialResult(List(1, 2),2),
-        PartialResult(List(1, 3),3),
-        PartialResult(List(1, 2, 4),4),
-        PartialResult(List(1, 2, 5),5),
-        PartialResult(List(1, 2, 4, 6),6),
-        PartialResult(List(1, 2, 4, 7),7)
+        PartialResult(List(1), 1),
+        PartialResult(List(1, 2), 2),
+        PartialResult(List(1, 3), 3),
+        PartialResult(List(1, 2, 4), 4),
+        PartialResult(List(1, 2, 5), 5),
+        PartialResult(List(1, 2, 4, 6), 6),
+        PartialResult(List(1, 2, 4, 7), 7)
       )
       assertResult(expected)(hierarchy.collect().toSet)
 
       val in_order = hierarchy.collect().toVector
       assertResult(1)(  // should follow in order
-        in_order.indexOf(PartialResult(List(1, 3),3)) -
-          in_order.indexOf(PartialResult(List(1, 2),2))
+        in_order.indexOf(PartialResult(List(1, 3), 3)) -
+          in_order.indexOf(PartialResult(List(1, 2), 2))
       )
       assertResult(1)(  // should follow in order
-        in_order.indexOf(PartialResult(List(1, 2, 5),5)) -
-          in_order.indexOf(PartialResult(List(1, 2, 4),4))
+        in_order.indexOf(PartialResult(List(1, 2, 5), 5)) -
+          in_order.indexOf(PartialResult(List(1, 2, 4), 4))
       )
       assertResult(1)(  // should follow in order
-        in_order.indexOf(PartialResult(List(1, 2, 4, 7),7)) -
-          in_order.indexOf(PartialResult(List(1, 2, 4, 6),6))
+        in_order.indexOf(PartialResult(List(1, 2, 4, 7), 7)) -
+          in_order.indexOf(PartialResult(List(1, 2, 4, 6), 6))
       )
     }
   }
 
-
   test("integration: I can join hierarchy with table") {
-    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
-    hSrc.registerTempTable("h_src")
-
-    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
-    val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
-    tSrc.registerTempTable("t_src")
-
-    val queryString = """
-      SELECT B.name, A.address, B.level
-      FROM
-      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
-        USING h_src AS v
-          JOIN PARENT u ON v.pred = u.succ
-          SEARCH BY ord ASC
-        START WHERE pred IS NULL
-        SET node)
-        AS H) B, t_src A
-        WHERE B.name = A.name
-    """
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(s"""SELECT B.name, A.address, B.level
+      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} B,
+      $addressesTable A
+      WHERE B.name = A.name""").collect().toSet
 
     val expected = Set(
       Row("THE BOSS", "Nice Street", 1),
@@ -530,31 +382,14 @@ class HierarchySuite
       Row("Senior Developer", "Near-Acceptable Street", 3),
       Row("Minion 3", "The Street", 4)
     )
-    assertSetEqual(expected)(result.toSet)
+    assertSetEqual(expected)(result)
   }
 
   test("integration: I can left outer join hierarchy with table") {
-    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    hSrc.registerTempTable("h_src")
-
-    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
-    val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    tSrc.registerTempTable("t_src")
-
-    val queryString = """
-      SELECT A.name, B.address, LEVEL(A.node)
-      FROM (
-      SELECT * FROM HIERARCHY (
-        USING h_src AS v
-          JOIN PARENT u ON v.pred = u.succ
-          SEARCH BY ord ASC
-        START WHERE pred IS NULL
-        SET node)
-        AS H) A LEFT JOIN t_src B
-        ON A.name = B.name
-    """
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(s"""SELECT A.name, B.address, A.level
+      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} A
+      LEFT OUTER JOIN $addressesTable B
+      ON A.name = B.name""").collect().toSet
 
     val expected = Set(
       Row("THE BOSS", "Nice Street", 1),
@@ -569,29 +404,10 @@ class HierarchySuite
    }
 
   test("integration: I can right outer join hierarchy with table") {
-    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
-    hSrc.registerTempTable("h_src")
-
-    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
-    val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
-    tSrc.registerTempTable("t_src")
-
-    val queryString = """
-      SELECT A.name, A.address, B.level
-      FROM
-      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
-        USING h_src AS v
-          JOIN PARENT u ON v.pred = u.succ
-          SEARCH BY ord ASC
-        START WHERE pred IS NULL
-        SET node)
-        AS H) B RIGHT OUTER JOIN t_src A
-        ON A.name = B.name
-    """
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(s"""SELECT A.name, A.address, B.level
+      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} B
+      RIGHT OUTER JOIN $addressesTable A
+      ON A.name = B.name""").collect().toSet
 
     val expected = Set(
       Row("THE BOSS", "Nice Street", 1),
@@ -604,29 +420,10 @@ class HierarchySuite
   }
 
   test("integration: I can full outer join hierarchy with table") {
-    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
-    hSrc.registerTempTable("h_src")
-
-    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
-    val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
-    tSrc.registerTempTable("t_src")
-
-    val queryString = """
-      SELECT A.name, B.address, A.level
-      FROM
-      (SELECT name, LEVEL(node) AS level FROM HIERARCHY (
-        USING h_src AS v
-          JOIN PARENT u ON v.pred = u.succ
-          SEARCH BY ord ASC
-        START WHERE pred IS NULL
-        SET node)
-        AS H) A FULL OUTER JOIN t_src B
-        ON A.name = B.name
-    """
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(s"""SELECT A.name, B.address, A.level
+      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} A
+      FULL OUTER JOIN $addressesTable B
+      ON A.name = B.name""").collect().toSet
 
     val expected = Set(
       Row("THE BOSS", "Nice Street", 1),
@@ -638,33 +435,14 @@ class HierarchySuite
       Row("Minion 3", "The Street", 4),
       Row(null, "Death Star", null)
     )
-    assertSetEqual(expected)(result.toSet)
+    assertSetEqual(expected)(result)
   }
 
   test("integration: I can use star with full outer join hierarchy with table and unary UDFs") {
-    val hRdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
-    val hSrc = sqlContext.createDataFrame(hRdd).cache()
-    log.info(s"hSrc: ${hSrc.collect().mkString("|")}")
-    hSrc.registerTempTable("h_src")
-
-    val tRdd = sc.parallelize(addresses.sortBy(x => Random.nextDouble()))
-    val tSrc = sqlContext.createDataFrame(tRdd).cache()
-    log.info(s"tSrc: ${tRdd.collect().mkString("|")}")
-    tSrc.registerTempTable("t_src")
-
-    val queryString = """
-      SELECT A.name, B.address, LEVEL(A.node), IS_ROOT(A.node)
-      FROM
-      (SELECT * FROM HIERARCHY (
-        USING h_src AS v
-          JOIN PARENT u ON v.pred = u.succ
-          SEARCH BY ord ASC
-        START WHERE pred IS NULL
-        SET node)
-        AS H) A FULL OUTER JOIN t_src B
-        ON A.name = B.name
-                      """
-    val result = sqlContext.sql(queryString).collect()
+    val result = sqlContext.sql(s"""
+                    SELECT A.name, B.address, LEVEL(A.node), IS_ROOT(A.node)
+                    FROM ${hierarchySQL(orgTbl)} A FULL OUTER JOIN $addressesTable B
+                    ON A.name = B.name""").collect()
 
     val expected = Set(
       Row("THE BOSS", "Nice Street", 1, true),
@@ -680,15 +458,14 @@ class HierarchySuite
   }
 
   test("regression test for bug 92871") {
-    val sRdd = sc.parallelize(sensors.sortBy(x => Random.nextDouble()))
-    val sSrc = sqlContext.createDataFrame(sRdd).cache()
-    sSrc.registerTempTable("sSrc")
+    createSensorsTable(sqlContext)
     val result = sqlContext.sql(s"""
-        | SELECT name FROM HIERARCHY ( USING sSrc AS v
-        | JOIN PARENT u ON v.par = u.sensor SEARCH BY sensor ASC START WHERE sensor = "c"
-        | SET node) AS H  WHERE IS_ROOT(node) = true""".stripMargin).collect()
-    assertSetEqual(Set(
-      Row("All Sensors")))(result.toSet)
+        |SELECT name FROM HIERARCHY ( USING $sensorsTable AS v
+        |JOIN PARENT u ON v.par = u.sensor
+        |SEARCH BY sensor ASC
+        |START WHERE sensor = "c"
+        |SET node) AS H
+        |WHERE IS_ROOT(node) = true""".stripMargin).collect().toSet
+    assertSetEqual(Set(Row("All Sensors")))(result)
   }
-
 }
