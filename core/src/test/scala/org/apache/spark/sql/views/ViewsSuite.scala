@@ -4,10 +4,14 @@ import com.sap.spark.dstest.DefaultSource
 import org.apache.spark.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedRelation, UnresolvedStar}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedAlias,
+UnresolvedRelation, UnresolvedStar}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, SortOrder}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreatePersistentViewCommand, ProviderException}
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
+import org.apache.spark.sql.catalyst.expressions.EqualTo
+import org.apache.spark.sql.catalyst.expressions.IsNull
 import org.apache.spark.sql.sources._
 import org.mockito.Mockito._
 import org.scalatest.{FunSuite, Matchers}
@@ -254,5 +258,28 @@ class ViewsSuite extends FunSuite
 
     val afterDrop = sqlc.sql("SHOW TABLES USING com.sap.spark.dstest").collect()
     afterDrop should not contain Row("v", "FALSE", "DIMENSION")
+  }
+
+  test("Create a persistent hierarchy view (bug 108710)") {
+    createOrgTable(sqlContext)
+    sqlContext.sql(s"""CREATE VIEW v1 AS SELECT *
+                       FROM HIERARCHY
+                       (USING $orgTbl AS v JOIN PARENT u ON v.pred = u.succ
+                       SEARCH BY ord ASC
+                       START WHERE pred IS NULL
+                       SET node) AS H
+                       USING com.sap.spark.dstest""")
+    val actual = sqlContext.catalog.lookupRelation(Seq("v1"))
+    assertResult(actual)(Subquery("v1",
+      Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+        Subquery("H",
+          Hierarchy(
+            UnresolvedRelation("organizationTbl" :: Nil, Some("v")),
+            "u",
+            EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+            SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,
+            Some(IsNull(UnresolvedAttribute("pred"))),
+            UnresolvedAttribute("node")
+          )))))
   }
 }

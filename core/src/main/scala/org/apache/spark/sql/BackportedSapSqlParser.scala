@@ -77,6 +77,13 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
   protected val ALL = Keyword("ALL")
   protected val BY = Keyword("BY")
 
+  /* Hierarchies keywords */
+  protected val HIERARCHY = Keyword("HIERARCHY")
+  protected val PARENT = Keyword("PARENT")
+  protected val SEARCH = Keyword("SEARCH")
+  protected val START = Keyword("START")
+  protected val SET = Keyword("SET")
+
   protected lazy val dmlStart: Parser[LogicalPlan] =
     start1 | insert | cte
 
@@ -134,7 +141,26 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
       )
 
   protected lazy val relation: Parser[LogicalPlan] =
-    joinedRelation | relationFactor
+    hierarchy | joinedRelation | relationFactor
+
+  /** Hierarchy parser. */
+  protected lazy val hierarchy: Parser[LogicalPlan] =
+    HIERARCHY ~> "(" ~>
+      (USING ~> relationFactor) ~
+      (JOIN ~> PARENT ~> ident) ~ (ON ~> expression) ~
+      (SEARCH ~> BY ~> ordering).? ~
+      (START ~> WHERE ~> expression).? ~
+      (SET ~> ident <~ ")") ~
+      (AS ~> ident) ^^ {
+      case rel ~ ca ~ pexpr ~ sba ~ sw ~ nc ~ alias =>
+        Subquery(alias, Hierarchy(
+          relation = rel,
+          childAlias = ca,
+          parenthoodExpression = pexpr,
+          searchBy = sba.getOrElse(Seq.empty[SortOrder]),
+          startWhere = sw,
+          nodeAttribute = UnresolvedAttribute(nc)))
+    }
 
   protected lazy val relationFactor: Parser[LogicalPlan] =
     ident ~ ("(" ~> repsep(start1, ",") <~ ")") ^^ {

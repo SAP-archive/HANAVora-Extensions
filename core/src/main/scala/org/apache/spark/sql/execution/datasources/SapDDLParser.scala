@@ -59,7 +59,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val PARTITIONS = Keyword("PARTITIONS")
   protected val SPLITTERS = Keyword("SPLITTERS")
   protected val CLOSED = Keyword("CLOSED")
-  protected val START = Keyword("START")
   protected val STRIDE = Keyword("STRIDE")
   protected val PARTS = Keyword("PARTS")
 
