@@ -85,12 +85,20 @@ with DatasourceCatalog {
     : Option[RelationInfo] = {
     DefaultSource.tables.find(r => r.equals(name.last))
       .map(r => RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>")))
+      .orElse(DefaultSource.views.find(v => v._1 == name.last)
+        .map {
+          case (viewName, (kind, query)) =>
+            RelationInfo(viewName, isTemporary = false, kind, Some(query))
+        })
   }
 
   override def getRelations(sqlContext: SQLContext, options: Map[String, String])
     : Seq[RelationInfo] = {
     DefaultSource.tables.map(r =>
-      RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>")))
+      RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>"))) ++
+    DefaultSource.views.map {
+      case (name, (kind, query)) => RelationInfo(name, isTemporary = false, kind, Some(query))
+    }
   }
 
   override def getTableNames(sqlContext: SQLContext, parameters: Map[String, String])
@@ -109,7 +117,7 @@ with DatasourceCatalog {
    * @inheritdoc
    */
   override def dropView(dropViewInput: DropViewInput): Unit = {
-    // no-op
+    DefaultSource.dropView("view", dropViewInput)
   }
 
   /**
@@ -123,7 +131,7 @@ with DatasourceCatalog {
    * @inheritdoc
    */
   override def dropDimensionView(dropViewInput: DropViewInput): Unit = {
-    // no-op
+    DefaultSource.dropView("dimension", dropViewInput)
   }
 }
 
@@ -149,6 +157,13 @@ object DefaultSource {
 
   def addView(name: String, kind: String, query: String): Unit = {
     views = views + (name -> (kind, query))
+  }
+
+  def dropView(kind: String, dropViewInput: DropViewInput): Unit = {
+    views = views.filterNot {
+      case (viewName, (viewKind, _)) =>
+        viewName == dropViewInput.identifier.table && viewKind == kind
+    }
   }
 
   def reset(keepStandardRelations: Boolean = true): Unit = {

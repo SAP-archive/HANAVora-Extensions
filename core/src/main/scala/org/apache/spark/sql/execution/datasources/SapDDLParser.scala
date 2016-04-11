@@ -2,17 +2,17 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.expressions.{AnnotationFilter, Alias, AnnotatedAttribute, Expression}
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.expressions.{Alias, AnnotatedAttribute, AnnotationFilter, Expression}
+import org.apache.spark.sql.catalyst.plans.logical.{Cube => _, _}
 import org.apache.spark.sql.sources.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.sources.commands._
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedCubeView, PersistedDimensionView, PersistedView}
 
 import scala.util.parsing.input.Position
+import scala.reflect._
 
 class SapDDLParser(parseQuery: String => LogicalPlan)
   extends BackportedSapSqlParser(parseQuery)
@@ -236,8 +236,10 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           case Plain => PersistedView(plan)
           case Cube => PersistedCubeView(plan)
         }
-        CreatePersistentViewCommand(view, name, provider,
-          opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)
+        CreatePersistentViewCommand[AbstractView with Persisted](
+          view, name, provider,
+          opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)(
+          view.tag.asInstanceOf[ClassTag[AbstractView with Persisted]])
       }
 
   /**

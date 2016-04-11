@@ -10,7 +10,7 @@ import org.apache.spark.sql.execution.datasources.{CreatePersistentViewCommand, 
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
 import org.apache.spark.sql.sources._
 import org.mockito.Mockito._
-import org.scalatest.FunSuite
+import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.mock.MockitoSugar
 
 import scala.util.Random
@@ -19,7 +19,8 @@ class ViewsSuite extends FunSuite
   with HierarchyTestUtils
   with GlobalSapSQLContext
   with MockitoSugar
-  with Logging {
+  with Logging
+  with Matchers {
 
   case object Dummy extends LeafNode with NoOutput
 
@@ -215,6 +216,43 @@ class ViewsSuite extends FunSuite
     intercept[ProviderException] {
       viewCommand.execute(sqlContext)
     }
-    verify(provider, times(1)).toSingleViewProvider
+  }
+
+  test("Create view stores a view in the provider") {
+    createAnimalsTable(sqlc)
+
+    sqlc.sql(s"CREATE VIEW v As SELECT * FROM $animalsTable USING com.sap.spark.dstest")
+
+    val tables = sqlc.sql("SHOW TABLES USING com.sap.spark.dstest").collect()
+    tables should contain(Row("v", "FALSE", "VIEW"))
+  }
+
+  test("Create dimension view stores a dimension view in the provider") {
+    createAnimalsTable(sqlc)
+
+    sqlc.sql(s"CREATE DIMENSION VIEW v As SELECT * FROM $animalsTable USING com.sap.spark.dstest")
+
+    val tables = sqlc.sql("SHOW TABLES USING com.sap.spark.dstest").collect()
+    tables should contain(Row("v", "FALSE", "DIMENSION"))
+  }
+
+  test("Create view with invalid provider throws") {
+    createAnimalsTable(sqlc)
+
+    intercept[ProviderException] {
+      sqlc.sql(s"CREATE CUBE VIEW v AS SELECT * FROM $animalsTable USING com.sap.spark.dstest")
+    }
+  }
+
+  test("Drop view drops the view from the provider") {
+    createAnimalsTable(sqlc)
+    sqlc.sql(s"CREATE DIMENSION VIEW v AS SELECT * FROM $animalsTable USING com.sap.spark.dstest")
+    val beforeDrop = sqlc.sql("SHOW TABLES USING com.sap.spark.dstest").collect()
+    beforeDrop should contain(Row("v", "FALSE", "DIMENSION"))
+
+    sqlc.sql(s"DROP DIMENSION VIEW v USING com.sap.spark.dstest")
+
+    val afterDrop = sqlc.sql("SHOW TABLES USING com.sap.spark.dstest").collect()
+    afterDrop should not contain Row("v", "FALSE", "DIMENSION")
   }
 }

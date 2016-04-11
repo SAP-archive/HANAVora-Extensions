@@ -21,17 +21,15 @@ abstract class BaseAbstractViewProvider[A <: AbstractView with Persisted: ClassT
 
 object AbstractViewProvider {
   def unapply[A <: AbstractView with Persisted: ClassTag]
-      (any: Any): Option[AbstractViewProvider[A]] = (any match {
-    case provider: AbstractViewProvider[_] =>
-      Some(provider)
-    case MultiAbstractViewProvider(provider) =>
-      Some(provider)
-    case _ => None
-  }) match {
-    case Some(provider) if tagMatches(provider.tag) =>
-      Some(provider.asInstanceOf[AbstractViewProvider[A]])
-    case _ =>
-      None
+      (any: Any): Option[AbstractViewProvider[A]] = {
+    val multiProvider = MultiAbstractViewProvider.matcherFor[A]
+    any match {
+      case provider: AbstractViewProvider[_] if tagMatches(provider.tag) =>
+        Some(provider.asInstanceOf[AbstractViewProvider[A]])
+      case multiProvider(provider) =>
+        Some(provider)
+      case _ => None
+    }
   }
 
   private def tagMatches[A: ClassTag](tag: ClassTag[_]): Boolean = {

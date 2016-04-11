@@ -1,6 +1,8 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedCubeView, PersistedDimensionView, PersistedView}
+import org.apache.spark.sql.catalyst.plans.logical._
+
+import scala.reflect._
 
 sealed trait MultiAbstractViewProvider
 
@@ -112,11 +114,21 @@ trait ViewProvider extends MultiAbstractViewProvider {
 }
 
 object MultiAbstractViewProvider {
-  def unapply(arg: MultiAbstractViewProvider): Option[AbstractViewProvider[_]] = Some(
-    arg match {
-      case c: CubeViewProvider => c.toSingleCubeViewProvider
-      case d: DimensionViewProvider => d.toSingleDimensionViewProvider
-      case v: ViewProvider => v.toSingleViewProvider
+  class TagMatcher[A <: AbstractView with Persisted: ClassTag] {
+    val tag = classTag[A]
+
+    def unapply(arg: MultiAbstractViewProvider): Option[AbstractViewProvider[A]] = arg match {
+      case c: CubeViewProvider if tag.runtimeClass == classOf[PersistedCubeView] =>
+        Some(c.toSingleCubeViewProvider.asInstanceOf[AbstractViewProvider[A]])
+      case d: DimensionViewProvider if tag.runtimeClass == classOf[PersistedDimensionView] =>
+        Some(d.toSingleDimensionViewProvider.asInstanceOf[AbstractViewProvider[A]])
+      case v: ViewProvider if tag.runtimeClass == classOf[PersistedView] =>
+        Some(v.toSingleViewProvider.asInstanceOf[AbstractViewProvider[A]])
+      case _ =>
+        None
     }
-  )
+  }
+
+  def matcherFor[A <: AbstractView with Persisted: ClassTag]: TagMatcher[A] =
+    new TagMatcher[A]()(classTag[A])
 }
