@@ -37,7 +37,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ) :: Nil
 
   override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] =
-    FiltersReduction :: Nil
+    FiltersReduction :: AssureRelationsColocality :: Nil
 
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] =
     SapDDLStrategy(planner) ::
