@@ -222,19 +222,19 @@ class AssureRelationsColocalitySuite
     comparePlans(optimized2, correctAnswer2)
   }
 
-  /**
-   * TODO: this test should be amended after implementation of correct handling
-   * of non-partitioned relations
-   */
-  test("No rotation is applied in case when a join involves tables which do not provide " +
-    "partitioning information") {
+  test("A proper rotation is applied even in case when a join involves tables " +
+    "which do not provide partitioning information") {
     val originalAnalyzedQuery1 = testRelation3.join(
       testRelation2.join(testRelation0, joinType = Inner, condition = Some(t2id === t0id)),
       joinType = Inner, condition = Some(t2id === t3id)).analyze
 
     val optimized1 = Optimize.execute(originalAnalyzedQuery1)
 
-    comparePlans(optimized1, originalAnalyzedQuery1)
+    val correctAnswer1 = testRelation3
+      .join(testRelation2, joinType = Inner, condition = Some(t2id === t3id))
+      .join(testRelation0, joinType = Inner, condition = Some(t2id === t0id)).analyze
+
+    comparePlans(optimized1, correctAnswer1)
 
     val originalAnalyzedQuery2 = testRelation0
       .join(testRelation2, joinType = Inner, condition = Some(t0id === t2id))
@@ -242,7 +242,12 @@ class AssureRelationsColocalitySuite
 
     val optimized2 = Optimize.execute(originalAnalyzedQuery2)
 
-    comparePlans(optimized2, originalAnalyzedQuery2)
+    val correctAnswer2 = testRelation0
+      .join(testRelation2
+        .join(testRelation3, joinType = Inner, condition = Some(t3id === t2id)),
+        joinType = Inner, condition = Some(t0id === t2id)).analyze
+
+    comparePlans(optimized2, correctAnswer2)
   }
 
   test("Parent and children unary operators in logical plans are preserved during rotations") {

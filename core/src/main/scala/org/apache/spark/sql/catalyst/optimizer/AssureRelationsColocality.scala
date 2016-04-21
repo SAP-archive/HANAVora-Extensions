@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.plans.Inner
 import org.apache.spark.sql.catalyst.plans.logical.{Join, LogicalPlan, UnaryNode}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources.IsLogicalRelation
-import org.apache.spark.sql.sources.PartitionedRelation
+import org.apache.spark.sql.sources.{BaseRelation, PartitionedRelation}
 
 /**
  * Re-orders [[LogicalPlan]]s so that co-located relations are in the same subtrees.
@@ -80,7 +80,6 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    *         - the second tuple element is [[Either]] which defines whether the left rotation
    *           may be executed ([[Left]]) or the right rotation ([[Right]]) on the contained node.
    */
-  // scalastyle:off cyclomatic.complexity
   private[this] def subjectToRotation(parent: Option[LogicalPlan], plan: LogicalPlan):
   Option[(Option[LogicalPlan], Either[Join, Join])] =
     plan match {
@@ -92,20 +91,19 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
           // Alter the join condition if necessary and possible
           val condition = alterJoinConditionIfApplicable(left, right, cond.get)
 
-          (left, right, condition) match {
+          (left, right, condition, rotationConditionsSatisfied(leftRelations, rightRelations))
+          match {
             /**
              * If the left sub-node is an inner join, and the right rotation prerequisites
              * are satisfied, return (parent, Right(current node)).
              */
-            case (left@Join(_, _, Inner, _), _, Some(c)) if
-            rightRotationConditionsSatisfied(leftRelations, rightRelations) =>
+            case (left@Join(_, _, Inner, _), _, Some(c), Right(true)) =>
               Some((parent, Right(Join(left, right, Inner, Some(c)))))
             /**
              * If the right sub-node is an inner join, and the left rotation prerequisites
              * are satisfied, return (parent, Left(current node)).
              */
-            case (_, right@Join(_, _, Inner, _), Some(c)) if
-            leftRotationConditionsSatisfied(leftRelations, rightRelations) =>
+            case (_, right@Join(_, _, Inner, _), Some(c), Left(true)) =>
               Some((parent, Left(Join(left, right, Inner, Some(c)))))
             // No rotation prerequisites are satisfied, return [[None]].
             case _ => None
@@ -118,7 +116,6 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
       // TODO: In case of the other binary operators we currently do nothing
       case _ => None
     }
-  // scalastyle:on cyclomatic.complexity
 
   /**
    * Alters a join condition, if applicable. The join condition is required
@@ -299,43 +296,36 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
 
   /**
    * Checks whether the relations on both sides of a join node (pivot) satisfy prerequisites
-   * for the left rotation. The prerequisites constitute a conjunction of the following conditions:
-   * - There are exactly two relations in the right subtree.
-   * - There is exactly one relation in the left subtree, which is partitioned.
-   * - Only one of the relations in the right subtree is partitioned, and its partitioning
-   *   function is the same as for the relation in the left subtree.
+   * for the left or the right rotation. The prerequisites constitute a conjunction of
+   * the following conditions:
+   * - For the left rotation:
+   *   * There are exactly two relations in the right subtree.
+   *   * There is exactly one relation in the left subtree, which is partitioned.
+   *   * Only one of the relations in the right subtree is partitioned, and its partitioning
+   *     function is the same as for the relation in the left subtree.
+   * - For the right rotation:
+   *   * There are exactly two relations in the left subtree.
+   *   * There is exactly one relation in the right subtree, which is partitioned.
+   *   * Only one of the relations in the left subtree is partitioned, and its partitioning
+   *     function is the same as for the relation in the right subtree.
    *
    * @param leftPivotRelations The relations on the left side of the pivot node.
    * @param rightPivotRotations The relations on the right side of the pivot node.
-   * @return `true` if the mentioned conditions are satisfied, `false` otherwise.
+   * @return [[Left]] with `true` if it is possible to execute the left rotation.
+   *         [[Right]] with `true` if it is possible to execute the right rotation.
+   *         Either [[Left]] or [[Right]] with `false` if no rotation can be executed.
    */
-  private[this] def leftRotationConditionsSatisfied(leftPivotRelations: Seq[PartitionedRelation],
-                                                    rightPivotRotations: Seq[PartitionedRelation]):
-  Boolean = (leftPivotRelations.size == 1
-    && rightPivotRotations.size == 2
-    && leftPivotRelations.head.partitioningFunctionName.isDefined
-    && isExactlyOneRelationPartitioned(rightPivotRotations)
-    == leftPivotRelations.head.partitioningFunctionName)
-
-  /**
-   * Checks whether the relations on both sides of a join node (pivot) satisfy prerequisites
-   * for the right rotation. The prerequisites constitute a conjunction of the following conditions:
-   * - There are exactly two relations in the left subtree.
-   * - There is exactly one relation in the right subtree, which is partitioned.
-   * - Only one of the relations in the left subtree is partitioned, and its partitioning
-   *   function is the same as for the relation in the right subtree.
-   *
-   * @param leftPivotRelations The relations on the left side of the pivot node.
-   * @param rightPivotRotations The relations on the right side of the pivot node.
-   * @return `true` if the mentioned conditions are satisfied, `false` otherwise.
-   */
-  private[this] def rightRotationConditionsSatisfied(leftPivotRelations: Seq[PartitionedRelation],
-                                                     rightPivotRotations: Seq[PartitionedRelation]):
-  Boolean = (leftPivotRelations.size == 2
-    && rightPivotRotations.size == 1
-    && rightPivotRotations.head.partitioningFunctionName.isDefined
-    && isExactlyOneRelationPartitioned(leftPivotRelations)
-    == rightPivotRotations.head.partitioningFunctionName)
+  private[this] def rotationConditionsSatisfied(leftPivotRelations: Seq[BaseRelation],
+                                                rightPivotRotations: Seq[BaseRelation]):
+  Either[Boolean, Boolean] = (leftPivotRelations, rightPivotRotations) match {
+    case (Seq(p: PartitionedRelation), rights) if rights.size == 2 &&
+      p.partitioningFunctionName.isDefined =>
+      Left(isExactlyOneRelationPartitioned(rights) == p.partitioningFunctionName)
+    case (lefts, Seq(p: PartitionedRelation)) if lefts.size == 2 &&
+      p.partitioningFunctionName.isDefined =>
+      Right(isExactlyOneRelationPartitioned(leftPivotRelations) == p.partitioningFunctionName)
+    case _ => Right(false)
+  }
 
   /**
    * Checks whether exactly one relation in the provided sequence is partitioned. As a result,
@@ -349,15 +339,18 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    *         In case when exactly one relation is partitioned, its partitioning function's
    *         name is returned.
    */
-  private[this] def isExactlyOneRelationPartitioned(relations: Seq[PartitionedRelation]):
-  Option[String] =
-    if (relations.head.partitioningFunctionName.isDefined
-      && relations.last.partitioningFunctionName.isEmpty) {
-      relations.head.partitioningFunctionName
-    } else if (relations.head.partitioningFunctionName.isEmpty
-      && relations.last.partitioningFunctionName.isDefined) {
-      relations.last.partitioningFunctionName
-    } else None
+  private[this] def isExactlyOneRelationPartitioned(relations: Seq[BaseRelation]):
+  Option[String] = (relations.head, relations.last) match {
+    case (h: PartitionedRelation, l) if h.partitioningFunctionName.isDefined
+      && (!l.isInstanceOf[PartitionedRelation]
+      || l.asInstanceOf[PartitionedRelation].partitioningFunctionName.isEmpty) =>
+      h.partitioningFunctionName
+    case (h, l: PartitionedRelation) if l.partitioningFunctionName.isDefined
+      && (!h.isInstanceOf[PartitionedRelation]
+      || h.asInstanceOf[PartitionedRelation].partitioningFunctionName.isEmpty) =>
+      l.partitioningFunctionName
+    case _ => None
+  }
 
   /**
    * Performs left rotation of the provided logical plan (the provided argument is treated
@@ -367,13 +360,14 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    * @return The (possibly) rotated plan.
    */
   private[this] def leftRotateLogicalPlan(plan: Join): LogicalPlan = {
-    val pivot = plan.right.asInstanceOf[Join]
-    if (getPartitionedRelations(pivot.left).head.partitioningFunctionName.isDefined) {
-      val pivotLeft = plan.withNewChildren(Seq(plan.left, pivot.left))
-      pivot.withNewChildren(Seq(pivotLeft, pivot.right))
-    } else {
-      val pivotLeft = plan.withNewChildren(Seq(plan.left, pivot.right))
-      pivot.withNewChildren(Seq(pivotLeft, pivot.left))
+    val Join(_, pivot: Join, _, _) = plan
+    getPartitionedRelations(pivot.left).head match {
+      case r: PartitionedRelation if r.partitioningFunctionName.isDefined =>
+        val pivotLeft = plan.withNewChildren(Seq(plan.left, pivot.left))
+        pivot.withNewChildren(Seq(pivotLeft, pivot.right))
+      case _ =>
+        val pivotLeft = plan.withNewChildren(Seq(plan.left, pivot.right))
+        pivot.withNewChildren(Seq(pivotLeft, pivot.left))
     }
   }
 
@@ -385,13 +379,14 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    * @return The (possibly) rotated plan.
    */
   private[this] def rightRotateLogicalPlan(plan: Join): LogicalPlan = {
-    val pivot = plan.left.asInstanceOf[Join]
-    if (getPartitionedRelations(pivot.right).head.partitioningFunctionName.isDefined) {
-      val pivotRight = plan.withNewChildren(Seq(pivot.right, plan.right))
-      pivot.withNewChildren(Seq(pivot.left, pivotRight))
-    } else {
-      val pivotRight = plan.withNewChildren(Seq(pivot.left, plan.right))
-      pivot.withNewChildren(Seq(pivot.right, pivotRight))
+    val Join(pivot: Join, _, _, _) = plan
+    getPartitionedRelations(pivot.right).head match {
+      case r: PartitionedRelation if r.partitioningFunctionName.isDefined =>
+        val pivotRight = plan.withNewChildren(Seq(pivot.right, plan.right))
+        pivot.withNewChildren(Seq(pivot.left, pivotRight))
+      case _ =>
+        val pivotRight = plan.withNewChildren(Seq(pivot.left, plan.right))
+        pivot.withNewChildren(Seq(pivot.right, pivotRight))
     }
   }
 
@@ -401,9 +396,9 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    * @param plan The plan, from which the relations are to be collected.
    * @return A sequence with the collected relations.
    */
-  private[this] def getPartitionedRelations(plan: LogicalPlan): Seq[PartitionedRelation] =
+  private[this] def getPartitionedRelations(plan: LogicalPlan): Seq[BaseRelation] =
     plan collect {
-      case IsLogicalRelation(r: PartitionedRelation) => r
+      case IsLogicalRelation(r: BaseRelation) => r
     }
 
 }
