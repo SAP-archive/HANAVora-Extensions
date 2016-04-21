@@ -28,7 +28,7 @@ import org.apache.spark.sql.sources.PartitionedRelation
  * by the left/right rotations.
  *
  * Legend:
- * T1 - unpartitioned table
+ * T1 - non-partitioned table
  * T2, T3 - two tables partitioned by the same function F
  */
 object AssureRelationsColocality extends Rule[LogicalPlan] {
@@ -89,31 +89,24 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
           // Collect PartitionedRelations on both sides of the join
           val leftRelations = getPartitionedRelations(left)
           val rightRelations = getPartitionedRelations(right)
-          // Collect the attributes which are partitioned in the condition
-          val partitioningAttrs = getPartitioningAttributes(left) ++
-            getPartitioningAttributes(right)
-          /**
-           * If the upper join condition contains any other attributes, than the partitioned ones,
-           * we would have to amend the join condition (TODO).
-           */
-          val upperConditionContainsOnlyPartitionedAttrs =
-            filterConditionAttributes(partitioningAttrs, cond.get).isEmpty
+          // Alter the join condition if necessary and possible
+          val condition = alterJoinConditionIfApplicable(left, right, cond.get)
 
-          (left, right) match {
+          (left, right, condition) match {
             /**
              * If the left sub-node is an inner join, and the right rotation prerequisites
              * are satisfied, return (parent, Right(current node)).
              */
-            case (left: Join, _) if left.joinType == Inner
-              && rightRotationConditionsSatisfied(leftRelations, rightRelations)
-              && upperConditionContainsOnlyPartitionedAttrs => Some((parent, Right(p)))
+            case (left@Join(_, _, Inner, _), _, Some(c)) if
+            rightRotationConditionsSatisfied(leftRelations, rightRelations) =>
+              Some((parent, Right(Join(left, right, Inner, Some(c)))))
             /**
              * If the right sub-node is an inner join, and the left rotation prerequisites
              * are satisfied, return (parent, Left(current node)).
              */
-            case (_, right: Join) if right.joinType == Inner
-              && leftRotationConditionsSatisfied(leftRelations, rightRelations)
-              && upperConditionContainsOnlyPartitionedAttrs => Some((parent, Left(p)))
+            case (_, right@Join(_, _, Inner, _), Some(c)) if
+            leftRotationConditionsSatisfied(leftRelations, rightRelations) =>
+              Some((parent, Left(Join(left, right, Inner, Some(c)))))
             // No rotation prerequisites are satisfied, return [[None]].
             case _ => None
           }
@@ -126,6 +119,117 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
       case _ => None
     }
   // scalastyle:on cyclomatic.complexity
+
+  /**
+   * Alters a join condition, if applicable. The join condition is required
+   * to be altered if the upper join condition refers to a column from the
+   * non-partitioned table, e.g.:
+   *
+   *          (id1=id3)
+   *            /  \
+   *           /    \
+   *          /      \
+   *     (id1=id2)   T3(F)(id3)
+   *       /  \
+   * T1(id1)   T2(F)(id2)
+   *
+   * id1, id2 and id3 are columns of the tables T1, T2 and T3 respectively.
+   *
+   * However, the upper join condition (id1=id3) in the tree above can be altered
+   * to (id2=id3) only if there are no references to id1 in the whole plan.
+   *
+   * @param left The left subtree of the join to alter.
+   * @param right The right subtree of the join to alter.
+   * @param condition The join condition.
+   * @return [[None]] if the join condition was required to have been altered but
+   *         its alteration attempt did not succeed. [[Some]] if the condition
+   *         remained unchanged (the upper condition does not contain columns
+   *         from the non-partitioned table) or was successfully altered.
+   */
+  private[this] def alterJoinConditionIfApplicable(left: LogicalPlan,
+                                                   right: LogicalPlan,
+                                                   condition: Expression):
+  Option[Expression] = {
+    // Collect the attributes which are partitioned in the join
+    val partitioningAttrs = getPartitioningAttributes(left) ++
+      getPartitioningAttributes(right)
+    // Get the non-partitioned attributes from the join condition
+    val nonPartitionedConditionAttrs = filterConditionAttributes(partitioningAttrs, condition)
+
+    nonPartitionedConditionAttrs.toSeq match {
+      case Seq(head: Attribute) =>
+        /**
+         * If the upper join condition contains any other attributes than the partitioned ones,
+         * we need to replace them with the partitioned attributes, but only if they are not
+         * referenced above in the plan (the references' set contains at most the attribute itself).
+         */
+        if (head.references.size <= 1) {
+          val attrToReplace = nonPartitionedConditionAttrs.head
+          val attrsMap = (left, right) match {
+            case (l@Join(_, _, _, Some(lCond)), _) =>
+              getConditionAttributeMapping(l.condition.get)
+            case (_, r@Join(_, _, _, Some(rCond))) =>
+              getConditionAttributeMapping(r.condition.get)
+            case _ => Map.empty[Attribute, Attribute]
+          }
+
+          if (attrsMap.contains(attrToReplace)) {
+            Some(replaceConditionAttribute(condition, attrToReplace, attrsMap(attrToReplace)))
+          }
+          // Attribute replacement did not succeed, return [[None]]
+          else None
+        }
+        // Attribute replacement did not succeed, return [[None]]
+        else None
+      /**
+       * Either we have 0 attributes, so then we return a condition without any changes (it does
+       * not require altering). The cases with 2 or more attributes are currently not supported.
+       */
+      case _ => Some(condition)
+    }
+  }
+
+  /**
+   * Returns a mapping between all attributes in a condition which are expected to be equal.
+   *
+   * @param condition The condition from which the mapping is to be extracted.
+   * @return The mapping containing the attributes which are equal in the condition.
+   *         The mapping is bi-directional, i.e. if a condition says that a = b,
+   *         the mapping will contain two entries: a -> b and b -> a.
+   */
+  private[this] def getConditionAttributeMapping(condition: Expression):
+  Map[Attribute, Attribute] = condition match {
+    case And(left, right) =>
+      getConditionAttributeMapping(left) ++
+        getConditionAttributeMapping(right)
+    case EqualTo(left: Attribute, right: Attribute) =>
+      Map(left -> right, right -> left)
+    case _ => Map.empty[Attribute, Attribute]
+  }
+
+  /**
+   * Replaces an attribute in a condition expression.
+   *
+   * @param condition The condition in which the attributes are supposed to be replaced.
+   * @param toReplace The attribute to replace.
+   * @param replacement The replacement attribute.
+   * @return The altered condition (with the attribute replaced).
+   */
+  private[this] def replaceConditionAttribute(condition: Expression,
+                                              toReplace: Attribute,
+                                              replacement: Attribute): Expression =
+    condition match {
+      case And(left, right) =>
+        And(replaceConditionAttribute(left, toReplace, replacement),
+          replaceConditionAttribute(right, toReplace, replacement))
+      case EqualTo(left, right) =>
+        EqualTo(replaceConditionAttribute(left, toReplace, replacement),
+          replaceConditionAttribute(right, toReplace, replacement))
+      case a: Attribute if a.equals(toReplace) => replacement
+      case _ =>
+        condition.withNewChildren(condition.children.map(c =>
+          replaceConditionAttribute(c, toReplace, replacement)))
+    }
 
   /**
    * Iterates a plan and for each [[PartitionedRelation]] attribute (that is defined in the
@@ -169,29 +273,29 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    *
    * @param exprIds A sequence with the attributes to remove.
    * @param condition The condition which attributes are to be filtered.
-   * @return A sequence with the filtered condition attributes.
+   * @return A set with the filtered condition attributes.
    */
   private[this] def filterConditionAttributes(exprIds: Seq[ExprId],
-                                              condition: Expression): Seq[ExprId] =
-    condition match {
+                                              condition: Expression): Set[Attribute] =
+    (condition match {
       case And(left, right) =>
         filterConditionAttributes(exprIds, left) ++
           filterConditionAttributes(exprIds, right)
       case EqualTo(left, right) =>
-        filterConditionAttributes(exprIds, right) ++
-          filterConditionAttributes(exprIds, left)
+        filterConditionAttributes(exprIds, left) ++
+          filterConditionAttributes(exprIds, right)
       case a: AttributeReference =>
         if (exprIds.contains(a.exprId)
           || a.references.map(_.exprId).toSet.subsetOf(exprIds.toSet)) {
-          Seq.empty[ExprId]
+          Seq.empty[Attribute]
         } else {
-          a.references.map(_.exprId).toSeq :+ a.exprId
+          a.references.toSeq :+ a
         }
       case _ =>
-        condition.children.foldLeft(Seq.empty[ExprId]) {
+        condition.children.foldLeft(Seq.empty[Attribute]) {
           case (part, child) => part ++ filterConditionAttributes(exprIds, child)
         }
-    }
+    }).toSet
 
   /**
    * Checks whether the relations on both sides of a join node (pivot) satisfy prerequisites

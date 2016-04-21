@@ -195,16 +195,19 @@ class AssureRelationsColocalitySuite
     comparePlans(optimized3, originalAnalyzedQuery3)
   }
 
-  // TODO: this test should be left only for outer joins in the future
-  test("No rotation is applied in case when the outer join condition involves columns " +
-    "from a non-partitioned table") {
+  test("The join condition is properly altered in case when the upper join condition " +
+    "involves columns from a non-partitioned table") {
     val originalAnalyzedQuery1 = testRelation3.join(
       testRelation2.join(testRelation1, joinType = Inner, condition = Some(t2id === t1id)),
       joinType = Inner, condition = Some(t1id === t3id)).analyze
 
     val optimized1 = Optimize.execute(originalAnalyzedQuery1)
 
-    comparePlans(optimized1, originalAnalyzedQuery1)
+    val correctAnswer1 = testRelation3
+      .join(testRelation2, joinType = Inner, condition = Some(t2id === t3id))
+      .join(testRelation1, joinType = Inner, condition = Some(t2id === t1id)).analyze
+
+    comparePlans(optimized1, correctAnswer1)
 
     val originalAnalyzedQuery2 = testRelation1
       .join(testRelation2, joinType = Inner, condition = Some(t1id === t2id))
@@ -212,7 +215,11 @@ class AssureRelationsColocalitySuite
 
     val optimized2 = Optimize.execute(originalAnalyzedQuery2)
 
-    comparePlans(optimized2, originalAnalyzedQuery2)
+    val correctAnswer2 = testRelation1
+      .join(testRelation2.join(testRelation3, joinType = Inner, condition = Some(t3id === t2id)),
+        joinType = Inner, condition = Some(t1id === t2id)).analyze
+
+    comparePlans(optimized2, correctAnswer2)
   }
 
   /**
