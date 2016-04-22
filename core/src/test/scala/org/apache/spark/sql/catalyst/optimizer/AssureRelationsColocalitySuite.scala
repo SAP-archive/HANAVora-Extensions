@@ -3,7 +3,7 @@ package org.apache.spark.sql.catalyst.optimizer
 import com.sap.spark.PlanTest
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
-import org.apache.spark.sql.catalyst.plans.{FullOuter, LeftOuter, Inner}
+import org.apache.spark.sql.catalyst.plans.{RightOuter, FullOuter, LeftOuter, Inner}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
 import org.apache.spark.sql.execution.datasources.LogicalRelation
@@ -129,8 +129,26 @@ class AssureRelationsColocalitySuite
 
     val optimized3 = Optimize.execute(originalAnalyzedQuery3)
 
-    // Here, the plan should remain unchanged due to the outer join
+    // The plan should remain unchanged due to the left outer join
     comparePlans(optimized3, originalAnalyzedQuery3)
+
+    val originalAnalyzedQuery4 = testRelation2
+      .join(testRelation1, joinType = RightOuter, condition = Some(t2id === t1id))
+      .join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)).analyze
+
+    val optimized4 = Optimize.execute(originalAnalyzedQuery4)
+
+    // The plan should remain unchanged due to the right outer join
+    comparePlans(optimized4, originalAnalyzedQuery4)
+
+    val originalAnalyzedQuery5 = testRelation2
+      .join(testRelation1, joinType = FullOuter, condition = Some(t2id === t1id))
+      .join(testRelation3, joinType = RightOuter, condition = Some(t2id === t3id)).analyze
+
+    val optimized5 = Optimize.execute(originalAnalyzedQuery5)
+
+    // The plan should remain unchanged due to the outer joins
+    comparePlans(optimized5, originalAnalyzedQuery5)
   }
 
   /**
@@ -191,8 +209,28 @@ class AssureRelationsColocalitySuite
 
     val optimized3 = Optimize.execute(originalAnalyzedQuery3)
 
-    // Here, the plan should remain unchanged due to the outer join
+    // The plan should remain unchanged due to the full outer join
     comparePlans(optimized3, originalAnalyzedQuery3)
+
+    val originalAnalyzedQuery4 = testRelation3
+      .join(testRelation1
+        .join(testRelation2, joinType = LeftOuter, condition = Some(t1id === t2id)),
+        joinType = Inner, condition = Some(t3id === t2id)).analyze
+
+    val optimized4 = Optimize.execute(originalAnalyzedQuery4)
+
+    // The plan should remain unchanged due to the left outer join
+    comparePlans(optimized4, originalAnalyzedQuery4)
+
+    val originalAnalyzedQuery5 = testRelation3
+      .join(testRelation1
+        .join(testRelation2, joinType = RightOuter, condition = Some(t1id === t2id)),
+        joinType = Inner, condition = Some(t3id === t2id)).analyze
+
+    val optimized5 = Optimize.execute(originalAnalyzedQuery5)
+
+    // The plan should remain unchanged due to the right outer join
+    comparePlans(optimized5, originalAnalyzedQuery5)
   }
 
   test("The join condition is properly altered in case when the upper join condition " +
