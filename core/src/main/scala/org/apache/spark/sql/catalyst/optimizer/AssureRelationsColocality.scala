@@ -2,7 +2,7 @@ package org.apache.spark.sql.catalyst.optimizer
 
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.Inner
-import org.apache.spark.sql.catalyst.plans.logical.{Join, LogicalPlan, UnaryNode}
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources.IsLogicalRelation
 import org.apache.spark.sql.sources.{BaseRelation, PartitionedRelation}
@@ -33,63 +33,23 @@ import org.apache.spark.sql.sources.{BaseRelation, PartitionedRelation}
  */
 object AssureRelationsColocality extends Rule[LogicalPlan] {
 
-  def apply(plan: LogicalPlan): LogicalPlan = {
-    val subjectedToRotation = subjectToRotation(None, plan)
-    if (subjectedToRotation.isDefined) {
-      val (parent, eitherPlan) = subjectedToRotation.get
-      /**
-       * Perform the appropriate rotation (if the type of the join
-       * and the structure of the plan allows to do it).
-       */
-      val rotatedPlan = eitherPlan match {
-        case Left(pivot) => leftRotateLogicalPlan(pivot)
-        case Right(pivot) => rightRotateLogicalPlan(pivot)
-      }
-
-      /**
-       * Empty parent denotes that the join was in the root of the tree.
-       * If the rotation took place in a descendant, we transform the plan
-       * down in order to replace the descendant's subtree only.
-       */
-      if (parent.isEmpty) rotatedPlan else plan transformDown {
-          case n if n == parent.get =>
-            n.withNewChildren(Seq(rotatedPlan))
-        }
-    } else plan
-  }
-
   /**
    * Checks whether any descendant in the logical plan can be subjected to right/left
-   * rotation in order to improve co-locality for distributed joins. The first argument
-   * is used only in recursive calls, so any external invocation of this method should
-   * provide [[None]] for it.
-   * Warning! This method does not verify whether the order of the children in the inner
-   * join matters in the context of the join condition. This is deliberate, since it had
-   * to be checked again in the right/left rotation methods, since their logic depends
-   * on this characteristic of the subtree.
+   * rotation in order to improve co-locality for distributed joins and rotates them
+   * if possible.
    *
-   * @param parent The parent node of [[LogicalPlan]] given as the second argument,
-   *               or [[None]] if the plan's root is being passed.
-   * @param plan [[LogicalPlan]] which descendants are to be checked.
-   * @return In case when no rotation might be executed in the provided plan in order to
-   *         improve co-locality, [[None]] is returned.
-   *         In case when a rotation may be executed (but not always can - see the warning above)
-   *         the result constitutes a tuple (Option[LogicalPlan], Either[Join, Join]) where:
-   *         - the first tuple element is the parent node of the join node, or [[None]]
-   *           if the join node is the root of the logical plan,
-   *         - the second tuple element is [[Either]] which defines whether the left rotation
-   *           may be executed ([[Left]]) or the right rotation ([[Right]]) on the contained node.
+   * @param plan A [[LogicalPlan]] which descendants are to be rotated.
+   * @return The given plan with some rotations of joins possibly executed.
    */
-  private[this] def subjectToRotation(parent: Option[LogicalPlan], plan: LogicalPlan):
-  Option[(Option[LogicalPlan], Either[Join, Join])] =
+  def apply(plan: LogicalPlan): LogicalPlan =
     plan match {
       // The join operator is the only one which can benefit from co-locality
-      case p@Join(left, right, Inner, cond) if cond.isDefined =>
-          // Collect PartitionedRelations on both sides of the join
-          val leftRelations = getPartitionedRelations(left)
-          val rightRelations = getPartitionedRelations(right)
-          // Alter the join condition if necessary and possible
-          val condition = alterJoinConditionIfApplicable(left, right, cond.get)
+      case p@Join(left, right, Inner, Some(cond)) =>
+        // Collect PartitionedRelations on both sides of the join
+        val leftRelations = getPartitionedRelations(left)
+        val rightRelations = getPartitionedRelations(right)
+        // Alter the join condition if necessary and possible
+        val condition = alterJoinConditionIfApplicable(left, right, cond)
 
           (left, right, condition, rotationConditionsSatisfied(leftRelations, rightRelations))
           match {
@@ -98,23 +58,27 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
              * are satisfied, return (parent, Right(current node)).
              */
             case (left@Join(_, _, Inner, _), _, Some(c), Right(true)) =>
-              Some((parent, Right(Join(left, right, Inner, Some(c)))))
+              rightRotateLogicalPlan(Join(left, right, Inner, Some(c)))
             /**
              * If the right sub-node is an inner join, and the left rotation prerequisites
              * are satisfied, return (parent, Left(current node)).
              */
             case (_, right@Join(_, _, Inner, _), Some(c), Left(true)) =>
-              Some((parent, Left(Join(left, right, Inner, Some(c)))))
-            // No rotation prerequisites are satisfied, return [[None]].
-            case _ => None
+              leftRotateLogicalPlan(Join(left, right, Inner, Some(c)))
+            // No rotation prerequisites are satisfied, process the subtrees
+            case _ => Join(apply(left), apply(right), Inner, Some(cond))
           }
+      case p: BinaryNode =>
+        p.withNewChildren(Seq(apply(p.left), apply(p.right)))
       /**
        * In case of an unary node we check the condition for the child,
        * passing the current node as the parent.
        */
-      case p: UnaryNode => subjectToRotation(Some(p), p.child)
-      // TODO: In case of the other binary operators we currently do nothing
-      case _ => None
+      case p: UnaryNode => p.withNewChildren(Seq(apply(p.child)))
+      // This catches leaf nodes
+      case p: LeafNode => p.withNewChildren(p.children.map(c => apply(c)))
+      // Catch the other types of nodes
+      case p => p
     }
 
   /**

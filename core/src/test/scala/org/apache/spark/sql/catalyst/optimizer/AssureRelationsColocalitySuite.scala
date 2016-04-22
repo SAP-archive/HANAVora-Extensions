@@ -26,51 +26,55 @@ class AssureRelationsColocalitySuite
   }
 
   // Test relations
-  val testRelation0 = new LogicalRelation(new BaseRelation {
+  val t0 = new LogicalRelation(new BaseRelation {
     override def sqlContext: SQLContext = sqlc
-
     override def schema: StructType = StructType(Seq(StructField("id0", IntegerType)))
   })
-
-  val testRelation1 = new LogicalRelation(new BaseRelation with PartitionedRelation {
+  val t1 = new LogicalRelation(new BaseRelation with PartitionedRelation {
     override def sqlContext: SQLContext = sqlc
-
     override def schema: StructType = StructType(Seq(StructField("id1", IntegerType)))
-
     override def partitioningFunctionColumns: Option[Set[String]] = None
-
     override def partitioningFunctionName: Option[String] = None
   })
-
-  val testRelation2 = new LogicalRelation(new BaseRelation with PartitionedRelation {
+  val t2 = new LogicalRelation(new BaseRelation with PartitionedRelation {
     override def sqlContext: SQLContext = sqlc
-
     override def schema: StructType = StructType(Seq(StructField("id2", IntegerType)))
-
-    override def partitioningFunctionColumns: Option[Set[String]] =
-      Some(Set("id2"))
-
-    override def partitioningFunctionName: Option[String] =
-      Some("F1")
+    override def partitioningFunctionColumns: Option[Set[String]] = Some(Set("id2"))
+    override def partitioningFunctionName: Option[String] = Some("F1")
   })
-
-  val testRelation3 = new LogicalRelation(new BaseRelation with PartitionedRelation {
+  val t3 = new LogicalRelation(new BaseRelation with PartitionedRelation {
     override def sqlContext: SQLContext = sqlc
-
     override def schema: StructType = StructType(Seq(StructField("id3", IntegerType)))
-
-    override def partitioningFunctionColumns: Option[Set[String]] =
-      Some(Set("id3"))
-
-    override def partitioningFunctionName: Option[String] =
-      Some("F1")
+    override def partitioningFunctionColumns: Option[Set[String]] = Some(Set("id3"))
+    override def partitioningFunctionName: Option[String] = Some("F1")
+  })
+  val t4 = new LogicalRelation(new BaseRelation with PartitionedRelation {
+    override def sqlContext: SQLContext = sqlc
+    override def schema: StructType = StructType(Seq(StructField("id4", IntegerType)))
+    override def partitioningFunctionColumns: Option[Set[String]] = None
+    override def partitioningFunctionName: Option[String] = None
+  })
+  val t5 = new LogicalRelation(new BaseRelation with PartitionedRelation {
+    override def sqlContext: SQLContext = sqlc
+    override def schema: StructType = StructType(Seq(StructField("id5", IntegerType)))
+    override def partitioningFunctionColumns: Option[Set[String]] = Some(Set("id5"))
+    override def partitioningFunctionName: Option[String] = Some("F2")
+  })
+  val t6 = new LogicalRelation(new BaseRelation with PartitionedRelation {
+    override def sqlContext: SQLContext = sqlc
+    override def schema: StructType = StructType(Seq(StructField("id6", IntegerType)))
+    override def partitioningFunctionColumns: Option[Set[String]] = Some(Set("id6"))
+    override def partitioningFunctionName: Option[String] = Some("F2")
   })
 
   // Join attributes
-  val t0id = testRelation0.output.find(_.name == "id0").get
-  val t1id = testRelation1.output.find(_.name == "id1").get
-  val t2id = testRelation2.output.find(_.name == "id2").get
-  val t3id = testRelation3.output.find(_.name == "id3").get
+  val id0 = t0.output.find(_.name == "id0").get
+  val id1 = t1.output.find(_.name == "id1").get
+  val id2 = t2.output.find(_.name == "id2").get
+  val id3 = t3.output.find(_.name == "id3").get
+  val id4 = t4.output.find(_.name == "id4").get
+  val id5 = t5.output.find(_.name == "id5").get
+  val id6 = t6.output.find(_.name == "id6").get
 
   /**
    * This test checks the following re-orderings:
@@ -97,53 +101,47 @@ class AssureRelationsColocalitySuite
    */
   test("Right rotation on logical plans is correctly applied in case of local co-locality") {
     // Phase 1
-    val originalAnalyzedQuery1 = testRelation1
-      .join(testRelation2, joinType = Inner, condition = Some(t1id === t2id))
-      .join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)).analyze
+    val originalAnalyzedQuery1 = t1
+      .join(t2, joinType = Inner, condition = Some(id1 === id2))
+      .join(t3, joinType = Inner, condition = Some(id2 === id3)).analyze
 
     val optimized1 = Optimize.execute(originalAnalyzedQuery1)
 
-    val correctAnswer1 = testRelation1
-      .join(testRelation2.join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)),
-        joinType = Inner, condition = Some(t1id === t2id)).analyze
+    val correctAnswer1 = t1.join(t2.join(t3, joinType = Inner, condition = Some(id2 === id3)),
+      joinType = Inner, condition = Some(id1 === id2)).analyze
 
     comparePlans(optimized1, correctAnswer1)
 
     // Phase 2 - Inner joins
-    val originalAnalyzedQuery2 = testRelation2
-      .join(testRelation1, joinType = Inner, condition = Some(t2id === t1id))
-      .join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)).analyze
+    val originalAnalyzedQuery2 = t2.join(t1, joinType = Inner, condition = Some(id2 === id1))
+      .join(t3, joinType = Inner, condition = Some(id2 === id3)).analyze
 
     val optimized2 = Optimize.execute(originalAnalyzedQuery2)
 
-    val correctAnswer2 = testRelation1
-      .join(testRelation2.join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)),
-        joinType = Inner, condition = Some(t2id === t1id)).analyze
+    val correctAnswer2 = t1.join(t2.join(t3, joinType = Inner, condition = Some(id2 === id3)),
+      joinType = Inner, condition = Some(id2 === id1)).analyze
 
     comparePlans(optimized2, correctAnswer2)
 
     // Phase 2 - Outer joins
-    val originalAnalyzedQuery3 = testRelation2
-      .join(testRelation1, joinType = LeftOuter, condition = Some(t2id === t1id))
-      .join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)).analyze
+    val originalAnalyzedQuery3 = t2.join(t1, joinType = LeftOuter, condition = Some(id2 === id1))
+      .join(t3, joinType = Inner, condition = Some(id2 === id3)).analyze
 
     val optimized3 = Optimize.execute(originalAnalyzedQuery3)
 
     // The plan should remain unchanged due to the left outer join
     comparePlans(optimized3, originalAnalyzedQuery3)
 
-    val originalAnalyzedQuery4 = testRelation2
-      .join(testRelation1, joinType = RightOuter, condition = Some(t2id === t1id))
-      .join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)).analyze
+    val originalAnalyzedQuery4 = t2.join(t1, joinType = RightOuter, condition = Some(id2 === id1))
+      .join(t3, joinType = Inner, condition = Some(id2 === id3)).analyze
 
     val optimized4 = Optimize.execute(originalAnalyzedQuery4)
 
     // The plan should remain unchanged due to the right outer join
     comparePlans(optimized4, originalAnalyzedQuery4)
 
-    val originalAnalyzedQuery5 = testRelation2
-      .join(testRelation1, joinType = FullOuter, condition = Some(t2id === t1id))
-      .join(testRelation3, joinType = RightOuter, condition = Some(t2id === t3id)).analyze
+    val originalAnalyzedQuery5 = t2.join(t1, joinType = FullOuter, condition = Some(id2 === id1))
+      .join(t3, joinType = RightOuter, condition = Some(id2 === id3)).analyze
 
     val optimized5 = Optimize.execute(originalAnalyzedQuery5)
 
@@ -176,56 +174,51 @@ class AssureRelationsColocalitySuite
    */
   test("Left rotation on logical plans is correctly applied in case of local co-locality") {
     // Phase 1
-    val originalAnalyzedQuery1 = testRelation3.join(
-      testRelation2.join(testRelation1, joinType = Inner, condition = Some(t2id === t1id)),
-      joinType = Inner, condition = Some(t3id === t2id)).analyze
+    val originalAnalyzedQuery1 = t3.join(t2
+      .join(t1, joinType = Inner, condition = Some(id2 === id1)),
+      joinType = Inner, condition = Some(id3 === id2)).analyze
 
     val optimized1 = Optimize.execute(originalAnalyzedQuery1)
 
-    val correctAnswer1 = testRelation3
-      .join(testRelation2, joinType = Inner, condition = Some(t3id === t2id))
-      .join(testRelation1, joinType = Inner, condition = Some(t2id === t1id)).analyze
+    val correctAnswer1 = t3.join(t2, joinType = Inner, condition = Some(id3 === id2))
+      .join(t1, joinType = Inner, condition = Some(id2 === id1)).analyze
 
     comparePlans(optimized1, correctAnswer1)
 
     // Phase 2 - Inner joins
-    val originalAnalyzedQuery2 = testRelation3
-      .join(testRelation1.join(testRelation2, joinType = Inner, condition = Some(t1id === t2id)),
-        joinType = Inner, condition = Some(t3id === t2id)).analyze
+    val originalAnalyzedQuery2 = t3.join(t1
+      .join(t2, joinType = Inner, condition = Some(id1 === id2)),
+      joinType = Inner, condition = Some(id3 === id2)).analyze
 
     val optimized2 = Optimize.execute(originalAnalyzedQuery2)
 
-    val correctAnswer2 = testRelation3
-      .join(testRelation2, joinType = Inner, condition = Some(t3id === t2id))
-      .join(testRelation1, joinType = Inner, condition = Some(t1id === t2id)).analyze
+    val correctAnswer2 = t3.join(t2, joinType = Inner, condition = Some(id3 === id2))
+      .join(t1, joinType = Inner, condition = Some(id1 === id2)).analyze
 
     comparePlans(optimized2, correctAnswer2)
 
     // Phase 2 - Outer joins
-    val originalAnalyzedQuery3 = testRelation3
-      .join(testRelation1
-        .join(testRelation2, joinType = FullOuter, condition = Some(t1id === t2id)),
-        joinType = Inner, condition = Some(t3id === t2id)).analyze
+    val originalAnalyzedQuery3 = t3.join(
+      t1.join(t2, joinType = FullOuter, condition = Some(id1 === id2)),
+      joinType = Inner, condition = Some(id3 === id2)).analyze
 
     val optimized3 = Optimize.execute(originalAnalyzedQuery3)
 
     // The plan should remain unchanged due to the full outer join
     comparePlans(optimized3, originalAnalyzedQuery3)
 
-    val originalAnalyzedQuery4 = testRelation3
-      .join(testRelation1
-        .join(testRelation2, joinType = LeftOuter, condition = Some(t1id === t2id)),
-        joinType = Inner, condition = Some(t3id === t2id)).analyze
+    val originalAnalyzedQuery4 = t3.join(t1
+      .join(t2, joinType = LeftOuter, condition = Some(id1 === id2)),
+      joinType = Inner, condition = Some(id3 === id2)).analyze
 
     val optimized4 = Optimize.execute(originalAnalyzedQuery4)
 
     // The plan should remain unchanged due to the left outer join
     comparePlans(optimized4, originalAnalyzedQuery4)
 
-    val originalAnalyzedQuery5 = testRelation3
-      .join(testRelation1
-        .join(testRelation2, joinType = RightOuter, condition = Some(t1id === t2id)),
-        joinType = Inner, condition = Some(t3id === t2id)).analyze
+    val originalAnalyzedQuery5 = t3.join(t1
+      .join(t2, joinType = RightOuter, condition = Some(id1 === id2)),
+      joinType = Inner, condition = Some(id3 === id2)).analyze
 
     val optimized5 = Optimize.execute(originalAnalyzedQuery5)
 
@@ -235,102 +228,125 @@ class AssureRelationsColocalitySuite
 
   test("The join condition is properly altered in case when the upper join condition " +
     "involves columns from a non-partitioned table") {
-    val originalAnalyzedQuery1 = testRelation3.join(
-      testRelation2.join(testRelation1, joinType = Inner, condition = Some(t2id === t1id)),
-      joinType = Inner, condition = Some(t1id === t3id)).analyze
+    val originalAnalyzedQuery1 = t3.join(t2
+      .join(t1, joinType = Inner, condition = Some(id2 === id1)),
+      joinType = Inner, condition = Some(id1 === id3)).analyze
 
     val optimized1 = Optimize.execute(originalAnalyzedQuery1)
 
-    val correctAnswer1 = testRelation3
-      .join(testRelation2, joinType = Inner, condition = Some(t2id === t3id))
-      .join(testRelation1, joinType = Inner, condition = Some(t2id === t1id)).analyze
+    val correctAnswer1 = t3.join(t2, joinType = Inner, condition = Some(id2 === id3))
+      .join(t1, joinType = Inner, condition = Some(id2 === id1)).analyze
 
     comparePlans(optimized1, correctAnswer1)
 
-    val originalAnalyzedQuery2 = testRelation1
-      .join(testRelation2, joinType = Inner, condition = Some(t1id === t2id))
-      .join(testRelation3, joinType = Inner, condition = Some(t3id === t1id)).analyze
+    val originalAnalyzedQuery2 = t1.join(t2, joinType = Inner, condition = Some(id1 === id2))
+      .join(t3, joinType = Inner, condition = Some(id3 === id1)).analyze
 
     val optimized2 = Optimize.execute(originalAnalyzedQuery2)
 
-    val correctAnswer2 = testRelation1
-      .join(testRelation2.join(testRelation3, joinType = Inner, condition = Some(t3id === t2id)),
-        joinType = Inner, condition = Some(t1id === t2id)).analyze
+    val correctAnswer2 = t1.join(t2.join(t3, joinType = Inner, condition = Some(id3 === id2)),
+      joinType = Inner, condition = Some(id1 === id2)).analyze
 
     comparePlans(optimized2, correctAnswer2)
   }
 
   test("A proper rotation is applied even in case when a join involves tables " +
     "which do not provide partitioning information") {
-    val originalAnalyzedQuery1 = testRelation3.join(
-      testRelation2.join(testRelation0, joinType = Inner, condition = Some(t2id === t0id)),
-      joinType = Inner, condition = Some(t2id === t3id)).analyze
+    val originalAnalyzedQuery1 = t3.join(t2
+      .join(t0, joinType = Inner, condition = Some(id2 === id0)),
+      joinType = Inner, condition = Some(id2 === id3)).analyze
 
     val optimized1 = Optimize.execute(originalAnalyzedQuery1)
 
-    val correctAnswer1 = testRelation3
-      .join(testRelation2, joinType = Inner, condition = Some(t2id === t3id))
-      .join(testRelation0, joinType = Inner, condition = Some(t2id === t0id)).analyze
+    val correctAnswer1 = t3.join(t2, joinType = Inner, condition = Some(id2 === id3))
+      .join(t0, joinType = Inner, condition = Some(id2 === id0)).analyze
 
     comparePlans(optimized1, correctAnswer1)
 
-    val originalAnalyzedQuery2 = testRelation0
-      .join(testRelation2, joinType = Inner, condition = Some(t0id === t2id))
-      .join(testRelation3, joinType = Inner, condition = Some(t3id === t2id)).analyze
+    val originalAnalyzedQuery2 = t0.join(t2, joinType = Inner, condition = Some(id0 === id2))
+      .join(t3, joinType = Inner, condition = Some(id3 === id2)).analyze
 
     val optimized2 = Optimize.execute(originalAnalyzedQuery2)
 
-    val correctAnswer2 = testRelation0
-      .join(testRelation2
-        .join(testRelation3, joinType = Inner, condition = Some(t3id === t2id)),
-        joinType = Inner, condition = Some(t0id === t2id)).analyze
+    val correctAnswer2 = t0.join(t2.join(t3, joinType = Inner, condition = Some(id3 === id2)),
+      joinType = Inner, condition = Some(id0 === id2)).analyze
 
     comparePlans(optimized2, correctAnswer2)
   }
 
   test("Parent and children unary operators in logical plans are preserved during rotations") {
     // Check the case when there are preceding operators only
-    val originalAnalyzedQuery1 = testRelation1
-      .join(testRelation2, joinType = Inner, condition = Some(t1id === t2id))
-      .join(testRelation3, joinType = Inner, condition = Some(t2id === t3id))
+    val originalAnalyzedQuery1 = t1.join(t2, joinType = Inner, condition = Some(id1 === id2))
+      .join(t3, joinType = Inner, condition = Some(id2 === id3))
       .limit('test).analyze
 
     val optimized1 = Optimize.execute(originalAnalyzedQuery1)
 
-    val correctAnswer1 = testRelation1
-      .join(testRelation2.join(testRelation3, joinType = Inner, condition = Some(t2id === t3id)),
-        joinType = Inner, condition = Some(t1id === t2id)).limit('test).analyze
+    val correctAnswer1 = t1.join(t2.join(t3, joinType = Inner, condition = Some(id2 === id3)),
+      joinType = Inner, condition = Some(id1 === id2)).limit('test).analyze
 
     comparePlans(optimized1, correctAnswer1)
 
     // Check the case when there are succeeding operators only
-    val originalAnalyzedQuery2 = testRelation2.limit('test)
-      .join(testRelation1.limit('test), joinType = Inner, condition = Some(t2id === t1id))
-      .join(testRelation3.limit('test), joinType = Inner, condition = Some(t2id === t3id)).analyze
+    val originalAnalyzedQuery2 = t2.limit('test)
+      .join(t1.limit('test), joinType = Inner, condition = Some(id2 === id1))
+      .join(t3.limit('test), joinType = Inner, condition = Some(id2 === id3)).analyze
 
     val optimized2 = Optimize.execute(originalAnalyzedQuery2)
 
-    val correctAnswer2 = testRelation1.limit('test)
-      .join(testRelation2.limit('test)
-        .join(testRelation3.limit('test), joinType = Inner, condition = Some(t2id === t3id)),
-        joinType = Inner, condition = Some(t2id === t1id)).analyze
+    val correctAnswer2 = t1.limit('test).join(t2.limit('test)
+      .join(t3.limit('test), joinType = Inner, condition = Some(id2 === id3)),
+      joinType = Inner, condition = Some(id2 === id1)).analyze
 
     comparePlans(optimized2, correctAnswer2)
 
     // Check for both preceding and succeeding operators present
-    val originalAnalyzedQuery3 = testRelation2.limit('test)
-      .join(testRelation1.limit('test), joinType = Inner, condition = Some(t2id === t1id))
-      .join(testRelation3.limit('test), joinType = Inner, condition = Some(t2id === t3id))
+    val originalAnalyzedQuery3 = t2.limit('test)
+      .join(t1.limit('test), joinType = Inner, condition = Some(id2 === id1))
+      .join(t3.limit('test), joinType = Inner, condition = Some(id2 === id3))
       .limit('test).subquery('x).analyze
 
     val optimized3 = Optimize.execute(originalAnalyzedQuery3)
 
-    val correctAnswer3 = testRelation1.limit('test)
-      .join(testRelation2.limit('test)
-        .join(testRelation3.limit('test), joinType = Inner, condition = Some(t2id === t3id)),
-        joinType = Inner, condition = Some(t2id === t1id)).limit('test).subquery('x).analyze
+    val correctAnswer3 = t1.limit('test).join(t2.limit('test)
+      .join(t3.limit('test), joinType = Inner, condition = Some(id2 === id3)),
+      joinType = Inner, condition = Some(id2 === id1)).limit('test).subquery('x).analyze
 
     comparePlans(optimized3, correctAnswer3)
+  }
+
+  test("Parent and children binary operators in logical plans are preserved during rotations") {
+    val originalAnalyzedQuery1 = t1.join(t2, joinType = Inner, condition = Some(id1 === id2))
+      .join(t3, joinType = Inner, condition = Some(id2 === id3))
+      .intersect(t4.join(t5, joinType = Inner, condition = Some(id4 === id5))
+        .join(t6, joinType = Inner, condition = Some(id5 === id6))).limit('test).analyze
+
+    val optimized1 = Optimize.execute(originalAnalyzedQuery1)
+
+    val correctAnswer1 = t1.join(t2.join(t3, joinType = Inner, condition = Some(id2 === id3)),
+      joinType = Inner, condition = Some(id1 === id2))
+      .intersect(t4.join(t5.join(t6, joinType = Inner, condition = Some(id5 === id6)),
+        joinType = Inner, condition = Some(id4 === id5))).limit('test).analyze
+
+    comparePlans(optimized1, correctAnswer1)
+
+    val originalAnalyzedQuery2 = t1.join(t2, joinType = Inner, condition = Some(id1 === id2))
+      .join(t3, joinType = Inner, condition = Some(id2 === id3))
+      .intersect(t4.join(t5, joinType = Inner, condition = Some(id4 === id5))
+        .join(t6, joinType = Inner, condition = Some(id5 === id6))).limit('test)
+      .unionAll(t0.join(t2, joinType = Inner, condition = Some(id0 === id2))
+        .join(t3, joinType = Inner, condition = Some(id3 === id2)).analyze).analyze
+
+    val optimized2 = Optimize.execute(originalAnalyzedQuery2)
+
+    val correctAnswer2 = t1.join(t2.join(t3, joinType = Inner, condition = Some(id2 === id3)),
+      joinType = Inner, condition = Some(id1 === id2))
+      .intersect(t4.join(t5.join(t6, joinType = Inner, condition = Some(id5 === id6)),
+        joinType = Inner, condition = Some(id4 === id5))).limit('test)
+      .unionAll(t0.join(t2.join(t3, joinType = Inner, condition = Some(id3 === id2)),
+        joinType = Inner, condition = Some(id0 === id2))).analyze
+
+    comparePlans(optimized2, correctAnswer2)
   }
 
 }
