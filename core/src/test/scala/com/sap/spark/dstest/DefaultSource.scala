@@ -5,17 +5,63 @@ import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, Pers
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 
+import scala.collection.mutable
+
 /**
  * Test default source that is capable of creating dummy temporary and persistent relations
  */
 class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
-with TemporaryAndPersistentRelationProvider
-with PartitionedRelationProvider
-with RegisterAllTableRelations
-with ViewProvider
-with DimensionViewProvider
-with DatasourceCatalog {
+  with TemporaryAndPersistentRelationProvider
+  with PartitionedRelationProvider
+  with RegisterAllTableRelations
+  with ViewProvider
+  with DimensionViewProvider
+  with DatasourceCatalog
+  with PartitioningFunctionProvider {
 
+  override def createHashPartitioningFunction(sqlContext: SQLContext,
+                                              parameters: Map[String, String],
+                                              name: String,
+                                              datatypes: Seq[DataType],
+                                              partitionsNo: Option[Int]): Unit = {
+    DefaultSource.addPartitioningFunction(name,
+      HashPartitioningFunction(name, datatypes, partitionsNo))
+  }
+
+  override def createRangeSplitPartitioningFunction(sqlContext: SQLContext,
+                                                    parameters: Map[String, String],
+                                                    name: String,
+                                                    datatype: DataType,
+                                                    splitters: Seq[Int],
+                                                    rightClosed: Boolean): Unit = {
+    DefaultSource.addPartitioningFunction(name,
+      RangeSplitPartitioningFunction(name, datatype, splitters, rightClosed))
+  }
+
+  override def createRangeIntervalPartitioningFunction(sqlContext: SQLContext,
+                                                       parameters: Map[String, String],
+                                                       name: String,
+                                                       datatype: DataType,
+                                                       start: Int,
+                                                       end: Int,
+                                                       strideParts: Either[Int, Int]): Unit = {
+    DefaultSource.addPartitioningFunction(name,
+      RangeIntervalPartitioningFunction(name, datatype, start, end,
+        Dissector.fromEither(strideParts)))
+  }
+
+  override def getAllPartitioningFunctions(sqlContext: SQLContext,
+                                           parameters: Map[String, String])
+    : Seq[PartitioningFunction] = {
+    DefaultSource.getAllPartitioningFunctions
+  }
+
+  override def dropPartitioningFunction(sqlContext: SQLContext,
+                                        parameters: Map[String, String],
+                                        name: String,
+                                        allowNotExisting: Boolean): Unit = {
+    DefaultSource.dropPartitioningFunction(name, allowNotExisting)
+  }
 
   // (YH) shouldn't we also add the created table name to the tables sequence in DefaultSource?
   override def createRelation(sqlContext: SQLContext,
@@ -151,6 +197,8 @@ object DefaultSource {
   private var tables = Seq(standardRelation)
   private var views = Map.empty[String, (String, String)]
 
+  private val partitioningFunctions = new mutable.HashMap[String, PartitioningFunction]()
+
   def addRelation(name: String): Unit = {
     tables = tables ++ Seq(name)
   }
@@ -173,6 +221,20 @@ object DefaultSource {
       tables = Seq.empty[String]
     }
     views = Map.empty[String, (String, String)]
+    partitioningFunctions.clear()
   }
 
+  def addPartitioningFunction(name: String, pFun: PartitioningFunction): Unit = {
+    partitioningFunctions(name) = pFun
+  }
+
+  def dropPartitioningFunction(name: String, allowNotExisting: Boolean): Unit = {
+    if (!partitioningFunctions.contains(name) && !allowNotExisting) {
+      throw new RuntimeException(s"Cannot drop non-existent partitioning function $name")
+    }
+    partitioningFunctions.remove(name)
+  }
+
+  def getAllPartitioningFunctions: Seq[PartitioningFunction] =
+    partitioningFunctions.values.toSeq
 }
