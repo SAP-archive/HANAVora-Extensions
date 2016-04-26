@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.{CreateNonPersistentViewCommand, SapDDLParser}
+import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
 import org.apache.spark.sql.sources.sql.{Cube, Dimension, Plain, ViewKind}
 
@@ -45,6 +45,21 @@ with AnnotationParsingRules{
   lexical.delimiters += "$"
 
   protected lazy val viewKind: Parser[String] = DIMENSION | CUBE
+
+  /* System table keywords */
+  protected lazy val SYS = Keyword("SYS")
+  protected lazy val OPTIONS = Keyword("OPTIONS")
+
+  protected lazy val optionName: Parser[String] = repsep(ident, ".").^^(_.mkString("."))
+
+  protected lazy val pair: Parser[(String, String)] =
+    optionName ~ stringLit ^^ { case k ~ v => (k, v) }
+
+  /** Parses the content of OPTIONS and puts the result in a case insensitive map */
+  protected lazy val options: Parser[Map[String, String]] =
+    "(" ~> repsep(pair, ",") <~ ")" ^^ {
+      case s: Seq[(String, String)] => new CaseInsensitiveMap(s.toMap)
+    }
 
   /**
    * This is copied from [[projection]] but extended to allow annotations
@@ -154,6 +169,13 @@ with AnnotationParsingRules{
       )
 
   override protected lazy val relationFactor: Parser[LogicalPlan] =
+    SYS ~> "." ~> ident ~ (USING ~> repsep(ident, ".")) ~ (OPTIONS ~> options).? ^^ {
+      case name ~ provider ~ opts =>
+        UnresolvedSystemTable(
+          name,
+          provider.mkString("."),
+          opts.getOrElse(Map.empty[String, String]))
+    } |
     ident ~ ("(" ~> repsep(start1, ",") <~ ")") ^^ {
       case name ~ arguments =>
         UnresolvedTableFunction(name, arguments)

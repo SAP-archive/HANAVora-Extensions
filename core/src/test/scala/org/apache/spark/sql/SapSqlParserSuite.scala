@@ -62,6 +62,27 @@ class SapSqlParserSuite
     log.info(s"$analyzed")
   }
 
+  test("parse system table") {
+    val parsed = SapSqlParser.parse("SELECT * FROM SYS.TABLES USING com.sap.spark")
+
+    assertResult(Project(                               // SELECT
+      Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
+      UnresolvedSystemTable("TABLES",                   // FROM SYS.TABLES
+        "com.sap.spark", Map.empty)               // USING com.sap.spark
+    ))(parsed)
+  }
+
+  test("parse system table with options") {
+    val parsed = SapSqlParser.parse("SELECT * FROM SYS.TABLES " +
+      "USING com.sap.spark OPTIONS (foo \"bar\")")
+
+    assertResult(Project(                               // SELECT
+      Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
+      UnresolvedSystemTable("TABLES",                   // FROM SYS.TABLES
+        "com.sap.spark", Map("foo" -> "bar"))     // USING com.sap.spark
+    ))(parsed)
+  }
+
   test("parse table function") {
     val parsed = SapSqlParser.parse("SELECT * FROM describe_table(SELECT * FROM persons)")
 
@@ -278,6 +299,7 @@ class SapSqlParserSuite
     * Utility method that creates a [[SapParserDialect]] parser and tries to parse the given
     * query, it expects the parser to fail with the exception type parameter and the exception
     * message should contain the text defined in the message parameter.
+    *
     * @param query The query.
     * @param message Part of the expected error message.
     * @tparam T The exception type.
