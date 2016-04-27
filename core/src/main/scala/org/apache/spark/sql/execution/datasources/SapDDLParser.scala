@@ -14,6 +14,8 @@ import org.apache.spark.sql.sources.commands._
 import scala.util.parsing.input.Position
 import scala.reflect._
 
+import org.apache.spark.sql.util.CollectionUtils._
+
 class SapDDLParser(parseQuery: String => LogicalPlan)
   extends BackportedSapSqlParser(parseQuery)
   with AnnotationParsingRules {
@@ -71,6 +73,9 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val DIMENSION = Keyword("DIMENSION")
   protected val CUBE = Keyword("CUBE")
 
+  /* CREATE TABLE CONSTANTS */
+  protected val TABLE_DDL_STATEMENT = "TABLE_DDL"
+
   /**
     * needed for view parsing.
     */
@@ -83,17 +88,19 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     }
 
   override protected lazy val createTable: Parser[LogicalPlan] =
-    (CREATE ~> TEMPORARY.? <~ TABLE) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~
+    withConsumedInput((CREATE ~> TEMPORARY.? <~ TABLE) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~
       tableCols.? ~ (PARTITIONED ~> BY ~> functionName ~ colsNames).? ~ (USING ~> className) ~
-      (OPTIONS ~> options).? ~ (AS ~> restInput).? ^^ {
-      case temp ~ allowExisting ~ tableId ~ columns ~ partitioningFunctionDef ~
-        provider ~ opts ~ query =>
+      (OPTIONS ~> options).? ~ (AS ~> restInput).?) ^^ {
+      case (temp ~ allowExisting ~ tableId ~ columns ~ partitioningFunctionDef ~
+        provider ~ opts ~ query, ddlStatement) =>
         if (temp.isDefined && allowExisting.isDefined) {
           throw new DDLException(
             "a CREATE TEMPORARY TABLE statement does not allow IF NOT EXISTS clause.")
         }
 
-        val options = opts.getOrElse(Map.empty[String, String])
+        val options =
+          opts.getOrElse(CaseInsensitiveMap.empty[String])
+              .putIfAbsent(TABLE_DDL_STATEMENT, ddlStatement)
         if (query.isDefined) {
           if (columns.isDefined) {
             throw new DDLException(
@@ -405,7 +412,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   /** Parses the content of OPTIONS and puts the result in a case insensitive map */
   override protected lazy val options: Parser[Map[String, String]] =
     "(" ~> repsep(pair, ",") <~ ")" ^^ {
-      case s: Seq[(String, String)] => new CaseInsensitiveMap(s.toMap)
+      case s: Seq[(String, String)] => CaseInsensitiveMap(s.toMap)
     }
 
   /** Partitioning function identifier */

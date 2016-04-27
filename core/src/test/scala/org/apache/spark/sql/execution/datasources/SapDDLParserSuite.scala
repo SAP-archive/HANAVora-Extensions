@@ -2,7 +2,7 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.sources.commands._
@@ -10,7 +10,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{FunSuite, GivenWhenThen}
+import org.scalatest.{FunSuite, GivenWhenThen, Inside}
 
 class SapDDLParserSuite
   extends FunSuite
@@ -35,6 +35,31 @@ class SapDDLParserSuite
       ShowPartitioningFunctionsUsingCommand("com.sap.spark.dstest", Map.empty))(parsed1)
     assertResult(
       ShowPartitioningFunctionsUsingCommand("com.sap.spark.dstest", Map("foo" -> "bar")))(parsed2)
+  }
+
+  test("CREATE TABLE keeps the ddl statement in the options") {
+    val ddl =
+      s"""CREATE TABLE foo (a int, b int)
+         |USING com.sap.spark.vora
+         |OPTIONS (
+         |)""".stripMargin
+
+    val parsed = ddlParser.parse(ddl)
+
+    assertResult(ddl)(parsed.asInstanceOf[CreateTableUsing].options("table_ddl"))
+  }
+
+  test("CREATE TABLE does not override a user provided ddl statement") {
+    val ddl =
+      s"""CREATE TABLE foo (a int, b int)
+          |USING com.sap.spark.vora
+          |OPTIONS (
+          |table_ddl "bar"
+          |)""".stripMargin
+
+    val parsed = ddlParser.parse(ddl)
+
+    assertResult("bar")(parsed.asInstanceOf[CreateTableUsing].options("table_ddl"))
   }
 
   test("OPTIONS (CONTENT) command") {
