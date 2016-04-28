@@ -7,10 +7,11 @@ import org.apache.spark.sql.types._
 /**
  * Test relation with the temporary and non temporary flags
  */
-class DummyRelationWithTempFlag(
-    val sqlContext: SQLContext,
-    val schema: StructType,
-    val temporary: Boolean)
+case class DummyRelationWithTempFlag(
+    sqlContext: SQLContext,
+    tableName: Seq[String],
+    schema: StructType,
+    temporary: Boolean)
   extends BaseRelation
   with TemporaryFlagRelation
   with DropRelation {
@@ -20,7 +21,9 @@ class DummyRelationWithTempFlag(
   override def dropTable(): Unit = {}
 }
 
-class DummyRelationWithoutTempFlag(val sqlContext: SQLContext, val schema: StructType)
+case class DummyRelationWithoutTempFlag(
+    sqlContext: SQLContext,
+    schema: StructType)
   extends BaseRelation
   with DropRelation  {
 

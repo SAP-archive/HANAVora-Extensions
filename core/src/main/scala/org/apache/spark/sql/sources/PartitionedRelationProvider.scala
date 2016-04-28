@@ -12,6 +12,7 @@ trait PartitionedRelationProvider
   with TemporaryAndPersistentNature {
 
   def createRelation(sqlContext: SQLContext,
+                     tableName: Seq[String],
                      parameters: Map[String, String],
                      partitioningFunction: Option[String],
                      partitioningColumns: Option[Seq[String]],
@@ -19,6 +20,7 @@ trait PartitionedRelationProvider
                      allowExisting: Boolean): BaseRelation
 
   def createRelation(sqlContext: SQLContext,
+                     tableName: Seq[String],
                      parameters: Map[String, String],
                      schema: StructType,
                      partitioningFunction: Option[String],

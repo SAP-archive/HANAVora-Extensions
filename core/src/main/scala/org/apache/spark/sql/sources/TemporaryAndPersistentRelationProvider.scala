@@ -16,6 +16,7 @@ trait TemporaryAndPersistentRelationProvider
   with TemporaryAndPersistentNature {
 
   def createRelation(sqlContext: SQLContext,
+                     tableName: Seq[String],
                      parameters: Map[String, String],
                      isTemporary: Boolean,
                      allowExisting: Boolean): BaseRelation

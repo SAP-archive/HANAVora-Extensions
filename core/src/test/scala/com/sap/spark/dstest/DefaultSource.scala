@@ -66,45 +66,63 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   // (YH) shouldn't we also add the created table name to the tables sequence in DefaultSource?
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String]): BaseRelation =
-    createRelation(sqlContext, parameters, None, None, isTemporary = false, allowExisting = false)
+    createRelation(
+      sqlContext,
+      Seq.empty,
+      parameters,
+      None,
+      None,
+      isTemporary = false,
+      allowExisting = false)
 
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String],
                               schema: StructType): BaseRelation =
     new DummyRelationWithoutTempFlag(sqlContext, schema)
 
-  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
+  override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
+                              parameters: Map[String, String],
                               isTemporary: Boolean,
                               allowExisting: Boolean): BaseRelation =
-    new DummyRelationWithTempFlag(sqlContext,
-      DefaultSource.standardSchema,
-      isTemporary)
+    new DummyRelationWithTempFlag(sqlContext, tableName, DefaultSource.standardSchema, isTemporary)
 
-  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
+  override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
+                              parameters: Map[String, String],
                               sparkSchema: StructType, isTemporary: Boolean,
                               allowExisting: Boolean): BaseRelation =
-    new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
+    new DummyRelationWithTempFlag(sqlContext, tableName, sparkSchema, isTemporary)
 
-  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
+  override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
+                              parameters: Map[String, String],
                               partitioningFunction: Option[String],
-                              partitioningColumns: Option[Seq[String]], isTemporary: Boolean,
+                              partitioningColumns: Option[Seq[String]],
+                              isTemporary: Boolean,
                               allowExisting: Boolean): BaseRelation =
-    new DummyRelationWithTempFlag(sqlContext,
+    new DummyRelationWithTempFlag(
+      sqlContext,
+      tableName,
       DefaultSource.standardSchema,
       isTemporary)
 
-  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String],
-                              sparkSchema: StructType, partitioningFunction: Option[String],
-                              partitioningColumns: Option[Seq[String]], isTemporary: Boolean,
+  override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
+                              parameters: Map[String, String],
+                              sparkSchema: StructType,
+                              partitioningFunction: Option[String],
+                              partitioningColumns: Option[Seq[String]],
+                              isTemporary: Boolean,
                               allowExisting: Boolean): BaseRelation =
-    new DummyRelationWithTempFlag(sqlContext, sparkSchema, isTemporary)
+    new DummyRelationWithTempFlag(sqlContext, tableName, sparkSchema, isTemporary)
 
   override def getAllTableRelations(sqlContext: SQLContext,
                                     options: Map[String, String])
     : Map[String, LogicalPlanSource] = {
     DefaultSource.tables.map(name =>
       (name, BaseRelationSource(
-        new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema, false)))
+        new DummyRelationWithTempFlag(sqlContext, Seq(name), DefaultSource.standardSchema, false)))
     ).toMap ++
     DefaultSource.views.map {
       case (name, (_, query)) =>
@@ -117,7 +135,11 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
                                 options: Map[String, String]): Option[LogicalPlanSource] = {
     if (DefaultSource.tables.contains(tableName)) {
       Some(BaseRelationSource(
-        new DummyRelationWithTempFlag(sqlContext, DefaultSource.standardSchema, false)))
+        new DummyRelationWithTempFlag(
+          sqlContext,
+          Seq(tableName),
+          DefaultSource.standardSchema,
+          temporary = false)))
     } else {
       if (DefaultSource.views.contains(tableName)) {
         Some(CreatePersistentViewSource(DefaultSource.views(tableName)._2))

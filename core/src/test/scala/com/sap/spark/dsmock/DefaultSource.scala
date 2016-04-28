@@ -38,19 +38,22 @@ class DefaultSource
     underlying.createRelation(sqlContext, parameters, schema)
 
   override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
                               parameters: Map[String, String],
                               schema: StructType,
                               isTemporary: Boolean,
                               allowExisting: Boolean): BaseRelation =
-    underlying.createRelation(sqlContext, parameters, schema, isTemporary, allowExisting)
+    underlying.createRelation(sqlContext, tableName, parameters, schema, isTemporary, allowExisting)
 
   override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
                               parameters: Map[String, String],
                               isTemporary: Boolean,
                               allowExisting: Boolean): BaseRelation =
-    underlying.createRelation(sqlContext, parameters, isTemporary, allowExisting)
+    underlying.createRelation(sqlContext, tableName, parameters, isTemporary, allowExisting)
 
   override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
                               parameters: Map[String, String],
                               partitioningFunction: Option[String],
                               partitioningColumns: Option[Seq[String]],
@@ -58,6 +61,7 @@ class DefaultSource
                               allowExisting: Boolean): BaseRelation  =
     underlying.createRelation(
       sqlContext,
+      tableName,
       parameters,
       partitioningFunction,
       partitioningColumns,
@@ -65,6 +69,7 @@ class DefaultSource
       allowExisting)
 
   override def createRelation(sqlContext: SQLContext,
+                              tableName: Seq[String],
                               parameters: Map[String, String],
                               schema: StructType,
                               partitioningFunction: Option[String],
@@ -73,6 +78,7 @@ class DefaultSource
                               allowExisting: Boolean): BaseRelation =
     underlying.createRelation(
       sqlContext,
+      tableName,
       parameters,
       schema,
       partitioningFunction,

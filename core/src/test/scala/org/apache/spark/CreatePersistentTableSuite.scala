@@ -1,20 +1,56 @@
 package org.apache.spark
 
+import com.sap.spark.dstest.{DefaultSource, DummyRelationWithTempFlag}
 import com.sap.spark.util.TestUtils._
+import org.apache.spark.sql.catalyst.plans.logical.Subquery
+import org.apache.spark.sql.execution.datasources.{IsLogicalRelation, LogicalRelation, ResolvedDataSource}
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.{GlobalSapSQLContext, Row}
-import org.scalatest.FunSuite
+import org.apache.spark.sql.{CatalogAccessor, GlobalSapSQLContext, Row}
+import org.scalatest.{BeforeAndAfterEach, FunSuite, Inside}
 
 /**
  * Tests the additional possibility of creating temporary / persistent tables
  */
-class CreatePersistentTableSuite extends FunSuite with GlobalSapSQLContext {
+class CreatePersistentTableSuite
+  extends FunSuite
+  with GlobalSapSQLContext
+  with BeforeAndAfterEach
+  with Inside {
 
   lazy val tableNotTemp = tableName("tableNotTemp")
   lazy val tableTemp = tableName("tableTemp")
   lazy val testTableNoSchema = tableName("testTableNoSchema")
   lazy val notExistingYet = tableName("notExistingYet")
   lazy val twiceTest = tableName("twiceTest")
+
+
+  test("Create table keeps the table identifier") {
+    sqlContext.sql(
+      s"""CREATE TABLE $tableNotTemp (field string)
+         |USING com.sap.spark.dstest
+       """.stripMargin)
+
+    val plan = CatalogAccessor(sqlContext).lookupRelation(Seq(tableNotTemp))
+    inside(plan) {
+      case Subquery(_,
+        IsLogicalRelation(DummyRelationWithTempFlag(_, tableName, _, _))) =>
+        assert(tableName == Seq(tableNotTemp))
+    }
+  }
+
+  test("Create temporary table keeps the table identifier") {
+    sqlContext.sql(
+      s"""CREATE TEMPORARY TABLE $tableTemp (field string)
+          |USING com.sap.spark.dstest
+       """.stripMargin)
+
+    val plan = CatalogAccessor(sqlContext).lookupRelation(Seq(tableTemp))
+    inside(plan) {
+      case Subquery(_,
+      IsLogicalRelation(DummyRelationWithTempFlag(_, tableName, _, _))) =>
+        assert(tableName == Seq(tableTemp))
+    }
+  }
 
   test("Create non-temporary table") {
     sqlContext.sql(s"""CREATE TABLE $tableNotTemp (field string)
