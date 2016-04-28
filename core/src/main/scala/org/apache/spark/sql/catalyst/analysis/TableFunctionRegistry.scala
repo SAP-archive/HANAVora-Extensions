@@ -2,7 +2,7 @@ package org.apache.spark.sql.catalyst.analysis
 
 import java.util.Locale
 
-import org.apache.spark.sql.catalyst.expressions.tablefunctions.DescribeTableFunction
+import org.apache.spark.sql.catalyst.expressions.tablefunctions.{DescribeTableFunction, DescribeTableIfExistsTableFunction}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -56,5 +56,6 @@ object TableFunctionRegistry extends SimpleTableFunctionRegistry {
   }
 
   function[DescribeTableFunction]("describe_table")
+  function[DescribeTableIfExistsTableFunction]("describe_table_if_exists")
 }
 

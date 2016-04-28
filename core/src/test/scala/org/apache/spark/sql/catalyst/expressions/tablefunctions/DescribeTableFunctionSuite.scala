@@ -1,10 +1,9 @@
 package org.apache.spark.sql.catalyst.expressions.tablefunctions
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.tablefunctions.RunDescribeTable
 import org.apache.spark.sql.extension.ExtendedPlanner
-import org.scalatest.FunSuite
 import org.mockito.Mockito._
+import org.scalatest.FunSuite
 
 class DescribeTableFunctionSuite extends FunSuite {
   val f = new DescribeTableFunction
