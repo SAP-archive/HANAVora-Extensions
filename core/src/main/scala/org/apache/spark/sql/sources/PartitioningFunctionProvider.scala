@@ -88,4 +88,14 @@ trait PartitioningFunctionProvider {
                                name: String,
                                allowNotExisting: Boolean)
 
+
+  /**
+    * Retrieves and returns all partitioning function of this provider.
+    *
+    * @param sqlContext The Spark SQL context
+    * @param parameters The configuration parameters
+    * @return A sequence of all partitioning functions stored by this provider.
+    */
+  def getAllPartitioningFunctions(sqlContext: SQLContext,
+                                  parameters: Map[String, String]): Seq[PartitioningFunction]
 }
