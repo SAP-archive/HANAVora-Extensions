@@ -1,6 +1,8 @@
 package com.sap.spark.dsmock
 
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{DataType, StructType}
@@ -24,7 +26,8 @@ class DefaultSource
   with ViewProvider
   with DimensionViewProvider
   with DatasourceCatalog
-  with PartitioningFunctionProvider {
+  with PartitioningFunctionProvider
+  with RawSqlSourceProvider {
 
   val underlying: DefaultSource = DefaultSource.currentMock
 
@@ -179,6 +182,11 @@ class DefaultSource
                                            parameters: Map[String, String])
     : Seq[PartitioningFunction] =
     underlying.getAllPartitioningFunctions(sqlContext, parameters)
+
+  override def getRDD(sqlCommand: String): RDD[Row] = underlying.getRDD(sqlCommand)
+
+  override def getResultingAttributes(sqlCommand: String): Seq[Attribute] =
+    underlying.getResultingAttributes(sqlCommand)
 }
 
 object DefaultSource {

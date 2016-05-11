@@ -87,7 +87,7 @@ with AnnotationParsingRules{
    * Overriden to hook [[createView]] parser.
    */
   override protected lazy val start: Parser[LogicalPlan] =
-    start1 | insert | cte | createView | describeTable
+    selectWith | start1 | insert | cte | createView | describeTable
 
   /**
    * Overriden to hook [[hierarchy]] parser.
@@ -231,6 +231,21 @@ with AnnotationParsingRules{
       | termExpression
       )
 
+  /**
+    * For special engine integration syntax
+    */
+  protected lazy val className: Parser[String] = repsep(ident, ".") ^^ { case s => s.mkString(".")}
+
+  /**
+    * Parses RAW Sql, i.e., sql we do not parse but pass directly to an appropriate datasource
+    *
+    * Example: "some engine specifc syntax" WITH com.sap.spark.engines
+    *
+     */
+  protected lazy val selectWith: Parser[LogicalPlan] =
+    stringLit ~ (WITH ~> (className)) ^^ {
+      case s ~ c => UnresolvedSelectWith(s, c)
+    }
 
   /**
    * Main entry point for the parser.

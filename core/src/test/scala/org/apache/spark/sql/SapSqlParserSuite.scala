@@ -62,6 +62,14 @@ class SapSqlParserSuite
     log.info(s"$analyzed")
   }
 
+  test ("RAW SQL: 'select ....' WITH class.name") {
+    val rawSqlString = "SELECT something bla FROM A"
+    val className = "class.name"
+
+    assert(SapSqlParser.parse(s"'$rawSqlString' WITH $className")
+      .equals(UnresolvedSelectWith(rawSqlString, className)))
+  }
+
   test("Distinct") {
     val parsed = SapSqlParser.parse("SELECT count(distinct *) FROM t")
     println(parsed)

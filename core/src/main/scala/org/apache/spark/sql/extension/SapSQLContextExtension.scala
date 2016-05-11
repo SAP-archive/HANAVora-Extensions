@@ -28,6 +28,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveTableFunctions(analyzer) ::
     ResolveCountDistinctStar(analyzer) ::
     ResolveDeepDescribe(analyzer) ::
+    ResolveSelectWith(analyzer) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =
@@ -46,6 +47,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     CatalystSourceStrategy ::
     HierarchyStrategy(planner) ::
     TableFunctionsStrategy(planner) ::
+    RawSqlSourceStrategy ::
     SystemTablesStrategy(planner) :: Nil
 
   override protected def extendedParserDialect: ParserDialect = new SapParserDialect
