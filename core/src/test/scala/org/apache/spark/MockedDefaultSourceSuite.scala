@@ -63,7 +63,7 @@ class MockedDefaultSourceSuite
           .thenReturn(Seq(HashPartitioningFunction(s"foo$i", Seq.empty, None)))
 
         val Array(Row(name)) = sqlc
-          .sql("SHOW PARTITIONING FUNCTIONS USING com.sap.spark.dsmock")
+          .sql("SHOW PARTITION FUNCTIONS USING com.sap.spark.dsmock")
           .select("name")
           .collect()
 

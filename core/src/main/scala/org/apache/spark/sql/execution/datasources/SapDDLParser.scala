@@ -35,7 +35,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       refreshTable |
       showTables |
       showTablesUsing |
-      showPartitioningFunctionsUsing |
+      showPartitionFunctionsUsing |
       registerAllTables |
       registerTable |
       describeDatasource |
@@ -54,7 +54,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val CONFLICTS = Keyword("CONFLICTS")
   protected val USE = Keyword("USE")
   protected val DEEP = Keyword("DEEP")
-  protected val PARTITIONING = Keyword("PARTITIONING")
   protected val PARTITIONED = Keyword("PARTITIONED")
   protected val PARTITION = Keyword("PARTITION")
   protected val FUNCTION = Keyword("FUNCTION")
@@ -384,11 +383,11 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         ShowTablesUsingCommand(classId, options)
     }
 
-  protected lazy val showPartitioningFunctionsUsing: Parser[LogicalPlan] = {
-    SHOW ~> PARTITIONING ~> FUNCTIONS ~> (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
+  protected lazy val showPartitionFunctionsUsing: Parser[LogicalPlan] = {
+    SHOW ~> PARTITION ~> FUNCTIONS ~> (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
       case classId ~ opts =>
         val options = opts.getOrElse(Map.empty)
-        ShowPartitioningFunctionsUsingCommand(classId, options)
+        ShowPartitionFunctionsUsingCommand(classId, options)
     }
   }
 

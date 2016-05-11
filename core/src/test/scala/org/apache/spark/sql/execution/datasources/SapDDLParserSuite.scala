@@ -27,14 +27,14 @@ class SapDDLParserSuite
     assert(parsed == UnresolvedDeepDescribe(UnresolvedRelation(Seq("test"))))
   }
 
-  test("SHOW PARTITIONING FUNCTIONS command") {
-    val parsed1 = ddlParser.parse("SHOW PARTITIONING FUNCTIONS USING com.sap.spark.dstest")
-    val parsed2 = ddlParser.parse("SHOW PARTITIONING FUNCTIONS USING com.sap.spark.dstest " +
+  test("SHOW PARTITION FUNCTIONS command") {
+    val parsed1 = ddlParser.parse("SHOW PARTITION FUNCTIONS USING com.sap.spark.dstest")
+    val parsed2 = ddlParser.parse("SHOW PARTITION FUNCTIONS USING com.sap.spark.dstest " +
       "OPTIONS (foo \"bar\")")
     assertResult(
-      ShowPartitioningFunctionsUsingCommand("com.sap.spark.dstest", Map.empty))(parsed1)
+      ShowPartitionFunctionsUsingCommand("com.sap.spark.dstest", Map.empty))(parsed1)
     assertResult(
-      ShowPartitioningFunctionsUsingCommand("com.sap.spark.dstest", Map("foo" -> "bar")))(parsed2)
+      ShowPartitionFunctionsUsingCommand("com.sap.spark.dstest", Map("foo" -> "bar")))(parsed2)
   }
 
   test("CREATE TABLE keeps the ddl statement in the options") {

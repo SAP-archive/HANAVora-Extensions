@@ -6,7 +6,7 @@ import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
 
-case class ShowPartitioningFunctionsUsingCommand(
+case class ShowPartitionFunctionsUsingCommand(
     provider: String,
     options: Map[String, String])
   extends RunnableCommand {

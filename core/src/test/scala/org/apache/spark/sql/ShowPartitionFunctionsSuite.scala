@@ -5,7 +5,7 @@ import org.apache.spark.sql.sources.Stride
 import org.apache.spark.util.PartitioningFunctionUtils
 import org.scalatest.FunSuite
 
-class ShowPartitioningFunctionsSuite
+class ShowPartitionFunctionsSuite
   extends FunSuite
   with GlobalSapSQLContext
   with PartitioningFunctionUtils {
@@ -15,20 +15,20 @@ class ShowPartitioningFunctionsSuite
     DefaultSource.reset()
   }
 
-  test("Show partitioning functions shows no partitioning functions if none are there") {
-    val funs = sqlc.sql("SHOW PARTITIONING FUNCTIONS USING com.sap.spark.dstest").collect()
+  test("Show partition functions shows no partitioning functions if none are there") {
+    val funs = sqlc.sql("SHOW PARTITION FUNCTIONS USING com.sap.spark.dstest").collect()
 
     assert(funs.isEmpty)
   }
 
   // scalastyle:off magic.number
-  test("Show partitioning functions shows the previously registered partitioning functions") {
+  test("Show partition functions shows the previously registered partitioning functions") {
     createHashPartitioningFunction("foo", Seq("string", "float"), Some(10), "com.sap.spark.dstest")
     createRangePartitioningFunction("bar", "int", 0, 10, Stride(10), "com.sap.spark.dstest")
     createRangeSplitPartitioningFunction("baz", "float", Seq(1, 2, 3),
       rightClosed = true, "com.sap.spark.dstest")
 
-    val funs = sqlc.sql("SHOW PARTITIONING FUNCTIONS USING com.sap.spark.dstest").collect()
+    val funs = sqlc.sql("SHOW PARTITION FUNCTIONS USING com.sap.spark.dstest").collect()
 
     assertResult(Set(
       Row("baz", "RangeSplitPartitioningFunction", "FloatType", "1,2,3",
@@ -41,13 +41,13 @@ class ShowPartitioningFunctionsSuite
   // scalastyle:on magic.number
 
   // scalastyle:off magic.number
-  test("Show partitioning functions does not show deleted functions") {
+  test("Show partition functions does not show deleted functions") {
     createHashPartitioningFunction("foo", Seq("string", "float"), Some(10), "com.sap.spark.dstest")
     createRangePartitioningFunction("bar", "int", 0, 10, Stride(10), "com.sap.spark.dstest")
     createRangeSplitPartitioningFunction("baz", "float", Seq(1, 2, 3),
       rightClosed = true, "com.sap.spark.dstest")
 
-    val f1 = sqlc.sql("SHOW PARTITIONING FUNCTIONS USING com.sap.spark.dstest").collect()
+    val f1 = sqlc.sql("SHOW PARTITION FUNCTIONS USING com.sap.spark.dstest").collect()
 
     assertResult(Set(
       Row("baz", "RangeSplitPartitioningFunction", "FloatType", "1,2,3",
@@ -59,7 +59,7 @@ class ShowPartitioningFunctionsSuite
 
     dropPartitioningFunction("bar", dataSource = "com.sap.spark.dstest")
 
-    val f2 = sqlc.sql("SHOW PARTITIONING FUNCTIONS USING com.sap.spark.dstest").collect()
+    val f2 = sqlc.sql("SHOW PARTITION FUNCTIONS USING com.sap.spark.dstest").collect()
 
     assertResult(Set(
       Row("baz", "RangeSplitPartitioningFunction", "FloatType", "1,2,3",
