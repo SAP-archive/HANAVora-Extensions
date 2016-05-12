@@ -2,7 +2,6 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.RunnableCommand
-import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
@@ -26,6 +25,8 @@ case class CreateTableUsingTemporaryAwareCommand(
   extends RunnableCommand {
 
   def run(sqlContext: SQLContext): Seq[Row] = {
+    // Convert the table name according to the case-sensitivity settings
+    val tableId = alterByCatalystSettings(sqlContext, tableIdentifier)
 
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
@@ -35,11 +36,11 @@ case class CreateTableUsingTemporaryAwareCommand(
     dataSource match {
       case _: TemporaryAndPersistentNature =>
         // make sure we register that properly in the catalog
-        checkCreateTable(sqlContext)
+        checkCreateTable(sqlContext, tableId)
 
-        val resolved: ResolvedDataSource = resolveDataSource(sqlContext, dataSource)
+        val resolved: ResolvedDataSource = resolveDataSource(sqlContext, dataSource, tableId)
         sqlContext.registerDataFrameAsTable(
-          DataFrame(sqlContext, LogicalRelation(resolved.relation)), tableIdentifier.table)
+          DataFrame(sqlContext, LogicalRelation(resolved.relation)), tableId.table)
 
         Seq.empty
 
@@ -48,14 +49,14 @@ case class CreateTableUsingTemporaryAwareCommand(
     }
   }
 
-  private def checkCreateTable(sqlContext: SQLContext): Unit = {
+  private def checkCreateTable(sqlContext: SQLContext, tableId: TableIdentifier): Unit = {
     if (isTemporary) {
       if (allowExisting) {
         sys.error("allowExisting should be set to false when creating a temporary table.")
       }
     } else {
-      if (sqlContext.catalog.tableExists(tableIdentifier) && !allowExisting) {
-        sys.error(s"Table ${tableIdentifier.toString()} already exists")
+      if (sqlContext.catalog.tableExists(tableId) && !allowExisting) {
+        sys.error(s"Table ${tableId.toString()} already exists")
       }
     }
   }
@@ -63,8 +64,13 @@ case class CreateTableUsingTemporaryAwareCommand(
   /**
    * Returns a resolved datasource with temporary or persistent table creation handling.
    */
+  // scalastyle:off method.length
   private def resolveDataSource(sqlContext: SQLContext,
-                                dataSource: Any): ResolvedDataSource = {
+                                dataSource: Any,
+                                tableId: TableIdentifier): ResolvedDataSource = {
+    // Convert the partitioning function according to the case-sensitivity settings
+    val partitioningFunctionId = partitioningFunction
+      .map(n => alterByCatalystSettings(sqlContext, n))
 
     dataSource match {
       case drp: PartitionedRelationProvider =>
@@ -72,17 +78,20 @@ case class CreateTableUsingTemporaryAwareCommand(
           new ResolvedDataSource(drp.getClass,
             drp.createRelation(
               sqlContext,
-              tableIdentifier.toSeq,
-              new CaseInsensitiveMap(options), partitioningFunction, partitioningColumns,
-              isTemporary, allowExisting))
+              tableId.toSeq,
+              new CaseInsensitiveMap(options),
+              partitioningFunctionId,
+              partitioningColumns,
+              isTemporary,
+              allowExisting))
         } else {
           new ResolvedDataSource(drp.getClass,
             drp.createRelation(
               sqlContext,
-              tableIdentifier.toSeq,
+              tableId.toSeq,
               new CaseInsensitiveMap(options),
               userSpecifiedSchema.get,
-              partitioningFunction,
+              partitioningFunctionId,
               partitioningColumns,
               isTemporary,
               allowExisting))
@@ -91,7 +100,7 @@ case class CreateTableUsingTemporaryAwareCommand(
             new ResolvedDataSource(drp.getClass,
               drp.createRelation(
                 sqlContext,
-                tableIdentifier.toSeq,
+                tableId.toSeq,
                 new CaseInsensitiveMap(options),
                 userSpecifiedSchema.get,
                 isTemporary,
@@ -100,7 +109,7 @@ case class CreateTableUsingTemporaryAwareCommand(
         new ResolvedDataSource(drp.getClass,
           drp.createRelation(
             sqlContext,
-            tableIdentifier.toSeq,
+            tableId.toSeq,
             new CaseInsensitiveMap(options),
             isTemporary,
             allowExisting))
@@ -108,4 +117,5 @@ case class CreateTableUsingTemporaryAwareCommand(
         partitionColumns, provider, options)
     }
   }
+  // scalastyle:on method.length
 }

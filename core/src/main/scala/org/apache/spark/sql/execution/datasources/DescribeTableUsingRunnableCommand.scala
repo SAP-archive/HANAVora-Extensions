@@ -41,12 +41,14 @@ case class DescribeTableUsingRunnableCommand(name: TableIdentifier,
   ).toAttributes
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
+    // Convert the table name according to the case-sensitivity settings
+    val tableId = alterByCatalystSettings(sqlContext, name).toSeq
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case describableRelation: DatasourceCatalog =>
         Seq(describableRelation
-          .getRelation(sqlContext, name.toSeq, new CaseInsensitiveMap(options)) match {
+          .getRelation(sqlContext, tableId, new CaseInsensitiveMap(options)) match {
             case None => Row("", "")
             case Some(describableRelation.RelationInfo(relName, _, _, ddl)) => Row(
               relName, ddl.getOrElse(""))

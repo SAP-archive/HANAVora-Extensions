@@ -27,11 +27,13 @@ private[sql] case class CreateHashPartitioningFunctionCommand(parameters: Map[St
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
+    val functionId = alterByCatalystSettings(sqlContext, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.createHashPartitioningFunction(sqlContext, parameters, name, datatypes, partitionsNo)
+        pfp.createHashPartitioningFunction(sqlContext, parameters, functionId, datatypes,
+          partitionsNo)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
         "definition of partitioning functions.")
@@ -59,11 +61,12 @@ private[sql] case class CreateRangeSplitPartitioningFunctionCommand(parameters: 
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
+    val functionId = alterByCatalystSettings(sqlContext, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.createRangeSplitPartitioningFunction(sqlContext, parameters, name, datatype,
+        pfp.createRangeSplitPartitioningFunction(sqlContext, parameters, functionId, datatype,
           splitters, rightClosed)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
@@ -91,12 +94,13 @@ private[sql] case class CreateRangeIntervalPartitioningFunctionCommand
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
+    val functionId = alterByCatalystSettings(sqlContext, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.createRangeIntervalPartitioningFunction(sqlContext, parameters, name, datatype,
-          start, end, strideParts)
+        pfp.createRangeIntervalPartitioningFunction(sqlContext, parameters, functionId,
+          datatype, start, end, strideParts)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
         "definition of partitioning functions.")
@@ -119,11 +123,12 @@ private[sql] case class DropPartitioningFunctionCommand
   extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
+    val functionId = alterByCatalystSettings(sqlContext, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.dropPartitioningFunction(sqlContext, parameters, name, allowNotExisting)
+        pfp.dropPartitioningFunction(sqlContext, parameters, functionId, allowNotExisting)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
         "definition of partitioning functions.")
