@@ -42,32 +42,15 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    * @return The given plan with some rotations of joins possibly executed.
    */
   def apply(plan: LogicalPlan): LogicalPlan =
-    plan match {
+    plan transformDown {
       // The join operator is the only one which can benefit from co-locality
       case p@Join(left, right, Inner, Some(cond)) =>
-        // Collect PartitionedRelations on both sides of the join
-        val leftRelations = getPartitionedRelations(left)
-        val rightRelations = getPartitionedRelations(right)
-        // Alter the join condition if necessary and possible
-        val condition = alterJoinConditionIfApplicable(left, right, cond)
+        // Collect logical relations on both sides of the join
+        val leftRelations = getLogicalRelations(left)
+        val rightRelations = getLogicalRelations(right)
 
-          (left, right, condition, rotationConditionsSatisfied(leftRelations, rightRelations))
-          match {
-            /**
-             * If the left sub-node is an inner join, and the right rotation prerequisites
-             * are satisfied, return (parent, Right(current node)).
-             */
-            case (left@Join(_, _, Inner, _), _, Some(c), Right(true)) =>
-              rightRotateLogicalPlan(Join(left, right, Inner, Some(c)))
-            /**
-             * If the right sub-node is an inner join, and the left rotation prerequisites
-             * are satisfied, return (parent, Left(current node)).
-             */
-            case (_, right@Join(_, _, Inner, _), Some(c), Left(true)) =>
-              leftRotateLogicalPlan(Join(left, right, Inner, Some(c)))
-            // No rotation prerequisites are satisfied, process the subtrees
-            case _ => Join(apply(left), apply(right), Inner, Some(cond))
-          }
+        rotateJoinsIfConditionMatches(left, right, cond,
+          rotationConditionsSatisfied(leftRelations, rightRelations))
       case p: BinaryNode =>
         p.withNewChildren(Seq(apply(p.left), apply(p.right)))
       /**
@@ -80,6 +63,108 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
       // Catch the other types of nodes
       case p => p
     }
+
+  /**
+   * Performs rotation of [[Join]] nodes in a [[LogicalPlan]] if the rotation conditions
+   * provided in the last argument enable some rotations to be performed.
+   *
+   * @param left The left child of the [[Join]] node to rotate.
+   * @param right The right child of the [[Join]] node to rotate.
+   * @param condition The join condition.
+   * @param rotationPossibility The rotation possibility. [[LeftRotationPossible]]
+   *                            or [[RightRotationPossible]] denote that the left
+   *                            or right rotation can be executed respectively.
+   *                            [[RotationImpossible]] denotes that no rotation
+   *                            can be executed.
+   * @return The possibly rotated [[LogicalPlan]].
+   */
+  // scalastyle:off method.length
+  private[this] def rotateJoinsIfConditionMatches(left: LogicalPlan,
+                                                  right: LogicalPlan,
+                                                  condition: Expression,
+                                                  rotationPossibility: RotationPossibility):
+  LogicalPlan = {
+    // Alter the join condition if necessary and possible
+    val alteredCondition = alterJoinConditionIfApplicable(left, right, condition)
+
+    (left, right, alteredCondition, rotationPossibility) match {
+      /**
+       * If the left sub-node is an inner join, and the right rotation prerequisites
+       * are satisfied, return (parent, Right(current node)).
+       */
+      case (left@Join(_, _, Inner, _), _, Some(c), RightRotationPossible) =>
+        rightRotateLogicalPlan(Join(left, right, Inner, Some(c)), withProjections = false)
+
+      /**
+       * The same as above, but with attributes' projection handling. For example, this tree:
+       *
+       *                        Join(id2 = id3)
+       *                        /            \
+       *                       /              \
+       *                      /                \
+       *               Project(id1, id2)      Project(id3)
+       *                    |                    |
+       *               Join(id1 = id2)         T3 (F)(id3)
+       *               /           \
+       *         Project(id1)    Project(id2)
+       *              /             \
+       *           T1 (id1)     T2 (F)(id2)
+       *
+       * should be changed to:
+       *
+       *                        Join(id1 = id2)
+       *                        /            \
+       *                       /              \
+       *                      /                \
+       *               Project(id1)       Project(id2, id3)
+       *                    |                    |
+       *               T1 (id1)           Join(id2 = id3)
+       *                                   /          \
+       *                             Project(id2)   Project(id3)
+       *                                  |            |
+       *                             T2 (F)(id2)   T3 (F)(id3)
+       */
+      case (left@Project(projections, child@Join(_, _, Inner, _)),
+      _, Some(c), RightRotationPossible) =>
+        val partitioningAttrs = getPartitioningAttributes(child)
+        val projectionsToMove = projections.filter(p => partitioningAttrs.contains(p.exprId))
+        val updatedRight = right match {
+          case r@Project(rProjections, other) =>
+            Project(projectionsToMove ++ rProjections, r)
+          case other =>
+            Project(projectionsToMove, other)
+        }
+        rightRotateLogicalPlan(Join(child, updatedRight, Inner, Some(c)),
+          withProjections = true)
+
+      /**
+       * If the right sub-node is an inner join, and the left rotation prerequisites
+       * are satisfied, return (parent, Left(current node)).
+       */
+      case (_, right@Join(_, _, Inner, _), Some(c), LeftRotationPossible) =>
+        leftRotateLogicalPlan(Join(left, right, Inner, Some(c)),
+          withProjections = false)
+
+      /**
+       * The same as above, but with attributes' projection handling.
+       */
+      case (_, right@Project(projections, child@Join(_, _, Inner, _)),
+      Some(c), LeftRotationPossible) =>
+        val partitioningAttrs = getPartitioningAttributes(child)
+        val projectionsToMove = projections.filter(p => partitioningAttrs.contains(p.exprId))
+        val updatedLeft = left match {
+          case l@Project(lProjections, other) =>
+            Project(lProjections ++ projectionsToMove, l)
+          case other =>
+            Project(projectionsToMove, other)
+        }
+        leftRotateLogicalPlan(Join(updatedLeft, child, Inner, Some(c)),
+          withProjections = true)
+      // No rotation prerequisites are satisfied, process the subtrees
+      case _ => Join(apply(left), apply(right), Inner, Some(condition))
+    }
+  }
+  // scalastyle:on method.length
 
   /**
    * Alters a join condition, if applicable. The join condition is required
@@ -272,23 +357,26 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    *   * There is exactly one relation in the right subtree, which is partitioned.
    *   * Only one of the relations in the left subtree is partitioned, and its partitioning
    *     function is the same as for the relation in the right subtree.
+   * The function returns one of the [[RotationPossibility]] subtypes.
    *
    * @param leftPivotRelations The relations on the left side of the pivot node.
    * @param rightPivotRotations The relations on the right side of the pivot node.
-   * @return [[Left]] with `true` if it is possible to execute the left rotation.
-   *         [[Right]] with `true` if it is possible to execute the right rotation.
-   *         Either [[Left]] or [[Right]] with `false` if no rotation can be executed.
+   * @return [[LeftRotationPossible]] if it is possible to execute the left rotation.
+   *         [[RightRotationPossible]] if it is possible to execute the right rotation.
+   *         [[RotationImpossible]] if no rotation can be executed.
    */
   private[this] def rotationConditionsSatisfied(leftPivotRelations: Seq[BaseRelation],
                                                 rightPivotRotations: Seq[BaseRelation]):
-  Either[Boolean, Boolean] = (leftPivotRelations, rightPivotRotations) match {
+  RotationPossibility = (leftPivotRelations, rightPivotRotations) match {
     case (Seq(p: PartitionedRelation), rights) if rights.size == 2 &&
-      p.partitioningFunctionName.isDefined =>
-      Left(isExactlyOneRelationPartitioned(rights) == p.partitioningFunctionName)
+      p.partitioningFunctionName.isDefined &&
+      isExactlyOneRelationPartitioned(rights) == p.partitioningFunctionName =>
+      LeftRotationPossible
     case (lefts, Seq(p: PartitionedRelation)) if lefts.size == 2 &&
-      p.partitioningFunctionName.isDefined =>
-      Right(isExactlyOneRelationPartitioned(leftPivotRelations) == p.partitioningFunctionName)
-    case _ => Right(false)
+      p.partitioningFunctionName.isDefined &&
+      isExactlyOneRelationPartitioned(leftPivotRelations) == p.partitioningFunctionName =>
+      RightRotationPossible
+    case _ => RotationImpossible
   }
 
   /**
@@ -321,13 +409,19 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    * as the rotation pivot). See AssureRelationsColocalitySuite for examples.
    *
    * @param plan The plan to rotate.
+   * @param withProjections Should be set to `true` if the left child of the plan
+   *                        contains a [[Project]] node which should be placed above
+   *                        the resulting lower [[Join]] node.
    * @return The (possibly) rotated plan.
    */
-  private[this] def leftRotateLogicalPlan(plan: Join): LogicalPlan = {
+  private[this] def leftRotateLogicalPlan(plan: Join, withProjections: Boolean): LogicalPlan = {
     val Join(_, pivot: Join, _, _) = plan
-    getPartitionedRelations(pivot.left).head match {
+    getLogicalRelations(pivot.left).head match {
       case r: PartitionedRelation if r.partitioningFunctionName.isDefined =>
-        val pivotLeft = plan.withNewChildren(Seq(plan.left, pivot.left))
+        val pivotLeft = if (withProjections) {
+          plan.left.withNewChildren(Seq(
+            plan.withNewChildren(plan.left.children ++ Seq(pivot.left))))
+        } else plan.withNewChildren(Seq(plan.left, pivot.left))
         pivot.withNewChildren(Seq(pivotLeft, pivot.right))
       case _ =>
         val pivotLeft = plan.withNewChildren(Seq(plan.left, pivot.right))
@@ -340,13 +434,19 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
    * as the rotation pivot). See AssureRelationsColocalitySuite for examples.
    *
    * @param plan The plan to rotate.
+   * @param withProjections Should be set to `true` if the right child of the plan
+   *                        contains a [[Project]] node which should be placed above
+   *                        the resulting lower [[Join]] node.
    * @return The (possibly) rotated plan.
    */
-  private[this] def rightRotateLogicalPlan(plan: Join): LogicalPlan = {
+  private[this] def rightRotateLogicalPlan(plan: Join, withProjections: Boolean): LogicalPlan = {
     val Join(pivot: Join, _, _, _) = plan
-    getPartitionedRelations(pivot.right).head match {
+    getLogicalRelations(pivot.right).head match {
       case r: PartitionedRelation if r.partitioningFunctionName.isDefined =>
-        val pivotRight = plan.withNewChildren(Seq(pivot.right, plan.right))
+        val pivotRight = if (withProjections) {
+          plan.right.withNewChildren(Seq(
+            plan.withNewChildren(Seq(pivot.right) ++ plan.right.children)))
+        } else plan.withNewChildren(Seq(pivot.right, plan.right))
         pivot.withNewChildren(Seq(pivot.left, pivotRight))
       case _ =>
         val pivotRight = plan.withNewChildren(Seq(pivot.left, plan.right))
@@ -355,12 +455,12 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
   }
 
   /**
-   * Returns all [[PartitionedRelation]]s from the provided plan.
+   * Returns all logical relations from the provided plan.
    *
    * @param plan The plan, from which the relations are to be collected.
    * @return A sequence with the collected relations.
    */
-  private[this] def getPartitionedRelations(plan: LogicalPlan): Seq[BaseRelation] =
+  private[this] def getLogicalRelations(plan: LogicalPlan): Seq[BaseRelation] =
     plan collect {
       case IsLogicalRelation(r: BaseRelation) => r
     }

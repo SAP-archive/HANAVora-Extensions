@@ -349,4 +349,100 @@ class AssureRelationsColocalitySuite
     comparePlans(optimized2, correctAnswer2)
   }
 
+  test("Attributes' aliases are correctly moved during rotations of logical plans") {
+    /**
+     * This query corresponds to the following SQL query (please notice the tables' aliases):
+     * SELECT COUNT(*) FROM T1 t1
+     * JOIN T2 t2 ON (t1.id1 = t2.id2)
+     * JOIN T3 t3 ON (t2.id2 = t3.id3)
+     * GROUP BY t1.id1
+     */
+    val originalAnalyzedQuery1 = t1.select(id1)
+      .join(t2.select(id2), joinType = Inner, condition = Some(id1 === id2))
+      .select(id1, id2).join(t3.select(id3), joinType = Inner, condition = Some(id2 === id3))
+      .select(id0).analyze
+
+    val optimized1 = Optimize.execute(originalAnalyzedQuery1)
+
+    val correctAnswer1 = t1.select(id1)
+      .join(t2.select(id2).join(t3.select(id3), joinType = Inner, condition = Some(id2 === id3))
+        .select(id2, id3), joinType = Inner, condition = Some(id1 === id2)).select(id0).analyze
+
+    comparePlans(optimized1, correctAnswer1)
+
+    /**
+     * This query corresponds to the following SQL query (please notice the tables' aliases):
+     * SELECT COUNT(*) FROM T3 t3
+     * JOIN (T2 t2 JOIN T1 t1
+     * ON (t2.id2 = t1.id1))
+     * ON (t3.id3 = t2.id2)
+     * GROUP BY t1.id1
+     */
+    val originalAnalyzedQuery2 = t3.select(id3)
+      .join(t2.select(id2).join(t1.select(id1), joinType = Inner, condition = Some(id2 === id1))
+        .select(id2, id1), joinType = Inner, condition = Some(id3 === id2))
+      .select(id0).analyze
+
+    val optimized2 = Optimize.execute(originalAnalyzedQuery2)
+
+    val correctAnswer2 = t3.select(id3)
+      .join(t2.select(id2), joinType = Inner, condition = Some(id3 === id2))
+      .select(id3, id2).join(t1.select(id1), joinType = Inner, condition = Some(id2 === id1))
+      .select(id0).analyze
+
+    comparePlans(optimized2, correctAnswer2)
+  }
+
+  test("Attributes' aliases from subqueries are correctly moved during rotations " +
+    "of logical plans") {
+    val tid2 = id2 as "tid2"
+    val tid3 = id3 as "tid3"
+    /**
+     * This query corresponds to the following SQL query (please notice the fields' aliases):
+     * SELECT SUM(id1), SUM(tid2), SUM(tid3) FROM T1 t1
+     * JOIN (SELECT id2 AS tid2 FROM T2) AS t2 ON (id1 = tid2)
+     * JOIN (SELECT id3 AS tid3 FROM T3) AS t3 ON (tid2 = tid3)
+     * GROUP BY id1
+     */
+    val originalAnalyzedQuery1 = t1.select(id1)
+      .join(t2.select(tid2), joinType = Inner, condition = Some(id1 === tid2))
+      .select(id1, tid2)
+      .join(t3.select(tid3), joinType = Inner, condition = Some(id2 === tid3))
+      .select(id1, tid2, tid3).analyze
+
+    val optimized1 = Optimize.execute(originalAnalyzedQuery1)
+
+    val correctAnswer1 = t1.select(id1)
+      .join(t2.select(tid2).join(t3.select(tid3),
+        joinType = Inner, condition = Some(tid2 === tid3))
+        .select(tid2, tid3), joinType = Inner, condition = Some(id1 === tid2))
+      .select(id1, tid2, tid3).analyze
+
+    comparePlans(optimized1, correctAnswer1)
+
+    /**
+     * This query corresponds to the following SQL query (please notice the table aliases):
+     * SELECT SUM(id1), SUM(tid2), SUM(tid3) FROM
+     * (SELECT id3 AS tid3 FROM T3) AS t3
+     * JOIN ((SELECT id2 AS tid2 FROM T2) AS t2
+     * JOIN T1 t1 ON (tid2 = id1)) ON (tid2 = tid2))
+     * GROUP BY id1
+     */
+    val originalAnalyzedQuery2 = t3.select(tid3)
+      .join(t2.select(tid2)
+        .join(t1.select(id1), joinType = Inner, condition = Some(tid2 === id1))
+        .select(tid2, id1), joinType = Inner, condition = Some(tid3 === tid2))
+      .select(id1, tid2, tid3).analyze
+
+    val optimized2 = Optimize.execute(originalAnalyzedQuery2)
+
+    val correctAnswer2 = t3.select(tid3)
+      .join(t2.select(tid2), joinType = Inner, condition = Some(tid3 === tid2))
+      .select(tid3, tid2)
+      .join(t1.select(id1), joinType = Inner, condition = Some(tid2 === id1))
+      .select(id1, tid2, tid3).analyze
+
+    comparePlans(optimized2, correctAnswer2)
+  }
+
 }
