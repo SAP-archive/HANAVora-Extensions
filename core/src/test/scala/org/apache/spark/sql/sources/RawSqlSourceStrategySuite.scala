@@ -35,7 +35,7 @@ class RawSqlSourceStrategySuite extends FunSuite
   val attributes = Seq(AttributeReference("a", IntegerType)(ExprId(0)),
     AttributeReference("b", StringType)(ExprId(1)))
 
-  test("Strategy transforms correctly") {
+  test("(Physical) Strategy transforms correctly") {
     testWithMockedSource {
       val logicalPlan = SelectWith(sqlCommand, className, attributes)
 
@@ -60,7 +60,7 @@ class RawSqlSourceStrategySuite extends FunSuite
   /**
     * This test is supposed to test the 'full stack' from parsing, over physical planning
     */
-  test("Full Stack Test"){
+  test("RawSQL test with Parsing, Logcial Plan, and Physical Planning without specified schema"){
     testWithMockedSource {
       val df = sqlc.sql(s"""'${sqlCommand}' WITH ${className}""")
 
@@ -74,19 +74,56 @@ class RawSqlSourceStrategySuite extends FunSuite
     }
   }
 
+  test("RawSQL test with Parsing, Logcial Plan, and Physical Planning with specified schema"){
+    testWithMockedSource {
+      val df = sqlc.sql(s"""'${sqlCommand}' WITH ${className} AS (a integer)""")
+
+      assert(df.logicalPlan.isInstanceOf[SelectWith])
+      val selectWith = df.logicalPlan.asInstanceOf[SelectWith]
+      assert(selectWith.sqlCommand == sqlCommand)
+      assert(selectWith.className == className)
+      assert(selectWith.output.head.name == "a"
+        && selectWith.output.head.dataType == IntegerType)
+
+      checkPhysicalPlan(df.queryExecution.executedPlan,
+        "org.apache.spark.sql.sources.RawSqlSourceStrategySuite.DummyRDD",
+        (rdd => rdd.asInstanceOf[DummyRDD].sqlCommand),
+        sqlCommand)
+
+      val attribute = df.queryExecution.executedPlan.asInstanceOf[PhysicalRDD].output.head
+
+      assert(attribute.name == "a" && attribute.dataType == IntegerType)
+    }
+  }
+
+  test("RawSQL test with Parsing, Logcial Plan, and Physical Planning with specified " +
+    "but empty schema"){
+    testWithMockedSource {
+      val df = sqlc.sql(s"""'${sqlCommand}' WITH ${className} AS ()""")
+
+      assert(df.logicalPlan == SelectWith(sqlCommand, className, Seq.empty))
+
+      checkPhysicalPlan(df.queryExecution.executedPlan,
+        "org.apache.spark.sql.sources.RawSqlSourceStrategySuite.DummyRDD",
+        (rdd => rdd.asInstanceOf[DummyRDD].sqlCommand),
+        sqlCommand,
+        Seq.empty)
+    }
+  }
+
   /**
     *
     * @param physicalPlan has to be the Physical RDD produced by [[RawSqlSourceStrategy]]
     * @param expectedClassName
     * @param extractSQLCommand function to get the sql from the planned RDD
     * @param sqlCommand
-    * @param attributes
+    * @param attributes set to null if you do not want to check them
     */
   private def checkPhysicalPlan(physicalPlan: SparkPlan,
                                 expectedClassName: String,
                                 extractSQLCommand: RDD[_] => String,
                                 sqlCommand: String,
-                                attributes: Seq[Attribute]): Unit = {
+                                attributes: Seq[Attribute] = null): Unit = {
 
     // extract parts of the physical plan
     assert(physicalPlan.isInstanceOf[PhysicalRDD])
@@ -96,7 +133,9 @@ class RawSqlSourceStrategySuite extends FunSuite
 
     assert(plannedRdd.getClass.getCanonicalName == expectedClassName)
     assert(extractSQLCommand(plannedRdd) == sqlCommand)
-    assert(physicalRDD.output == attributes)
+    if(attributes != null) {
+      assert(physicalRDD.output == attributes)
+    }
   }
 
 
