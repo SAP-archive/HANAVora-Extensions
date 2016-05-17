@@ -2,6 +2,7 @@ package org.apache.spark.sql.catalyst.expressions
 
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.types.UTF8String
 
 abstract class UnaryNodeExpression
   extends UnaryExpression
@@ -41,7 +42,7 @@ case class Level(child: Expression) extends UnaryNodeExpression {
   override protected def name = "LEVEL"
   override def nullable: Boolean = true
   override def nullSafeNodeEval(node: Node): Any =
-    node.path.length
+    node.effectivePath.length
 }
 
 case class PreRank(child: Expression) extends UnaryNodeExpression {
@@ -65,7 +66,7 @@ case class IsRoot(child: Expression) extends UnaryNodeExpression {
   override protected def name = "IS_ROOT"
   override def nullable: Boolean = true
   override def nullSafeNodeEval(node: Node): Any =
-    node.path.length == 1
+    node.effectivePath.length == 1
 }
 
 case class IsLeaf(child: Expression) extends UnaryNodeExpression {
@@ -76,30 +77,39 @@ case class IsLeaf(child: Expression) extends UnaryNodeExpression {
     node.isLeaf
 }
 
+case class Name(child: Expression) extends UnaryNodeExpression {
+  override def dataType: DataType = StringType
+  override def nullable: Boolean = true
+  override protected def name = "NAME"
+  override def nullSafeNodeEval(node: Node): Any =
+    UTF8String.fromString(node.effectivePath.lastOption.getOrElse("").toString)
+}
+
 case class IsDescendant(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_DESCENDANT"
   override def nullSafeNodeEval(leftNode: Node, rightNode: Node): Any =
-    leftNode.path.size > rightNode.path.size && leftNode.path.startsWith(rightNode.path)
+    leftNode.effectivePath.size > rightNode.effectivePath.size &&
+      leftNode.effectivePath.startsWith(rightNode.effectivePath)
 }
 
 case class IsDescendantOrSelf(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_DESCENDANT_OR_SELF"
   override def nullSafeNodeEval(leftNode: Node, rightNode: Node): Any =
-    leftNode.path.startsWith(rightNode.path)
+    leftNode.effectivePath.startsWith(rightNode.effectivePath)
 }
 
 case class IsParent(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_PARENT"
   override def nullSafeNodeEval(leftNode: Node, rightNode: Node): Any =
-    leftNode.path == rightNode.path.slice(0, rightNode.path.size - 1)
+    leftNode.effectivePath == rightNode.effectivePath.slice(0, rightNode.effectivePath.size - 1)
 }
 
 case class IsSibling(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_SIBLING"
   override def nullSafeNodeEval(leftNode: Node, rightNode: Node): Any =
-    leftNode.path.last != rightNode.path.last &&
-      leftNode.path.slice(0, leftNode.path.size - 1) ==
-        rightNode.path.slice(0, rightNode.path.size - 1)
+    leftNode.effectivePath.last != rightNode.effectivePath.last &&
+      leftNode.effectivePath.slice(0, leftNode.effectivePath.size - 1) ==
+        rightNode.effectivePath.slice(0, rightNode.effectivePath.size - 1)
 }
 
 case class IsSelf(left: Expression, right: Expression) extends NodePredicate {
@@ -111,9 +121,9 @@ case class IsSelf(left: Expression, right: Expression) extends NodePredicate {
 case class IsSiblingOrSelf(left: Expression, right: Expression) extends NodePredicate {
   override def symbol: String = "IS_SIBLING_OR_SELF"
   override def nullSafeNodeEval(leftNode: Node, rightNode: Node): Any =
-    leftNode == rightNode || (leftNode.path.last != rightNode.path.last &&
-      leftNode.path.slice(0, leftNode.path.size - 1) ==
-        rightNode.path.slice(0, rightNode.path.size - 1))
+    leftNode == rightNode || (leftNode.effectivePath.last != rightNode.effectivePath.last &&
+      leftNode.effectivePath.slice(0, leftNode.effectivePath.size - 1) ==
+        rightNode.effectivePath.slice(0, rightNode.effectivePath.size - 1))
 }
 
 case class IsFollowing(left: Expression, right: Expression) extends NodePredicate {

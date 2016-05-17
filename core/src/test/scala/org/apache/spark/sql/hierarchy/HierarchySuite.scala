@@ -46,8 +46,8 @@ class HierarchySuite
       s"""
         |SELECT A.name, B.name
         |FROM
-        |${hierarchySQL(orgTbl, "name, node")} A,
-        |${hierarchySQL(orgTbl, "name, node")} B
+        |${adjacencyListHierarchySQL(orgTbl, "name, node")} A,
+        |${adjacencyListHierarchySQL(orgTbl, "name, node")} B
         |WHERE IS_CHILD(A.node, B.node)
       """.stripMargin
 
@@ -80,6 +80,27 @@ class HierarchySuite
     assertResult(expected)(result)
   }
 
+  test("level based hierarchy works") {
+    createLeveledOrgTable(sqlContext)
+
+    val hierarchy = sqlContext.sql(levelBasedHierarchySQL(leveledOrgTbl, "col1, col2, col3," +
+      " col4, node", 4))
+
+    hierarchy.registerTempTable("h")
+    val result = sqlContext.sql("SELECT col1 FROM h WHERE IS_ROOT(node)").collect.toSet
+    assertResult(Set(Row("THE BOSS")))(result)
+  }
+
+  test("level-based hierarchy with numbers works correctly") {
+    createNumericTable(sqlContext)
+
+    val hierarchy = sqlContext.sql(levelBasedHierarchySQL(numericTbl, "col1, col2, col3, node", 3))
+
+    hierarchy.registerTempTable("h")
+    val result = sqlContext.sql("SELECT col1 FROM h WHERE IS_ROOT(node)").collect.toSet
+    assertResult(Set(Row(1024)))(result)
+  }
+
   test("hierarchy without any roots results in empty results") {
     val result = sqlc.sql(s"""SELECT name, node FROM HIERARCHY (
                               USING $orgTbl AS v
@@ -93,7 +114,7 @@ class HierarchySuite
 
   test("create hierarchy without start where and search by clause") {
     val result = sqlContext.sql(
-      hierarchySQL(orgTbl, "name, LEVEL(node), IS_ROOT(node)")).collect().toSet
+      adjacencyListHierarchySQL(orgTbl, "name, LEVEL(node), IS_ROOT(node)")).collect().toSet
     val expected = Set(
       Row("THE BOSS", 1, true),
       Row("The Other Middle Manager", 2, false),
@@ -107,7 +128,7 @@ class HierarchySuite
   }
 
   test("use join predicates") {
-    sqlContext.sql(hierarchySQL(orgTbl, "name, node")).registerTempTable("h")
+    sqlContext.sql(adjacencyListHierarchySQL(orgTbl, "name, node")).registerTempTable("h")
     val result = sqlContext.sql("""|SELECT l.name, r.name, IS_DESCENDANT(l.node, r.node),
                                    |IS_DESCENDANT_OR_SELF(l.node, r.node), IS_PARENT(r.node, l.node)
                                    |FROM h l, h r """.stripMargin).collect()
@@ -144,7 +165,7 @@ class HierarchySuite
 
   test("integration: build join hierarchy from SQL using RDD[Row] with UDFs") {
     val result = sqlContext.sql(
-      hierarchySQL(orgTbl, "name, LEVEL(node), IS_ROOT(node)")).collect().toSet
+      adjacencyListHierarchySQL(orgTbl, "name, LEVEL(node), IS_ROOT(node)")).collect().toSet
     val expected = Set(
       Row("THE BOSS", 1, true),
       Row("The Other Middle Manager", 2, false),
@@ -158,7 +179,7 @@ class HierarchySuite
   }
 
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
-    val result = sqlContext.sql(hierarchySQL(orgTbl)).collect()
+    val result = sqlContext.sql(adjacencyListHierarchySQL(orgTbl)).collect()
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 7, isLeaf = false)),
       Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), LongType, 7, 6, isLeaf = true)),
@@ -179,7 +200,7 @@ class HierarchySuite
     )
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val result = sqlContext.sql(hierarchySQL("h_src")).collect()
+    val result = sqlContext.sql(adjacencyListHierarchySQL("h_src")).collect()
 
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 6, isLeaf = false)),
@@ -207,7 +228,7 @@ class HierarchySuite
     )
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val result = sqlContext.sql(hierarchySQL("h_src")).collect()
+    val result = sqlContext.sql(adjacencyListHierarchySQL("h_src")).collect()
 
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 6, isLeaf = false)),
@@ -281,7 +302,7 @@ class HierarchySuite
       val rdd = sc.parallelize(organizationHierarchy.sortBy(x => Random.nextDouble()))
       val hSrc = sqlContext.createDataFrame(rdd)
 
-      val result = builder.buildFromAdjacencyList(hSrc.rdd, LongType)
+      val result = builder.buildHierarchyRdd(hSrc.rdd, LongType)
 
       // TODO(Weidner): workaround, implement prerank for join builder!
       val isJoin = builder.getClass.getName.contains("JoinBuilder")
@@ -324,7 +345,7 @@ class HierarchySuite
 
   buildFromAdjacencyListTest(HierarchyBroadcastBuilder(
     pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
-    succ = (myRow: EmployeeRow) => myRow.succ,
+    key = (myRow: EmployeeRow) => myRow.succ,
     startWhere = Some((myRow: EmployeeRow) => myRow.pred.isEmpty),
     ord = (myRow: EmployeeRow) => myRow.ord,
     transformRowFunction = (r: EmployeeRow, node: Node) =>
@@ -337,13 +358,13 @@ class HierarchySuite
       val rdd = sc.parallelize(organizationHierarchy)
       val hBuilder = HierarchyBroadcastBuilder(
         pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
-        succ = (myRow: EmployeeRow) => myRow.succ,
+        key = (myRow: EmployeeRow) => myRow.succ,
         startWhere = Some((myRow: EmployeeRow) => myRow.pred.isEmpty),
         ord = (myRow: EmployeeRow) => myRow.ord,
         transformRowFunction = (r: EmployeeRow, node: Node) =>
           PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
       )
-      val hierarchy = builder.buildFromAdjacencyList(rdd, LongType)
+      val hierarchy = builder.buildHierarchyRdd(rdd, LongType)
 
       val expected = Set(
         PartialResult(List(1), 1),
@@ -374,7 +395,7 @@ class HierarchySuite
 
   test("integration: I can join hierarchy with table") {
     val result = sqlContext.sql(s"""SELECT B.name, A.address, B.level
-      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} B,
+      FROM ${adjacencyListHierarchySQL(orgTbl, "name, LEVEL(node) AS level")} B,
       $addressesTable A
       WHERE B.name = A.name""").collect().toSet
 
@@ -389,7 +410,7 @@ class HierarchySuite
 
   test("integration: I can left outer join hierarchy with table") {
     val result = sqlContext.sql(s"""SELECT A.name, B.address, A.level
-      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} A
+      FROM ${adjacencyListHierarchySQL(orgTbl, "name, LEVEL(node) AS level")} A
       LEFT OUTER JOIN $addressesTable B
       ON A.name = B.name""").collect().toSet
 
@@ -407,7 +428,7 @@ class HierarchySuite
 
   test("integration: I can right outer join hierarchy with table") {
     val result = sqlContext.sql(s"""SELECT A.name, A.address, B.level
-      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} B
+      FROM ${adjacencyListHierarchySQL(orgTbl, "name, LEVEL(node) AS level")} B
       RIGHT OUTER JOIN $addressesTable A
       ON A.name = B.name""").collect().toSet
 
@@ -423,7 +444,7 @@ class HierarchySuite
 
   test("integration: I can full outer join hierarchy with table") {
     val result = sqlContext.sql(s"""SELECT A.name, B.address, A.level
-      FROM ${hierarchySQL(orgTbl, "name, LEVEL(node) AS level")} A
+      FROM ${adjacencyListHierarchySQL(orgTbl, "name, LEVEL(node) AS level")} A
       FULL OUTER JOIN $addressesTable B
       ON A.name = B.name""").collect().toSet
 
@@ -443,7 +464,7 @@ class HierarchySuite
   test("integration: I can use star with full outer join hierarchy with table and unary UDFs") {
     val result = sqlContext.sql(s"""
                     SELECT A.name, B.address, LEVEL(A.node), IS_ROOT(A.node)
-                    FROM ${hierarchySQL(orgTbl)} A FULL OUTER JOIN $addressesTable B
+                    FROM ${adjacencyListHierarchySQL(orgTbl)} A FULL OUTER JOIN $addressesTable B
                     ON A.name = B.name""").collect()
 
     val expected = Set(
@@ -469,5 +490,47 @@ class HierarchySuite
         |SET node) AS H
         |WHERE IS_ROOT(node) = true""".stripMargin).collect().toSet
     assertSetEqual(Set(Row("All Sensors")))(result)
+  }
+
+  test("one level hierarchy works correctly") {
+    val rdd = sqlContext.sparkContext.parallelize(Seq(Row("row1"), Row("row2")))
+    val df = sqlContext.createDataFrame(
+      rdd,
+      new StructType((new StructField("col1", StringType) :: Nil).toArray))
+    sqlContext.registerDataFrameAsTable(df, "t1")
+
+    val hierarchy = sqlContext.sql(levelBasedHierarchySQL("t1", "col1, node", 1))
+    sqlContext.registerDataFrameAsTable(hierarchy, "h")
+
+    val result = sqlContext.sql("SELECT NAME(node), col1, LEVEL(node) FROM h").collect()
+    assertResult(Set(Row("row1", "row1", 1), Row("row2", "row2", 1)))(result.toSet)
+  }
+
+  test("one level and one row hierarchy works correctly") {
+    val rdd = sqlContext.sparkContext.parallelize(Seq(Row("row1")))
+    val df = sqlContext.createDataFrame(
+      rdd,
+      new StructType((new StructField("col1", StringType) :: Nil).toArray))
+    sqlContext.registerDataFrameAsTable(df, "t1")
+
+    val hierarchy = sqlContext.sql(levelBasedHierarchySQL("t1", "col1, node", 1))
+    sqlContext.registerDataFrameAsTable(hierarchy, "h")
+
+    val result = sqlContext.sql("SELECT NAME(node), col1, LEVEL(node) FROM h").collect()
+    assertResult(Set(Row("row1", "row1", 1)))(result.toSet)
+  }
+
+  test("a hierarchy with empty table works correctly") {
+    val rdd = sqlContext.sparkContext.emptyRDD[Row]
+    val df = sqlContext.createDataFrame(
+      rdd,
+      new StructType((new StructField("col1", StringType) :: Nil).toArray))
+    sqlContext.registerDataFrameAsTable(df, "t1")
+
+    val hierarchy = sqlContext.sql(levelBasedHierarchySQL("t1", "col1, node", 1))
+    sqlContext.registerDataFrameAsTable(hierarchy, "h")
+
+    val result = sqlContext.sql("SELECT NAME(node), col1, LEVEL(node) FROM h").collect()
+    assertResult(Set.empty)(result.toSet)
   }
 }

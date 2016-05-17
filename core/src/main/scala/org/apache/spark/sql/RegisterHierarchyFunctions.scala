@@ -15,6 +15,7 @@ private[sql] object RegisterHierarchyFunctions {
     r("pre_rank", unaryExpression[PreRank])
     r("is_root", unaryExpression[IsRoot])
     r("is_leaf", unaryExpression[IsLeaf])
+    r("name", unaryExpression[Name])
     r("is_descendant", binaryExpression[IsDescendant])
     r("is_descendant_or_self", binaryExpression[IsDescendantOrSelf])
     r("is_ancestor", reverse(binaryExpression[IsDescendant]))

@@ -29,6 +29,13 @@ with AnnotationParsingRules{
   protected val SEARCH = Keyword("SEARCH")
   protected val START = Keyword("START")
   protected val SET = Keyword("SET")
+  protected val MATCH = Keyword("MATCH")
+
+  /* Context-based keywords */
+  protected val CTX_LEVELS = "levels"
+  protected val CTX_PATH = "path"
+  protected val CTX_NAME = "name"
+  protected val CTX_LEVEL = "level"
 
   /* Describe table keyword */
   protected val OLAP_DESCRIBE = Keyword("OLAP_DESCRIBE")
@@ -109,22 +116,73 @@ with AnnotationParsingRules{
 
   /** Hierarchy parser. */
   protected lazy val hierarchy: Parser[LogicalPlan] =
-    HIERARCHY ~> "(" ~>
-      (USING ~> relationFactor) ~
-      (JOIN ~> PARENT ~> ident) ~ (ON ~> expression) ~
-      (SEARCH ~> BY ~> ordering).? ~
-      (START ~> WHERE ~> expression).? ~
-      (SET ~> ident <~ ")") ~
-      (AS ~> ident) ^^ {
-      case rel ~ ca ~ pexpr ~ sba ~ sw ~ nc ~ alias =>
-        Subquery(alias, Hierarchy(
-          relation = rel,
-          childAlias = ca,
-          parenthoodExpression = pexpr,
-          searchBy = sba.getOrElse(Seq()),
-          startWhere = sw,
-          nodeAttribute = UnresolvedAttribute(nc)))
+    (HIERARCHY ~> "(" ~> hierarchySpec <~ ")") ~ (AS ~> ident) ^^ {
+      case lp ~ ident => Subquery(ident, lp)
     }
+
+
+  protected lazy val hierarchySpec: Parser[LogicalPlan] =
+    (adjacencyListHierarchy ~ (SET ~> ident) ^^ {
+      case (lp, child, exp, start, sort) ~ ident =>
+        Hierarchy(
+          AdjacencyListHierarchySpec(source = lp, childAlias = child, parenthoodExp = exp,
+            startWhere = start, orderBy = sort),
+          node = UnresolvedAttribute(ident))
+    }
+      | levelBasedHierarchy ~ (SET ~> ident) ^^ {
+      case (lp, levels, matcher, start, sort) ~ ident =>
+        Hierarchy(
+          LevelBasedHierarchySpec(source = lp, levels = levels, matcher = matcher,
+            startWhere = start, orderBy = sort),
+          node = UnresolvedAttribute(ident))
+    })
+
+  protected lazy val adjacencyListHierarchy: Parser[(LogicalPlan, String, Expression,
+    Option[Expression], Seq[SortOrder])] = {
+    (USING ~> relationFactor) ~ (JOIN ~> PARENT ~> ident) ~ (ON ~> expression) ~
+      hierarchySpecOptions ^^ {
+      case source ~ child ~ expr ~ ((searchBy, startWhere)) =>
+        (source, child, expr, searchBy, startWhere)
+    }
+  }
+
+  protected lazy val levelBasedHierarchy: Parser[(LogicalPlan, Seq[Expression],
+    LevelMatcher, Option[Expression], Seq[SortOrder])] = {
+    (USING ~> relationFactor) ~ (WITH ~> ident ~ identifiers) ~
+      matchExpression ~ hierarchySpecOptions ^^ {
+      case source ~ (levelsKeyword ~ levels) ~ matcher ~
+        ((searchBy, startWhere)) if lexical.normalizeKeyword(
+        levelsKeyword) == CTX_LEVELS =>
+        (source, levels, matcher, searchBy, startWhere)
+    }
+  }
+
+  /**
+    * Parser of the 'MATCH' clause. Here a small trick is done to parse specific keywords
+    * *without* adding them to the parser's preserved keyword list as they might be used the
+    * user, therefor we try to parse them from the context. More importantly, we adhere to Spark's
+    * rules of case-sensitivity by using the lexical and not the implied ''String'' parser.
+    */
+  protected lazy val matchExpression: Parser[LevelMatcher] =
+    MATCH ~> ident ^^ {
+      case name if lexical.normalizeKeyword(name) == CTX_PATH => MatchPath
+      case name if lexical.normalizeKeyword(name) == CTX_NAME => MatchName
+    }|MATCH ~> (ident ~ ident) ^^ {
+      case name1 ~ name2 if lexical.normalizeKeyword(name1) == CTX_LEVEL &&
+        lexical.normalizeKeyword(name2) == CTX_NAME =>
+        MatchLevelName
+    }
+
+  protected lazy val hierarchySpecOptions: Parser[(Option[Expression], Seq[SortOrder])] =
+    (SEARCH ~> BY ~> ordering).? ~ (START ~> WHERE ~> expression).? ^^ {
+      case orderBy ~ startWhere => (startWhere, orderBy.getOrElse(Seq()))
+    }
+
+  protected lazy val identifiers: Parser[Seq[Expression]] =
+    "(" ~> rep1sep(ident, ",") <~ ")" ^^ {
+      case seq => seq.map(UnresolvedAttribute(_))
+    }
+
 
   /** Create temporary [dimension] view parser. */
   protected lazy val createView: Parser[LogicalPlan] =

@@ -12,7 +12,7 @@ import scala.reflect.ClassTag
 // scalastyle:off method.length
 case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
 (pred: I => C,
- succ: I => C,
+ key: I => C,
  startWhere: Option[I => Boolean],
  ord: I => C,
  transformRowFunction: (I, Node) => O) extends HierarchyBuilder[I, O] with Logging {
@@ -43,12 +43,13 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
 
   /**
    * Providing sibling-order is optional: use succ as fallback for now.
+   *
    * @param row
    * @return
    */
   private def orderFunc(row: I): Long = {
     val v = ord match {
-      case null => succ(row)
+      case null => key(row)
       case _ => ord(row)
     }
     v match {
@@ -58,13 +59,13 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     }
   }
 
-  override def buildFromAdjacencyList(rdd: RDD[I], pathDataType: DataType): RDD[O] = {
+  override def buildHierarchyRdd(rdd: RDD[I], pathDataType: DataType): RDD[O] = {
     logDebug(s"Collecting data to build hierarchy")
     val data = rdd mapPartitions { iter =>
       iter map { row =>
         HRow[C](
           pred = pred(row),
-          succ = succ(row),
+          succ = key(row),
           ord = orderFunc(row),
           isRoot = startWhere.map({ sw => sw(row) })
         )
@@ -100,7 +101,7 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
 
       rdd mapPartitions { iter =>
         iter flatMap { x =>
-          val id = succ(x)
+          val id = key(x)
           val forest = forestBroadcast.value
           val subtreeOpt = forest.findTree(id)
           subtreeOpt map { subtree =>
@@ -123,7 +124,7 @@ object HierarchyRowBroadcastBuilder {
   def apply(attributes: Seq[Attribute],
             parenthoodExpression: Expression,
             startWhere: Option[Expression],
-            searchBy: Seq[SortOrder]): HierarchyBuilder[Row,Row] = {
+            searchBy: Seq[SortOrder]): HierarchyBuilder[Row, Row] = {
 
     val predSuccIndexes: (Int, Int) = parenthoodExpression match {
       case EqualTo(
@@ -158,7 +159,7 @@ object HierarchyRowBroadcastBuilder {
             searchBy.head.child.asInstanceOf[AttributeReference].name))
     }
 
-    new HierarchyBroadcastBuilder[Row,Row,Any, Node](
+    new HierarchyBroadcastBuilder[Row, Row, Any, Node](
       pred, succ, startsWhere, ord, rowFunctions.rowAppend
     )
   }

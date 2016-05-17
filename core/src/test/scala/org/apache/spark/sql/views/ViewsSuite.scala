@@ -283,11 +283,11 @@ class ViewsSuite extends FunSuite
         Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
           Subquery("H",
             Hierarchy(
-              UnresolvedRelation(TableIdentifier("organizationTbl"), Some("v")),
-              "u",
-              EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
-              SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,
-              Some(IsNull(UnresolvedAttribute("pred"))),
+              AdjacencyListHierarchySpec(UnresolvedRelation(TableIdentifier("organizationTbl"),
+                Some("v")),"u",
+                EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+                Some(IsNull(UnresolvedAttribute("pred"))),
+                SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil),
               UnresolvedAttribute("node")
             ))),
         DefaultSource.DropViewHandle("v1", "view"),

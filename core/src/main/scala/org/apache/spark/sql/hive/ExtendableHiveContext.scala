@@ -67,7 +67,7 @@ private[hive] class ExtendableHiveContext(
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
     RecursiveViewAnalysis.apply _ ::
       PreWriteCheck(catalog) ::
-      HierarchyUDFAnalysis(catalog) ::
+      HierarchyAnalysis(catalog) ::
       Nil
 
   /**

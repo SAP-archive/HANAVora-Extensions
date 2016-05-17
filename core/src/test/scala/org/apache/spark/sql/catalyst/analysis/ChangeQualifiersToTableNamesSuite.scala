@@ -1,11 +1,11 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.{TableIdentifier, SimpleCatalystConf}
+import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.{Ascending, AttributeReference, SortOrder}
-import org.apache.spark.sql.catalyst.plans.logical.{Hierarchy, LocalRelation, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.BaseRelation
 import org.apache.spark.sql.sources.sql.SqlLikeRelation
@@ -62,10 +62,10 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   val nameAtt2 = lr2.output.find(_.name == "name").get
   val ageAtt2 = lr2.output.find(_.name == "age").get
 
-  val h = Hierarchy(lr1,
-    "u", 'pred==='succ, SortOrder('name, Ascending) :: Nil,
-    Some(new AttributeReference("blah", StringType, nullable = true,
-      metadata = Metadata.empty)().expr),
+  val h = Hierarchy(
+    AdjacencyListHierarchySpec(lr1, "u", 'pred==='succ,
+      Some(new AttributeReference("blah", StringType, nullable = true,
+        metadata = Metadata.empty)().expr),SortOrder('name, Ascending) :: Nil),
     new AttributeReference("bleh", StringType, nullable = true, metadata = Metadata.empty)())
 
   val aliasedSum1 = sum(nameAtt).as('aliasedSum1)
@@ -113,18 +113,18 @@ class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
   test("Hierarchy aliases handling") {
     val result =  ChangeQualifiersToTableNames(
       Hierarchy(
-        relation = lr1.subquery('u),
-        childAlias = "v",
-        parenthoodExpression = nameAtt === AttributeReference("pred", StringType)(),
-        searchBy = Nil,
-        startWhere = Some(nameAtt.isNull),
-        nodeAttribute = 'node
+        AdjacencyListHierarchySpec(source = lr1.subquery('u),
+          childAlias = "v",
+          parenthoodExp = nameAtt === AttributeReference("pred", StringType)(),
+          orderBy = Nil,
+          startWhere = Some(nameAtt.isNull)),
+        node = 'node
       )).asInstanceOf[Hierarchy]
     assertResult("u" :: Nil)(
-      result.parenthoodExpression
+      result.spec.asInstanceOf[AdjacencyListHierarchySpec].parenthoodExp
       .children.head.asInstanceOf[AttributeReference].qualifiers)
     assertResult("v" :: Nil)(
-      result.parenthoodExpression
+      result.spec.asInstanceOf[AdjacencyListHierarchySpec].parenthoodExp
         .children(1).asInstanceOf[AttributeReference].qualifiers)
   }
 

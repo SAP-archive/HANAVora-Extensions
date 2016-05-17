@@ -105,7 +105,7 @@ class RunDescribeTableSuite
 
   test("describe hierarchy works correctly") {
     createAnimalsTable(sqlc)
-    sqlc.sql(s"CREATE VIEW hv AS ${hierarchySQL(animalsTable, "name, node")}")
+    sqlc.sql(s"CREATE VIEW hv AS ${adjacencyListHierarchySQL(animalsTable, "name, node")}")
 
     val result = sqlc.sql("SELECT * FROM DESCRIBE_TABLE(SELECT * FROM hv)").collect()
     val actual = result.map(_.toSeq.toList).toSet

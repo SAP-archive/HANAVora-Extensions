@@ -19,7 +19,10 @@ class NodeType extends UserDefinedType[Node] {
 
   override def serialize(obj: Any): Any = obj match {
     case node: Node =>
-      InternalRow(new GenericArrayData(node.path.map(p => UTF8String.fromString(p.toString))),
+      InternalRow(new GenericArrayData(node.path.map {
+        case null => null
+        case p => UTF8String.fromString(p.toString)
+      }),
         UTF8String.fromString(node.pathDataTypeJson),
         node.preRank,
         node.postRank,
@@ -35,18 +38,21 @@ class NodeType extends UserDefinedType[Node] {
   // scalastyle:off cyclomatic.complexity
   override def deserialize(datum: Any): Node = datum match {
     case row: InternalRow => {
-      val stringArray = row.getArray(0).toArray[UTF8String](StringType).map(_.toString)
+      val stringArray = row.getArray(0).toArray[UTF8String](StringType).map {
+        case null => null
+        case somethingElse => somethingElse.toString
+      }
       val readDataTypeString: String = row.getString(1)
       val readDataType: DataType = DataType.fromJson(readDataTypeString)
       val path: Seq[Any] = readDataType match {
         case StringType => stringArray
-        case LongType => stringArray.map(_.toLong)
-        case IntegerType => stringArray.map(_.toInt)
-        case DoubleType => stringArray.map(_.toDouble)
-        case FloatType => stringArray.map(_.toFloat)
-        case ByteType => stringArray.map(_.toByte)
-        case BooleanType => stringArray.map(_.toBoolean)
-        case TimestampType => stringArray.map(_.toLong)
+        case LongType => stringArray.map(v => if (v != null) v.toLong else null)
+        case IntegerType => stringArray.map(v => if (v != null) v.toInt else null)
+        case DoubleType => stringArray.map(v => if (v != null) v.toDouble else null)
+        case FloatType => stringArray.map(v => if (v != null) v.toFloat else null)
+        case ByteType => stringArray.map(v => if (v != null) v.toByte else null)
+        case BooleanType => stringArray.map(v => if (v != null) v.toBoolean else null)
+        case TimestampType => stringArray.map(v => if (v != null) v.toLong else null)
         case dt: DataType => sys.error(s"Type $dt not supported for hierarchy path")
       }
       val preRank: Integer = if (row.isNullAt(2)) null else row.getInt(2)

@@ -85,12 +85,16 @@ object AddSubqueries extends Rule[LogicalPlan] {
         Join(newLeft, newRight, joinType, condition)
 
       /**
-        * If the plan is a hierarchy, we always add a subquery to the child.
+        * If the plan is a hierarchy, we always add a subquery to the child of its spec (i.e.
+        * the source table). SQL generation should take care of pruning the spec node.
         */
       case hierarchy: Hierarchy =>
         val alias = newQueryName(ids)
         logTrace(s"Added subquery $alias to $hierarchy")
-        hierarchy.withNewChildren(Subquery(alias, addSubqueries(hierarchy.child, ids)) :: Nil)
+        hierarchy.withNewChildren(hierarchy.spec.withNewChildren(
+          Subquery(alias,
+            addSubqueries(hierarchy.spec.asInstanceOf[HierarchySpec].source, ids)) :: Nil)
+          :: Nil)
 
       /**
         * Use [[SingleQuery]] to get a subtree of the plan that can be represented

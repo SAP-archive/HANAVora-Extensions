@@ -1,6 +1,7 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.sql.SQLContext
+
 import scala.reflect.ClassTag
 import scala.util.Random
 import scala.reflect.runtime.universe.TypeTag
@@ -17,7 +18,12 @@ trait HierarchyTestUtils {
     AnimalRow("Oviparous", Some(1L), 3L, 2L),
     AnimalRow("Carnivores", Some(2L), 4L, 3L),
     AnimalRow("Herbivores", Some(2L), 5L, 4L)
+  )
 
+  protected def animalsLeveledHierarchy: Seq[LevelAnimalRow] = Seq(
+    LevelAnimalRow("Animal", "Mammal", "Carnivores", 1),
+    LevelAnimalRow("Animal", "Mammal", "Herbivores", 2),
+    LevelAnimalRow("Animal", "Oviparous", null, 3)
   )
 
   /*  --------------------------------------------
@@ -39,6 +45,29 @@ trait HierarchyTestUtils {
     EmployeeRow("Minion 1", Some(2L), 5L, 2),
     EmployeeRow("Minion 2", Some(4L), 6L, 1),
     EmployeeRow("Minion 3", Some(4L), 7L, 2)
+  )
+
+  protected def leveledOrganizationHierarchy: Seq[LevelEmployeeRow] = Seq(
+    LevelEmployeeRow("THE BOSS", "The Middle Manager", "Senior Developer", "Minion2"),
+    LevelEmployeeRow("THE BOSS", "The Middle Manager", "Senior Developer", "Minion3"),
+    LevelEmployeeRow("THE BOSS", "The Middle Manager", "Minion1", null),
+    LevelEmployeeRow("THE BOSS", "The Other Middle Manager", null, null)
+  )
+
+  /**
+    * The following hierarchy should be represented.
+    *
+    *                             1024
+    *                            /    \
+    *                        4096     256
+    *                       /  \      /  \
+    *                    8192  2048  512 64
+    */
+  protected def numericLevelsHierarchy: Seq[NumericLevelRow] = Seq(
+    NumericLevelRow(1024, 4096, 8192),
+    NumericLevelRow(1024, 4096, 2048),
+    NumericLevelRow(1024, 256, 512),
+    NumericLevelRow(1024, 256, 64)
   )
 
   protected def addresses: Seq[AddressRow] = Seq(
@@ -76,13 +105,24 @@ trait HierarchyTestUtils {
   )
 
   def orgTbl: String = "organizationTbl"
+  def leveledOrgTbl: String = "leveledOrgTbl"
+  def numericTbl: String = "numericTbl"
   def addressesTable: String = "addressesTbl"
   def sensorsTable: String = "sensorTbl"
   def partsTable: String = "partsTbl"
   def animalsTable: String = "animalsTbl"
+  def leveledAnimalsTable: String = "leveledAnimalTbl"
 
   def createOrgTable(sc: SQLContext): Unit = {
     createTable(sc, organizationHierarchy, orgTbl)
+  }
+
+  def createLeveledOrgTable(sc: SQLContext): Unit = {
+    createTable(sc, leveledOrganizationHierarchy, leveledOrgTbl)
+  }
+
+  def createNumericTable(sc: SQLContext): Unit = {
+    createTable(sc, numericLevelsHierarchy, numericTbl)
   }
 
   def createAddressesTable(sc: SQLContext): Unit = {
@@ -101,6 +141,10 @@ trait HierarchyTestUtils {
     createTable(sc, animalsHierarchy, animalsTable)
   }
 
+  def createLeveledAnimalsTable(sc: SQLContext): Unit = {
+    createTable(sc, animalsLeveledHierarchy, leveledAnimalsTable)
+  }
+
   private[this] def createTable[A <: Product: TypeTag: ClassTag](sc: SQLContext,
                                                       seq: Seq[A],
                                                       name: String): Unit = {
@@ -109,12 +153,24 @@ trait HierarchyTestUtils {
     sc.createDataFrame[A](rdd)(implicitly[TypeTag[A]]).cache().registerTempTable(name)
   }
 
-  def hierarchySQL(table: String, projectionColumns: String = "*"): String = {
+  def adjacencyListHierarchySQL(table: String, projectionColumns: String = "*"): String = {
     s"""|(SELECT $projectionColumns
         | FROM HIERARCHY
         | (USING $table AS v JOIN PARENT u ON v.pred = u.succ
         | SEARCH BY ord ASC
         | START WHERE pred IS NULL
+        | SET node) AS H)""".stripMargin
+  }
+
+  def levelBasedHierarchySQL(table: String, projectionColumns: String = "*",
+                             levelsCount: Int = 3): String = {
+    val columns = Seq.fill(levelsCount)("col").zipWithIndex.map {
+      case ((s, i)) => s + (i + 1).toString
+    }.mkString(",")
+    s"""|(SELECT $projectionColumns
+        | FROM HIERARCHY
+        | (USING $table WITH LEVELS ($columns)
+        | MATCH PATH
         | SET node) AS H)""".stripMargin
   }
 }

@@ -4,7 +4,7 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.{Attribute, EqualTo}
-import org.apache.spark.sql.catalyst.plans.logical.Hierarchy
+import org.apache.spark.sql.catalyst.plans.logical.{AdjacencyListHierarchySpec, Hierarchy}
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.BaseRelation
 import org.apache.spark.sql.types._
@@ -30,12 +30,10 @@ class ResolveHierarchySuite extends FunSuite with MockitoSugar {
     assert(source.resolved)
 
     val hierarchy = Hierarchy(
-      source, "v",
-      /* Use the same attributes, so we can check exprId and qualifiers are distinct */
-      UnresolvedAttribute("u" :: "id" :: Nil) ===
-        UnresolvedAttribute("v" :: "id" :: Nil),
-      Nil,
-      Some('id.isNull),
+      AdjacencyListHierarchySpec(source, "v",
+        /* Use the same attributes, so we can check exprId and qualifiers are distinct */
+        UnresolvedAttribute("u" :: "id" :: Nil) === UnresolvedAttribute("v" :: "id" :: Nil),
+        Some('id.isNull), Nil),
       'node
     )
 
@@ -48,16 +46,14 @@ class ResolveHierarchySuite extends FunSuite with MockitoSugar {
       ).asInstanceOf[Hierarchy]
     }
 
-    assert(resolvedHierarchy.nodeAttribute.resolved)
-    assert(resolvedHierarchy.parenthoodExpression.resolved)
-    assert(resolvedHierarchy.startWhere.map(_.resolved).getOrElse(true))
+    assert(resolvedHierarchy.node.resolved)
+    val resolvedSpec = resolvedHierarchy.spec.asInstanceOf[AdjacencyListHierarchySpec]
+    assert(resolvedSpec.parenthoodExp.resolved)
+    assert(resolvedSpec.startWhere.forall(_.resolved))
     assert(resolvedHierarchy.childrenResolved)
     assert(resolvedHierarchy.resolved)
 
-    val parenthoodExpression = resolvedHierarchy
-      .asInstanceOf[Hierarchy]
-      .parenthoodExpression
-      .asInstanceOf[EqualTo]
+    val parenthoodExpression = resolvedSpec.parenthoodExp.asInstanceOf[EqualTo]
 
     assertResult("u" :: Nil)(parenthoodExpression.left.asInstanceOf[Attribute].qualifiers)
     assertResult("v" :: Nil)(parenthoodExpression.right.asInstanceOf[Attribute].qualifiers)

@@ -16,9 +16,8 @@ case class ResolveReferencesWithHierarchies(analyzer: Analyzer) extends Rule[Log
       logDebug(s"Conflicting attributes ${conflictingAttributes.mkString(",")} in $j")
 
       right.collect {
-        case oldVersion@Hierarchy(relation, childAlias, parenthoodExpression,
-        searchBy, startWhere, nodeAttr) if conflictingAttributes.contains(nodeAttr) =>
-          (oldVersion, oldVersion.copy(nodeAttribute = nodeAttr.newInstance()))
+        case oldVersion@Hierarchy(_, nodeAttr) if conflictingAttributes.contains(nodeAttr) =>
+          (oldVersion, oldVersion.copy(node = nodeAttr.newInstance()))
       }
         .headOption match {
         case None =>

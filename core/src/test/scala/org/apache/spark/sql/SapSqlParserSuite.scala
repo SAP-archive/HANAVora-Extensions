@@ -50,12 +50,13 @@ class SapSqlParserSuite
       """.stripMargin)
 
     val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-      relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
-      parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
-      childAlias = "u",
-      startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
-      searchBy = SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,
-      nodeAttribute = UnresolvedAttribute("Node")
+      AdjacencyListHierarchySpec(
+        source = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
+        parenthoodExp = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+        childAlias = "u",
+        startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
+        orderBy = SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil),
+      node = UnresolvedAttribute("Node")
     )))
     comparePlans(expected, result)
 
@@ -158,14 +159,16 @@ class SapSqlParserSuite
         |) AS H
       """.stripMargin)
     val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-      relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
-      parenthoodExpression = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
-      childAlias = "u",
-      startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
-      searchBy = SortOrder(UnresolvedAttribute("myAttr"), Ascending) ::
-        SortOrder(UnresolvedAttribute("otherAttr"), Descending) ::
-        SortOrder(UnresolvedAttribute("yetAnotherAttr"), Ascending) :: Nil,
-      nodeAttribute = UnresolvedAttribute("Node")
+      AdjacencyListHierarchySpec(
+        source = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
+        parenthoodExp = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+        childAlias = "u",
+        startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
+        orderBy = SortOrder(UnresolvedAttribute("myAttr"), Ascending) ::
+          SortOrder(UnresolvedAttribute("otherAttr"), Descending) ::
+          SortOrder(UnresolvedAttribute("yetAnotherAttr"), Ascending) :: Nil
+      ),
+      node = UnresolvedAttribute("Node")
     )))
     comparePlans(expected, result)
 
@@ -185,13 +188,13 @@ class SapSqlParserSuite
           |) AS H
         """.stripMargin)
       val expected = Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-        relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
-        parenthoodExpression =
-          EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
-        childAlias = "u",
-        startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
-        searchBy = Nil,
-        nodeAttribute = UnresolvedAttribute("Node")
+        AdjacencyListHierarchySpec(
+          source = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
+          parenthoodExp = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+          childAlias = "u",
+          startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
+          orderBy = Nil
+        ), node = UnresolvedAttribute("Node")
       )))
       comparePlans(expected, result)
 
@@ -232,13 +235,12 @@ class SapSqlParserSuite
     val expected = CreateNonPersistentViewCommand(
       Plain, TableIdentifier("HV"),
       Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
-        relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
-        parenthoodExpression =
-          EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
-        childAlias = "u",
-        startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
-        searchBy = Nil,
-        nodeAttribute = UnresolvedAttribute("Node")
+        AdjacencyListHierarchySpec(source = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
+          parenthoodExp = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+          childAlias = "u",
+          startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
+          orderBy = Nil),
+        node = UnresolvedAttribute("Node")
       ))), temporary = true)
     comparePlans(expected, result)
   }

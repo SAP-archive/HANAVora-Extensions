@@ -5,10 +5,12 @@ import java.lang.Boolean
 @SQLUserDefinedType(udt = classOf[NodeType])
 case class Node(path: Seq[Any],
                 pathDataTypeJson: String,
-                 var preRank: java.lang.Integer = null,
-                 var postRank: java.lang.Integer = null,
-                 isLeaf: java.lang.Boolean = null,
-                 var ordPath: Seq[Long] = null) {
+                var preRank: java.lang.Integer = null,
+                var postRank: java.lang.Integer = null,
+                isLeaf: java.lang.Boolean = null,
+                var ordPath: Seq[Long] = null) {
+
+  lazy val effectivePath: Seq[Any] = path.reverse.dropWhile(_ == null).reverse
 
   def compareToRecursive(left: Seq[Long], right: Seq[Long]): Int =
   {

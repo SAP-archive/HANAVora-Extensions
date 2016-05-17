@@ -14,34 +14,52 @@ class HierarchyUDFsSuite
   with HierarchyTestUtils
   with Logging {
 
-  implicit class Crossable[X](xs: Traversable[X]) {
-    def cross[Y](ys: Traversable[Y]): Traversable[(X,Y)] =
-      for { x <- xs; y <- ys } yield (x, y)
-  }
-
-  def testBinaryUdf(udf: String, expected: Set[Row], buildStrategy: String): Unit = {
+  def testBinaryUdfWithAdjacencyListBuilder(udf: String,
+                                            expected: Set[Row],
+                                            buildStrategy: String): Unit = {
     createAnimalsTable(sqlContext)
     sc.conf.set("hierarchy.always", buildStrategy)
-    val hierarchy = sqlContext.sql(hierarchySQL(animalsTable, "name, node"))
+    val hierarchy = sqlContext.sql(adjacencyListHierarchySQL(animalsTable, "name, node"))
     hierarchy.registerTempTable("h")
     val query = s"SELECT l.name, r.name, $udf(l.node, r.node) FROM h l, h r"
     val result = sqlContext.sql(query).collect().toSet
     assertResult(expected)(result)
   }
 
+  def testBinaryUdfWithLevelBuilder(udf: String,
+                                    expected: Set[Row]): Unit = {
+    createLeveledAnimalsTable(sqlContext)
+    val hierarchy = sqlContext.sql(
+      s"""
+        |(SELECT col1, col2, col3, node
+        | FROM HIERARCHY
+        | (USING $leveledAnimalsTable WITH LEVELS (col1, col2, col3)
+        | MATCH PATH
+        | SEARCH BY ord ASC
+        | SET node) AS H)
+      """.stripMargin)
+    hierarchy.registerTempTable("h")
+    val query = s"SELECT NAME(l.node), NAME(r.node), $udf(l.node, r.node) FROM h l, h r"
+    val result = sqlContext.sql(query).collect().toSet
+    assertResult(expected)(result)
+  }
+
   def testBinaryUdfWithBuilders(udf: String, expected: Set[Row]): Unit = {
     test(s"test $udf using broadcast builder") {
-      testBinaryUdf(udf, expected, "broadcast")
+      testBinaryUdfWithAdjacencyListBuilder(udf, expected, "broadcast")
     }
     test(s"test $udf using join builder") {
-      testBinaryUdf(udf, expected, "join")
+      testBinaryUdfWithAdjacencyListBuilder(udf, expected, "join")
+    }
+    test(s"test $udf using level-hierarchy builder") {
+      testBinaryUdfWithLevelBuilder(udf, expected)
     }
   }
 
   def testUnaryUdf(udf: String, expected: Set[Row], buildStrategy: String): Unit = {
     createAnimalsTable(sqlContext)
     sc.conf.set("hierarchy.always", buildStrategy)
-    val hierarchy = sqlContext.sql(hierarchySQL(animalsTable, "name, node"))
+    val hierarchy = sqlContext.sql(adjacencyListHierarchySQL(animalsTable, "name, node"))
     hierarchy.registerTempTable("h10")
     val query = s"SELECT name, $udf(node) FROM h10"
     val result = sqlContext.sql(query).collect().toSet

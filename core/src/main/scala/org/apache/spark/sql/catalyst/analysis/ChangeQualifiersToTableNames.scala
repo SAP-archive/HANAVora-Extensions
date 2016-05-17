@@ -59,18 +59,17 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
         lr.output.map({ attr => (attr.exprId, r.tableName) })
 
       /**
-        * If the node is a [[Hierarchy]], use child alias name for attributes that
+        * If the node is a [[AdjacencyListHierarchySpec]], use child alias name for attributes
         * whose [[ExprId]] is not found in the child relation. This is a workaround
         * to the fact that the parenthood expression of a hierarchy references the
         * child relation with two different qualifiers depending on its role. See
-        * the hierarchies JOIN PARENT syntax to know more about this.
+        * the hierarchies `JOIN PARENT` syntax to know more about this.
         */
-      case h: Hierarchy =>
-        h.parenthoodExpression.references flatMap {
-          case a: Attribute if h.child.output.exists(_.exprId == a.exprId) =>
-            None
+      case spec:AdjacencyListHierarchySpec =>
+        spec.parenthoodExp.references flatMap {
+          case a: Attribute if spec.child.output.exists(_.exprId == a.exprId) => None
           case a =>
-            Some(a.exprId -> h.childAlias)
+            Some(a.exprId -> spec.childAlias)
         }
 
     }).reverse.flatten.toMap
