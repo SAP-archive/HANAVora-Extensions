@@ -2,8 +2,6 @@ package org.apache.spark.sql.sources
 
 import org.apache.spark.sql.catalyst.plans.logical._
 
-import scala.reflect._
-
 sealed trait MultiAbstractViewProvider
 
 /**
@@ -20,7 +18,7 @@ trait CubeViewProvider extends MultiAbstractViewProvider {
     *
     * @param createViewInput The parameters for the view creation.
     */
-  def createCubeView(createViewInput: CreateViewInput[PersistedCubeView]): Unit
+  def createCubeView(createViewInput: CreateViewInput): ViewHandle
 
 
   /**
@@ -34,7 +32,7 @@ trait CubeViewProvider extends MultiAbstractViewProvider {
     new BaseAbstractViewProvider[PersistedCubeView] {
       override def drop(dropViewInput: DropViewInput): Unit = dropCubeView(dropViewInput)
 
-      override def create(createViewInput: CreateViewInput[PersistedCubeView]): Unit =
+      override def create(createViewInput: CreateViewInput): ViewHandle =
         createCubeView(createViewInput)
     }
   }
@@ -54,7 +52,7 @@ trait DimensionViewProvider extends MultiAbstractViewProvider {
     *
     * @param createViewInput The parameters for the view creation.
     */
-  def createDimensionView(createViewInput: CreateViewInput[PersistedDimensionView]): Unit
+  def createDimensionView(createViewInput: CreateViewInput): ViewHandle
 
 
   /**
@@ -70,7 +68,7 @@ trait DimensionViewProvider extends MultiAbstractViewProvider {
         dropDimensionView(dropViewInput)
       }
 
-      override def create(createViewInput: CreateViewInput[PersistedDimensionView]): Unit = {
+      override def create(createViewInput: CreateViewInput): ViewHandle = {
         createDimensionView(createViewInput)
       }
     }
@@ -91,7 +89,7 @@ trait ViewProvider extends MultiAbstractViewProvider {
     *
     * @param createViewInput The parameters to create the view.
     */
-  def createView(createViewInput: CreateViewInput[PersistedView]): Unit
+  def createView(createViewInput: CreateViewInput): ViewHandle
 
 
   /**
@@ -106,7 +104,7 @@ trait ViewProvider extends MultiAbstractViewProvider {
     new BaseAbstractViewProvider[PersistedView] {
       override def drop(dropViewInput: DropViewInput): Unit = dropView(dropViewInput)
 
-      override def create(createViewInput: CreateViewInput[PersistedView]): Unit = {
+      override def create(createViewInput: CreateViewInput): ViewHandle = {
         createView(createViewInput)
       }
     }
@@ -114,21 +112,20 @@ trait ViewProvider extends MultiAbstractViewProvider {
 }
 
 object MultiAbstractViewProvider {
-  class TagMatcher[A <: AbstractView with Persisted: ClassTag] {
-    val tag = classTag[A]
-
-    def unapply(arg: MultiAbstractViewProvider): Option[AbstractViewProvider[A]] = arg match {
-      case c: CubeViewProvider if tag.runtimeClass == classOf[PersistedCubeView] =>
-        Some(c.toSingleCubeViewProvider.asInstanceOf[AbstractViewProvider[A]])
-      case d: DimensionViewProvider if tag.runtimeClass == classOf[PersistedDimensionView] =>
-        Some(d.toSingleDimensionViewProvider.asInstanceOf[AbstractViewProvider[A]])
-      case v: ViewProvider if tag.runtimeClass == classOf[PersistedView] =>
-        Some(v.toSingleViewProvider.asInstanceOf[AbstractViewProvider[A]])
-      case _ =>
-        None
-    }
+  case class TagMatcher(viewKind: sql.ViewKind) {
+    def unapply(arg: MultiAbstractViewProvider): Option[AbstractViewProvider[_]] =
+      (arg, viewKind) match {
+        case (v: ViewProvider, sql.Plain) =>
+          Some(v.toSingleViewProvider)
+        case (c: CubeViewProvider, sql.Cube) =>
+          Some(c.toSingleCubeViewProvider)
+        case (d: DimensionViewProvider, sql.Dimension) =>
+          Some(d.toSingleDimensionViewProvider)
+        case _ =>
+          None
+      }
   }
 
-  def matcherFor[A <: AbstractView with Persisted: ClassTag]: TagMatcher[A] =
-    new TagMatcher[A]()(classTag[A])
+  def matcherFor(viewKind: sql.ViewKind): TagMatcher =
+    TagMatcher(viewKind)
 }

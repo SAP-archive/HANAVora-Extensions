@@ -1,27 +1,45 @@
 package org.apache.spark.sql.sources.sql
 
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.sources.ViewHandle
 
 import scala.reflect._
 
 sealed trait ViewKind {
-  type A <: AbstractView with Persisted
-  val relatedTag: ClassTag[A]
+  type A <: AbstractView
+  val classTag: ClassTag[A]
+
+  def createNonPersisted(plan: LogicalPlan): A
+  def createPersisted(plan: LogicalPlan, handle: ViewHandle): A with Persisted
 }
 
-object Plain extends ViewKind {
-  type A = PersistedView
-  val relatedTag = classTag[A]
+sealed abstract class BaseViewKind[V <: AbstractView: ClassTag] extends ViewKind {
+  type A = V
+  val classTag = implicitly[ClassTag[V]]
 }
 
-object Dimension extends ViewKind {
-  type A = PersistedDimensionView
-  val relatedTag = classTag[A]
+object Plain extends BaseViewKind[View] {
+  override def createNonPersisted(plan: LogicalPlan): View = NonPersistedView(plan)
+
+  override def createPersisted(plan: LogicalPlan, handle: ViewHandle): View with Persisted =
+    PersistedView(plan, handle)
 }
 
-object Cube extends ViewKind {
-  type A = PersistedCubeView
-  val relatedTag = classTag[A]
+object Dimension extends BaseViewKind[DimensionView] {
+  override def createNonPersisted(plan: LogicalPlan): DimensionView =
+    NonPersistedDimensionView(plan)
+
+  override def createPersisted(plan: LogicalPlan, handle: ViewHandle)
+    : DimensionView with Persisted =
+    PersistedDimensionView(plan, handle)
+}
+
+object Cube extends BaseViewKind[CubeView] {
+  override def createNonPersisted(plan: LogicalPlan): CubeView =
+    NonPersistedCubeView(plan)
+
+  override def createPersisted(plan: LogicalPlan, handle: ViewHandle): CubeView with Persisted =
+    PersistedCubeView(plan, handle)
 }
 
 object ViewKind {

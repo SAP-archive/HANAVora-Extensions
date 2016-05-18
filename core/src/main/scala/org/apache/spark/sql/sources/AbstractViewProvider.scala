@@ -2,16 +2,21 @@ package org.apache.spark.sql.sources
 
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, Persisted}
+import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan, Persisted}
+import org.apache.spark.sql.sources.sql.ViewKind
 
 import scala.reflect._
 
 trait AbstractViewProvider[A <: AbstractView with Persisted] {
   val tag: ClassTag[A]
 
-  def create(createViewInput: CreateViewInput[A]): Unit
+  def create(createViewInput: CreateViewInput): ViewHandle
 
   def drop(dropViewInput: DropViewInput): Unit
+}
+
+trait ViewHandle {
+  def drop(): Unit
 }
 
 abstract class BaseAbstractViewProvider[A <: AbstractView with Persisted: ClassTag]
@@ -20,12 +25,11 @@ abstract class BaseAbstractViewProvider[A <: AbstractView with Persisted: ClassT
 }
 
 object AbstractViewProvider {
-  def unapply[A <: AbstractView with Persisted: ClassTag]
-      (any: Any): Option[AbstractViewProvider[A]] = {
-    val multiProvider = MultiAbstractViewProvider.matcherFor[A]
+  def matcherFor(kind: ViewKind)(any: Any): Option[AbstractViewProvider[_]] = {
+    val multiProvider = MultiAbstractViewProvider.matcherFor(kind)
     any match {
       case provider: AbstractViewProvider[_] if tagMatches(provider.tag) =>
-        Some(provider.asInstanceOf[AbstractViewProvider[A]])
+        Some(provider)
       case multiProvider(provider) =>
         Some(provider)
       case _ => None
@@ -37,13 +41,13 @@ object AbstractViewProvider {
   }
 }
 
-case class CreateViewInput[A <: AbstractView with Persisted](
+case class CreateViewInput(
     sqlContext: SQLContext,
+    plan: LogicalPlan,
+    viewSql: String,
     options: Map[String, String],
     identifier: TableIdentifier,
-    view: A,
-    allowExisting: Boolean,
-    metadataViewSQL: String = "VIEW_SQL")
+    allowExisting: Boolean)
 
 case class DropViewInput(
     sqlContext: SQLContext,

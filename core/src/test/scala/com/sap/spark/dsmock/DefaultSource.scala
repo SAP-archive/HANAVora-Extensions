@@ -102,11 +102,10 @@ class DefaultSource
   override def dropView(dropViewInput: DropViewInput): Unit =
     underlying.dropView(dropViewInput)
 
-  override def createView(createViewInput: CreateViewInput[PersistedView]): Unit =
+  override def createView(createViewInput: CreateViewInput): ViewHandle =
     underlying.createView(createViewInput)
 
-  override def createDimensionView(createViewInput: CreateViewInput[PersistedDimensionView])
-    : Unit =
+  override def createDimensionView(createViewInput: CreateViewInput): ViewHandle =
     underlying.createDimensionView(createViewInput)
 
   override def dropDimensionView(dropViewInput: DropViewInput): Unit =

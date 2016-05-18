@@ -1,31 +1,27 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, Persisted}
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources.AbstractViewProvider
+import org.apache.spark.sql.sources.sql.ViewKind
 import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
-
-import scala.reflect.ClassTag
 
 /**
   * A command to create a view.
-  * @tparam A The type of the view.
   */
-trait AbstractViewCommand[A <: AbstractView] extends RunnableCommand {
+trait AbstractViewCommand extends RunnableCommand {
+  /** The kind of the view. */
+  val kind: ViewKind
   /** The identifier of the view. */
   val identifier: TableIdentifier
 }
 
 /**
   * An [[AbstractViewCommand]] whose execution relies on a provider.
-  * @tparam A The type of the view the provider should be able to handle.
   */
-trait ProviderBound[A <: AbstractView with Persisted] {
-  self: AbstractViewCommand[A] =>
+trait ProviderBound {
+  self: AbstractViewCommand =>
 
-  /** The [[ClassTag]] of the targeted view class. */
-  val tag: ClassTag[A]
   /** The package where the provider lies in. */
   val provider: String
   /** The options for this command. */
@@ -52,9 +48,9 @@ trait ProviderBound[A <: AbstractView with Persisted] {
     * @tparam B The result type of the operation to execute.
     * @return The result of the operation.
     */
-  def withValidProvider[B](b: AbstractViewProvider[A] => B)
+  def withValidProvider[B](b: AbstractViewProvider[_] => B)
                           (implicit resolver: DatasourceResolver): B = {
-    AbstractViewProvider.unapply[A](resolver.newInstanceOf(provider))(tag) match {
+    AbstractViewProvider.matcherFor(kind)(resolver.newInstanceOf(provider)) match {
       case Some(viewProvider) =>
         b(viewProvider)
       case _ =>
@@ -70,12 +66,3 @@ object ProviderBound {
 
 class ProviderException(val provider: String, val reason: String)
   extends Exception(s"Exception using provider $provider: $reason")
-
-/**
-  * A base class for a view command that has [[ClassTag]] information about the view type
-  * it targets.
-  * @tparam A The type of the view.
-  */
-abstract class TaggedViewCommand[A <: AbstractView: ClassTag] extends AbstractViewCommand[A] {
-  val tag = implicitly[ClassTag[A]]
-}

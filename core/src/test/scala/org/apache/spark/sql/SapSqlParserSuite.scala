@@ -8,6 +8,7 @@ import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableF
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.execution.datasources.CreateNonPersistentViewCommand
+import org.apache.spark.sql.sources.sql.{Dimension, Plain}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.FunSuite
@@ -185,9 +186,9 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE TEMPORARY VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      NonPersistedView(Project(AliasUnresolver(Literal(1)),
-        UnresolvedRelation(TableIdentifier("mytable")))),
-      TableIdentifier("myview"), temporary = true)
+      Plain, TableIdentifier("myview"),
+      Project(AliasUnresolver(Literal(1)), UnresolvedRelation(TableIdentifier("mytable"))),
+      temporary = true)
     comparePlans(expected, result)
   }
 
@@ -195,9 +196,9 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      NonPersistedView(Project(AliasUnresolver(Literal(1)),
-        UnresolvedRelation(TableIdentifier("mytable")))),
-      TableIdentifier("myview"), temporary = false)
+      Plain, TableIdentifier("myview"),
+      Project(AliasUnresolver(Literal(1)), UnresolvedRelation(TableIdentifier("mytable"))),
+      temporary = false)
     comparePlans(expected, result)
   }
 
@@ -212,7 +213,8 @@ class SapSqlParserSuite
                                 ) AS H
                               """.stripMargin)
     val expected = CreateNonPersistentViewCommand(
-      NonPersistedView(Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
+      Plain, TableIdentifier("HV"),
+      Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
         relation = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
         parenthoodExpression =
           EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
@@ -220,7 +222,7 @@ class SapSqlParserSuite
         startWhere = Some(IsNull(UnresolvedAttribute("pred"))),
         searchBy = Nil,
         nodeAttribute = UnresolvedAttribute("Node")
-      )))), TableIdentifier("HV"), temporary = true)
+      ))), temporary = true)
     comparePlans(expected, result)
   }
 
@@ -240,19 +242,17 @@ class SapSqlParserSuite
       "H AS HL @ (foo = 1.23) " +
       "FROM atable")
 
-    assert(result.isInstanceOf[CreateNonPersistentViewCommand[_]])
+    assert(result.isInstanceOf[CreateNonPersistentViewCommand])
 
-    val createView = result.asInstanceOf[CreateNonPersistentViewCommand[_]]
+    val createView = result.asInstanceOf[CreateNonPersistentViewCommand]
 
     assertResult(createView.identifier.table)("aview")
 
-    assert(createView.view.isInstanceOf[NonPersistedView])
+    assert(createView.kind == Plain)
 
-    val nonPersistedView = createView.view.asInstanceOf[NonPersistedView]
+    assert(createView.plan.isInstanceOf[Project])
 
-    assert(nonPersistedView.plan.isInstanceOf[Project])
-
-    val projection = nonPersistedView.plan.asInstanceOf[Project]
+    val projection = createView.plan.asInstanceOf[Project]
 
     assertResult(UnresolvedRelation(TableIdentifier("atable")))(projection.child)
 
@@ -312,9 +312,9 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE DIMENSION VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      NonPersistedDimensionView(Project(AliasUnresolver(Literal(1)),
-        UnresolvedRelation(TableIdentifier("mytable")))),
-      TableIdentifier("myview"), temporary = false)
+      Dimension, TableIdentifier("myview"),
+      Project(AliasUnresolver(Literal(1)),
+        UnresolvedRelation(TableIdentifier("mytable"))), temporary = false)
     comparePlans(expected, result)
   }
 

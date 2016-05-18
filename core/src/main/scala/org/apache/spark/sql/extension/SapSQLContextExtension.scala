@@ -20,6 +20,7 @@ import org.apache.spark.sql.hierarchy.HierarchyStrategy
 private[sql] trait SapSQLContextExtension extends SQLContextExtension {
 
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
+    ResolveViews(analyzer) ::
     ResolveSystemTables(analyzer) ::
     ResolveReferencesWithHierarchies(analyzer) ::
     ResolveHierarchy(analyzer) ::

@@ -4,8 +4,7 @@ import com.sap.spark.dstest.DefaultSource
 import org.apache.spark.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedAlias,
-UnresolvedRelation, UnresolvedStar}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.expressions.{Ascending, SortOrder}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreatePersistentViewCommand, ProviderException}
@@ -13,6 +12,7 @@ import org.apache.spark.sql.hierarchy.HierarchyTestUtils
 import org.apache.spark.sql.catalyst.expressions.EqualTo
 import org.apache.spark.sql.catalyst.expressions.IsNull
 import org.apache.spark.sql.sources._
+import org.apache.spark.sql.sources.sql.{Dimension, Plain}
 import org.mockito.Mockito._
 import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.mock.MockitoSugar
@@ -29,7 +29,11 @@ class ViewsSuite extends FunSuite
   case object Dummy extends LeafNode with NoOutput
 
   class DummyViewProvider extends ViewProvider {
-    override def createView(createViewInput: CreateViewInput[PersistedView]): Unit = ()
+    override def createView(createViewInput: CreateViewInput): ViewHandle =
+      new ViewHandle {
+        override def drop(): Unit = ()
+      }
+
     override def dropView(dropViewInput: DropViewInput): Unit = ()
   }
 
@@ -185,9 +189,12 @@ class ViewsSuite extends FunSuite
 
     assertResult(Subquery(
       "v",
-      Project(
-        UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-        UnresolvedRelation(TableIdentifier("t")))))(actual)
+      PersistedView(
+        Project(
+          UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+          UnresolvedRelation(TableIdentifier("t"))),
+        DefaultSource.DropViewHandle("v", "view")
+      )))(actual)
   }
 
   test("Valid view provider is issued to create view") {
@@ -197,14 +204,14 @@ class ViewsSuite extends FunSuite
     when(resolver.newInstanceOf("qux")).thenReturn(provider)
 
     val viewCommand =
-      CreatePersistentViewCommand(PersistedView(Dummy),
-        TableIdentifier("foo"), "qux", Map.empty, allowExisting = true)
+      CreatePersistentViewCommand(Plain, TableIdentifier("foo"), Dummy,
+        "view_sql", "qux", Map.empty, allowExisting = true)
 
     viewCommand.execute(sqlContext)
     verify(provider, times(1)).toSingleViewProvider
     verify(provider, times(1))
-      .createView(CreateViewInput(sqlContext, Map.empty, TableIdentifier("foo"),
-        PersistedView(Dummy), allowExisting = true))
+      .createView(CreateViewInput(sqlContext, Dummy, "view_sql", Map.empty,
+        TableIdentifier("foo"), allowExisting = true))
   }
 
   test("Upon invalid providers, an exception is thrown") {
@@ -214,8 +221,8 @@ class ViewsSuite extends FunSuite
     when(resolver.newInstanceOf("qux")).thenReturn(provider)
 
     val viewCommand =
-      CreatePersistentViewCommand(PersistedDimensionView(Dummy),
-        TableIdentifier("foo"), "qux", Map.empty, allowExisting = true)
+      CreatePersistentViewCommand(Dimension, TableIdentifier("foo"), Dummy,
+        "view_sql", "qux", Map.empty, allowExisting = true)
 
     intercept[ProviderException] {
       viewCommand.execute(sqlContext)
@@ -270,16 +277,19 @@ class ViewsSuite extends FunSuite
                        SET node) AS H
                        USING com.sap.spark.dstest""")
     val actual = sqlContext.catalog.lookupRelation(TableIdentifier("v1"))
-    assertResult(actual)(Subquery("v1",
-      Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
-        Subquery("H",
-          Hierarchy(
-            UnresolvedRelation(TableIdentifier("organizationTbl"), Some("v")),
-            "u",
-            EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
-            SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,
-            Some(IsNull(UnresolvedAttribute("pred"))),
-            UnresolvedAttribute("node")
-          )))))
+    assertResult(Subquery("v1",
+      PersistedView(
+        Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+          Subquery("H",
+            Hierarchy(
+              UnresolvedRelation(TableIdentifier("organizationTbl"), Some("v")),
+              "u",
+              EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
+              SortOrder(UnresolvedAttribute("ord"), Ascending) :: Nil,
+              Some(IsNull(UnresolvedAttribute("pred"))),
+              UnresolvedAttribute("node")
+            ))),
+        DefaultSource.DropViewHandle("v1", "view")
+    )))(actual)
   }
 }

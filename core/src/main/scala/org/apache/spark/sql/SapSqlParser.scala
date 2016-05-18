@@ -130,15 +130,7 @@ with AnnotationParsingRules{
   protected lazy val createView: Parser[LogicalPlan] =
     (CREATE ~> TEMPORARY.?) ~ (viewKind.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
       case temp ~ ViewKind(kind) ~ name ~ query =>
-        val view = kind match {
-        case Dimension =>
-          NonPersistedDimensionView(query)
-        case Cube =>
-          NonPersistedCubeView(query)
-        case Plain =>
-          NonPersistedView(query)
-        }
-        CreateNonPersistentViewCommand(view, TableIdentifier(name), temp.isDefined)
+        CreateNonPersistentViewCommand(kind, TableIdentifier(name), query, temp.isDefined)
     }
 
   protected lazy val describeTable: Parser[LogicalPlan] =

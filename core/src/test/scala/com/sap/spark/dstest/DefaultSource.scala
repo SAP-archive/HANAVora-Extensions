@@ -1,7 +1,6 @@
 package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 
@@ -125,8 +124,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
         new DummyRelationWithTempFlag(sqlContext, Seq(name), DefaultSource.standardSchema, false)))
     ).toMap ++
     DefaultSource.views.map {
-      case (name, (_, query)) =>
-        name -> CreatePersistentViewSource(query)
+      case (name, (kind, query)) =>
+        name -> CreatePersistentViewSource(query, DefaultSource.DropViewHandle(name, kind))
     }
   }
 
@@ -142,7 +141,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
           temporary = false)))
     } else {
       if (DefaultSource.views.contains(tableName)) {
-        Some(CreatePersistentViewSource(DefaultSource.views(tableName)._2))
+        val (kind, query) = DefaultSource.views(tableName)
+        Some(CreatePersistentViewSource(query, DefaultSource.DropViewHandle(tableName, kind)))
       } else {
         None
       }
@@ -177,8 +177,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   /**
    * @inheritdoc
    */
-  override def createView(input: CreateViewInput[PersistedView]): Unit = {
-    DefaultSource.addView(input.identifier.table, "view", input.options("VIEW_SQL"))
+  override def createView(input: CreateViewInput): ViewHandle = {
+    DefaultSource.addView(input.identifier.table, "view", input.viewSql)
   }
 
   /**
@@ -191,8 +191,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   /**
    * @inheritdoc
    */
-  override def createDimensionView(input: CreateViewInput[PersistedDimensionView]): Unit = {
-    DefaultSource.addView(input.identifier.table, "dimension", input.options("VIEW_SQL"))
+  override def createDimensionView(input: CreateViewInput): ViewHandle = {
+    DefaultSource.addView(input.identifier.table, "dimension", input.viewSql)
   }
 
   /**
@@ -225,14 +225,18 @@ object DefaultSource {
     tables = tables ++ Seq(name)
   }
 
-  def addView(name: String, kind: String, query: String): Unit = {
+  def addView(name: String, kind: String, query: String): ViewHandle = {
     views = views + (name -> (kind, query))
+    DropViewHandle(name, kind)
   }
 
-  def dropView(kind: String, dropViewInput: DropViewInput): Unit = {
+  def dropView(kind: String, dropViewInput: DropViewInput): Unit =
+    dropView(kind, dropViewInput.identifier.table)
+
+  def dropView(kind: String, name: String): Unit = {
     views = views.filterNot {
       case (viewName, (viewKind, _)) =>
-        viewName == dropViewInput.identifier.table && viewKind == kind
+        viewName == name && viewKind == kind
     }
   }
 
@@ -259,4 +263,8 @@ object DefaultSource {
 
   def getAllPartitioningFunctions: Seq[PartitioningFunction] =
     partitioningFunctions.values.toSeq
+
+  case class DropViewHandle(viewName: String, viewKind: String) extends ViewHandle {
+    override def drop(): Unit = dropView(viewName, viewKind)
+  }
 }

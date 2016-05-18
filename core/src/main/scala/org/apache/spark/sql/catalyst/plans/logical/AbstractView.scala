@@ -1,33 +1,34 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
 import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.sources.TemporaryFlagRelation
-
-import scala.reflect.ClassTag
+import org.apache.spark.sql.sources.sql.ViewKind
+import org.apache.spark.sql.sources.{DropRelation, TemporaryFlagRelation, ViewHandle}
 
 /**
   * A logical plan of a view.
   */
-trait AbstractView extends LogicalPlan {
+trait AbstractView extends UnaryNode {
   val plan: LogicalPlan
-}
 
-abstract class AbstractViewBase extends LeafNode with NoOutput
+  val kind: ViewKind
 
-abstract class AbstractTaggedViewBase[A <: AbstractView with Persisted: ClassTag]
-  extends AbstractViewBase {
-  val tag = implicitly[ClassTag[A]]
+  override def child: LogicalPlan = plan
+
+  override def output: Seq[Attribute] = plan.output
 }
 
 /**
   * A view that has some persistence in a datasource.
   */
-trait Persisted extends TemporaryFlagRelation {
+trait Persisted extends TemporaryFlagRelation with DropRelation {
   self: AbstractView =>
 
-  val tag: ClassTag[_ <: AbstractView with Persisted]
+  val handle: ViewHandle
 
   override def isTemporary(): Boolean = false
+
+  /** @inheritdoc */
+  override def dropTable(): Unit = handle.drop()
 }
 
 /**

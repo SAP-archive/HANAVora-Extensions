@@ -28,12 +28,15 @@ case class BaseRelationSource(baseRelation: BaseRelation) extends LogicalPlanSou
   *
   * @param createViewStatement The sql query string.
   */
-case class CreatePersistentViewSource(createViewStatement: String) extends LogicalPlanSource {
+case class CreatePersistentViewSource(createViewStatement: String, handle: ViewHandle)
+  extends LogicalPlanSource {
+
   def logicalPlan(sqlContext: SQLContext): LogicalPlan = {
     sqlContext.parseSql(createViewStatement) match {
       // This might seem repetitive but in the future the commands might drastically differ
-      case a: AbstractCreateViewCommand[_] =>
-        a.view.plan
+      case CreatePersistentViewCommand(kind, _, plan, _, _, _, _) =>
+        kind.createPersisted(plan, handle)
+
       case unknown =>
         throw new RuntimeException(s"Could not extract view query from $unknown")
     }

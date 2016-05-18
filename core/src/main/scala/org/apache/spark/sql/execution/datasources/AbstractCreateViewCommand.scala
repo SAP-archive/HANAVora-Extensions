@@ -1,39 +1,39 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, Persisted}
+import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan}
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
-import org.apache.spark.sql.sources.{AbstractViewProvider, CreateViewInput}
+import org.apache.spark.sql.sources.sql.ViewKind
+import org.apache.spark.sql.sources.{AbstractViewProvider, CreateViewInput, ViewHandle}
 import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
-
-import scala.reflect.ClassTag
 
 /**
   * A command to create a view in both the spark catalog and a datasource.
-  * @param view The view.
+  * @param kind The kind of the view
+  * @param plan The logical plan the view will wrap.
   * @param identifier The name of the view.
   * @param provider The package of the provider.
   * @param options The options of the command.
   * @param allowExisting True if this should not fail if the view already exists,
   *                      false otherwise
-  * @tparam A The type of the view.
   */
-case class CreatePersistentViewCommand[A <: AbstractView with Persisted: ClassTag](
-    view: A,
+case class CreatePersistentViewCommand(
+    kind: ViewKind,
     identifier: TableIdentifier,
+    plan: LogicalPlan,
+    viewSql: String,
     provider: String,
     options: Map[String, String],
     allowExisting: Boolean)
-  extends AbstractCreateViewCommand[A]
-  with Persisting[A] {
-
-  val tag = implicitly[ClassTag[A]]
+  extends AbstractCreateViewCommand
+  with Persisting {
 
   def execute(sqlContext: SQLContext)(implicit resolver: DatasourceResolver): Seq[Row] =
     withValidProvider { provider =>
       ensureAllowedToWrite(sqlContext)
-      registerInProvider(sqlContext, provider)
-      registerInCatalog(sqlContext)
+      val handle = registerInProvider(sqlContext, provider)
+      val view = kind.createPersisted(plan, handle)
+      registerInCatalog(view, sqlContext)
       Seq.empty
     }
 
@@ -43,22 +43,23 @@ case class CreatePersistentViewCommand[A <: AbstractView with Persisted: ClassTa
 
 /**
   * A command to create a view that resides in spark catalog only.
-  * @param view The view to create.
+  * @param plan The logical plan the view will wrap.
   * @param identifier The identifier of the view.
   * @param temporary Flag whether the creation was specified as temporary.
-  * @tparam A The type of the view.
   */
-case class CreateNonPersistentViewCommand[A <: AbstractView](
-    view: A,
+case class CreateNonPersistentViewCommand(
+    kind: ViewKind,
     identifier: TableIdentifier,
+    plan: LogicalPlan,
     temporary: Boolean)
-  extends AbstractCreateViewCommand[A]
-  with NonPersisting[A] {
+  extends AbstractCreateViewCommand
+  with NonPersisting {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     ensureAllowedToWrite(sqlContext)
     emitWarningIfNecessary()
-    registerInCatalog(sqlContext)
+    val view = kind.createNonPersisted(plan)
+    registerInCatalog(view, sqlContext)
     Seq.empty
   }
 }
@@ -66,10 +67,9 @@ case class CreateNonPersistentViewCommand[A <: AbstractView](
 
 /**
   * A base trait for commands that create views.
-  * @tparam A The type of the view.
   */
-trait AbstractCreateViewCommand[A <: AbstractView] extends AbstractViewCommand[A] {
-  val view: A
+trait AbstractCreateViewCommand extends AbstractViewCommand {
+  val plan: LogicalPlan
 
   /**
     * Checks if [[allowedToWriteRelationInSpark]] is true, otherwise throws
@@ -95,17 +95,19 @@ trait AbstractCreateViewCommand[A <: AbstractView] extends AbstractViewCommand[A
     * Registers the view in the catalog.
     * @param sqlContext The sqlContext in which's catalog the view is registered.
     */
-  def registerInCatalog(sqlContext: SQLContext): Unit = {
-    sqlContext.registerRawPlan(view.plan, identifier.table)
+  def registerInCatalog(view: AbstractView, sqlContext: SQLContext): Unit = {
+    sqlContext.registerRawPlan(view, identifier.table)
   }
 }
 
 /**
   * A view creation command that also persists into a datasource.
-  * @tparam A The type of the view the provider should be able to handle.
   */
-trait Persisting[A <: AbstractView with Persisted] extends ProviderBound[A] {
-  self: AbstractCreateViewCommand[A] =>
+trait Persisting extends ProviderBound {
+  self: AbstractCreateViewCommand =>
+
+  /** The sql of the CREATE VIEW command */
+  val viewSql: String
 
   val allowExisting: Boolean
 
@@ -118,17 +120,18 @@ trait Persisting[A <: AbstractView with Persisted] extends ProviderBound[A] {
     * @param sqlContext The sqlContext.
     * @param viewProvider The provider to register the view in.
     */
-  def registerInProvider(sqlContext: SQLContext, viewProvider: AbstractViewProvider[A]): Unit = {
-    viewProvider.create(CreateViewInput(sqlContext, options, identifier, view, allowExisting))
+  def registerInProvider(sqlContext: SQLContext,
+                         viewProvider: AbstractViewProvider[_]): ViewHandle = {
+    viewProvider.create(
+      CreateViewInput(sqlContext, plan, viewSql, options, identifier, allowExisting))
   }
 }
 
 /**
   * A view creation command that only persists the command into the spark catalog.
-  * @tparam A The type of the view.
   */
-trait NonPersisting[A <: AbstractView] {
-  self: AbstractCreateViewCommand[A] =>
+trait NonPersisting {
+  self: AbstractCreateViewCommand =>
 
   /** Flag whether the creation was specified as temporary. */
   val temporary: Boolean

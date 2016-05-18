@@ -12,7 +12,7 @@ import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRe
 import org.apache.spark.sql.sources.commands._
 
 import scala.util.parsing.input.Position
-import scala.reflect._
+
 import org.apache.spark.sql.util.CollectionUtils._
 
 // scalastyle: off file.size.limit
@@ -317,16 +317,8 @@ class InternalSapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
     withConsumedInput(createViewUsing) ^^ {
       case ((name, plan, provider, opts, allowExisting, kind), text) =>
-        val view = kind match {
-          case Dimension => PersistedDimensionView(plan)
-          case Plain => PersistedView(plan)
-          case Cube => PersistedCubeView(plan)
-        }
-        CreatePersistentViewCommand[AbstractView with Persisted](
-          view, name, provider,
-          opts.updated(VIEW_SQL_STRING, text.trim), allowExisting)(
-          view.tag.asInstanceOf[ClassTag[AbstractView with Persisted]])
-      }
+        CreatePersistentViewCommand(kind, name, plan, text, provider, opts, allowExisting)
+    }
 
   /**
     * Resolves a DROP VIEW ... USING statement. For more information about the rationale behind
@@ -336,8 +328,8 @@ class InternalSapDDLParser(parseQuery: String => LogicalPlan)
     DROP ~> viewKind ~ (IF ~> EXISTS).? ~ tableIdentifier ~ (USING ~> className) ~
       (OPTIONS ~> options).? ^^ {
       case kind ~ allowNotExisting ~ identifier ~ provider ~ opts =>
-        DropPersistentViewCommand(identifier, provider,
-          opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)(kind.relatedTag)
+        DropPersistentViewCommand(kind, identifier, provider,
+          opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
     }
 
   protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {

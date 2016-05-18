@@ -11,7 +11,7 @@ import org.apache.spark.sql.execution.datasources.AbstractCreateViewCommand
 object RecursiveViewAnalysis {
   def apply(plan: LogicalPlan): Unit = {
     plan.foreach {
-      case c:AbstractCreateViewCommand[_] if containsViewIdentifier(c.identifier, c.view.plan) =>
+      case c:AbstractCreateViewCommand if containsViewIdentifier(c.identifier, c.plan) =>
         throw new AnalysisException(s"The view ${c.identifier.table} " +
           s"cannot be defined recursively.")
       case _ =>
