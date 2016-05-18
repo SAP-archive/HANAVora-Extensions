@@ -31,6 +31,7 @@ object RegisterCustomFunctions {
     registerExpression[Remainder](registry, "remainder")
     registerExpression[Remainder](registry, "mod")
     registerExpression[AddYears](registry, "add_years")
+    registerExpression[AddSeconds](registry, "add_seconds")
     registerExpression[DateAdd](registry, "add_days")
     registerExpression[Replace](registry, "replace")
     registerExpression[Log](registry, "ln")

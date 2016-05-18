@@ -7,3 +7,5 @@ case class StringRow(name: String)
 case class DoubleRow(name: String, d: Double)
 
 case class DateRow(name: String, d: sql.Date)
+
+case class TimestampRow(name: String, t: sql.Timestamp)
