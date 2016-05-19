@@ -70,11 +70,6 @@ class SapSqlParserSuite
       .equals(UnresolvedSelectWith(rawSqlString, className)))
   }
 
-  test("Distinct") {
-    val parsed = SapSqlParser.parse("SELECT count(distinct *) FROM t")
-    println(parsed)
-  }
-
   test("parse system table") {
     val parsed = SapSqlParser.parse("SELECT * FROM SYS.TABLES USING com.sap.spark")
 
