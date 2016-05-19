@@ -1034,5 +1034,24 @@ OPTIONS (
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement5))
   }
+
+  /* new engine DDL via raw DDL execution */
+  test("test engine CREATE PARTITION FUNCTION") {
+    val parsed = ddlParser
+      .parse("CREATE PARTITION FUNCTION pf2(p1 INT) AS RANGE (p1) using com.sap.spark.engines")
+    assert(parsed == RawDDLCommand(
+      "CREATE PARTITION FUNCTION pf2(p1 INT) AS RANGE (p1)"))
+  }
+
+  test("test engine CREATE TABLE") {
+    // beware of whitespace (please leave it)
+    val parsed = ddlParser
+      .parse(
+        """CREATE TABLE tableName (col1 integer)
+          |uSinG
+          | com.sap.spark.engines""".stripMargin)
+    assert(parsed == RawDDLCommand(
+      "CREATE TABLE tableName (col1 integer)"))
+  }
 }
 // scalastyle:on

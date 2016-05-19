@@ -16,7 +16,55 @@ import scala.reflect._
 import org.apache.spark.sql.util.CollectionUtils._
 
 // scalastyle: off file.size.limit
+
+// note(mathis): this is a temporary solution / hack until
+//               parsing new engine DDL is included in the
+//               standard DDL parser
 class SapDDLParser(parseQuery: String => LogicalPlan)
+  extends InternalSapDDLParser(parseQuery) {
+
+  protected lazy val usingWithClassName: Parser[String] = {
+    USING ~> className ^^ {
+      case provider =>
+        provider
+    }
+  }
+  /**
+    * Overrides standard DDL parsing, by checking for 'USING com.sap.spark.engines' to emit
+    * a [[RawDDLCommand]] or the standard DDL plan.
+    *
+    * This hacky hack way will be removed, once proper DDL parsing is in place.
+    *
+    * @param input The string to parse for DDL
+    * @return A RawDDLCommand if this query contains 'USING com.sap.spark.engines', the standard
+    *         plan otherwise
+    */
+  override def parse(input: String): LogicalPlan = {
+    // check for USING com.sap.spark.engines
+    val idx = input.toUpperCase.lastIndexOf(USING.normalize.toUpperCase())
+    if(idx == -1) {
+      super.parse(input)
+    } else {
+      val parts = input.splitAt(idx)
+      initLexical
+      try {
+        phrase(usingWithClassName)(new lexical.Scanner(parts._2)) match {
+          case Success(provider, _) =>
+            if(provider == RawDDLCommand.provider) {
+              RawDDLCommand(ddlStatement = parts._1.trim)
+            } else {
+              super.parse(input)
+            }
+          case failureOrError =>
+            super.parse(input) // parse on InternalSapDDLParser
+        }
+      }
+    }
+  }
+}
+
+// note(mathis): temporarily renamed from SapDDLParser to InternalSapDDLParser
+class InternalSapDDLParser(parseQuery: String => LogicalPlan)
   extends BackportedSapSqlParser(parseQuery)
   with AnnotationParsingRules {
 
