@@ -3,6 +3,7 @@ package org.apache.spark.sql
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.currency.CurrencyConversionFunction
 import org.apache.spark.sql.types._
 import scala.reflect.ClassTag
 
@@ -40,6 +41,12 @@ object RegisterCustomFunctions {
     registry.registerFunction("to_varchar", toVarcharBuilder)
     registry.registerFunction("rand", randBuilder)
     registry.registerFunction("days_between", daysBetweenBuilder)
+
+    // register all currency conversions
+    CurrencyConversionFunction.functions.foreach {
+      case (name, impl) => registry.registerFunction(name, impl.getExpression)
+
+    }
   }
 
   private def toDoubleBuilder(expressions: Seq[Expression]): Expression =

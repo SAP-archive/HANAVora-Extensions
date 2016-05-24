@@ -1,0 +1,42 @@
+SparkSQL-based Currency Conversion
+==================================
+
+This package contains the SparkSQL currency conversion functionality.
+This includes:
+
+  -  A framework (interface and registration procedure) to register stateful currency conversion
+     functions (CFFs) to SparkSQL.
+
+     A CCF implements a particular currency conversion logic. Each CCF needs to provide
+     a function name, which is used to register it to SparkSQL.
+     A CCF provides an `expression builder` function, that is called during SparkSQL's
+     analyze phase. The builder returns a serializable
+     [[org.apache.spark.sql.catalyst.expressions.Expression]].
+     This expression is shipped to the workers by SparkSQL.
+     By this, all workers have an identical currency function expression for local processing.
+
+     The function instance itself can be stateful and does not need to be serializable.
+     References to function serializable state can be used inside the created
+     [[org.apache.spark.sql.catalyst.expressions.Expression]]
+
+  -  An implementation of a "simple" currency conversion function.
+     See [[org.apache.spark.sql.currency.basic]] package.
+
+  -  An adaptor to the external ERP currency conversion module.
+     See [[org.apache.spark.sql.currency.erp]] package.
+     The ERP currency conversion logic (as implemented in HANA) is available
+     as a distinct project (maven module)
+
+Component Design
+================
+
+Each currency conversion function must implement the
+[[org.apache.spark.sql.currency.CurrencyConversionFunction]] interface.
+Moreover, it needs to be added to the list of available implementations
+to the [[org.apache.spark.sql.currency.CurrencyConversionFunction.functions]].
+
+All functions that are available in the `functions` sequence will
+be registered to SparkSQL's function registry. This happens in the
+[[RegisterCustomFunctions]] class and this is the only call to the currency package
+from outside the currency package.
+
