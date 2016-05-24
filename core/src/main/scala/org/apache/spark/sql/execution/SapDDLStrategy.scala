@@ -29,12 +29,6 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
       val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
       val appendRelation = logicalRelation.relation.asInstanceOf[AppendRelation]
       ExecutedCommand(AppendRunnableCommand(appendRelation, options)) :: Nil
-    case DropCommand(allowNotExisting, table, cascade) =>
-      val dropRelation = planner.optimizedRelationLookup(UnresolvedRelation(table))
-                                .collect {
-                                  case IsLogicalRelation(relation: DropRelation) => relation
-                                }
-      ExecutedCommand(DropRunnableCommand(allowNotExisting, table, cascade, dropRelation)) :: Nil
     case ShowDatasourceTablesCommand(provider, options) =>
       ExecutedCommand(ShowDataSourceTablesRunnableCommand(provider, options)) :: Nil
     case ShowTablesUsingCommand(provider, options) =>

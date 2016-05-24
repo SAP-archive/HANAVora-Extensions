@@ -19,6 +19,8 @@ import org.apache.spark.sql.hierarchy.HierarchyStrategy
   */
 private[sql] trait SapSQLContextExtension extends SQLContextExtension {
 
+  protected def catalog: Catalog
+
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
     ResolveViews(analyzer) ::
     ResolveSystemTables(analyzer) ::
@@ -30,6 +32,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveCountDistinctStar(analyzer) ::
     ResolveDeepDescribe(analyzer) ::
     ResolveSelectWith(analyzer) ::
+    ResolveDropCommand(analyzer, catalog) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =

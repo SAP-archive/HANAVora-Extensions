@@ -336,6 +336,10 @@ class InternalSapDDLParser(parseQuery: String => LogicalPlan)
     case ViewKind(kind) => kind
   }
 
+  protected lazy val relationKind: Parser[RelationKind] = (TABLE | VIEW) ^^ {
+    case RelationKind(kind) => kind
+  }
+
   /** Create view parser rule */
   protected lazy val createViewUsing: Parser[(TableIdentifier, LogicalPlan,
     String, Map[String, String], Boolean, ViewKind)] =
@@ -412,10 +416,10 @@ class InternalSapDDLParser(parseQuery: String => LogicalPlan)
    * `DROP TABLE tableName`
    */
   protected lazy val dropTable: Parser[LogicalPlan] =
-    DROP ~> TABLE ~> (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
-      case allowNotExisting ~ db ~ tbl ~ cascade =>
+    DROP ~> relationKind ~ (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
+      case kind ~ allowNotExisting ~ db ~ tbl ~ cascade =>
         val tableIdent = TableIdentifier(tbl, db)
-        DropCommand(allowNotExisting.isDefined, tableIdent, cascade.isDefined)
+        UnresolvedDropCommand(kind, allowNotExisting.isDefined, tableIdent, cascade.isDefined)
     }
 
   /**

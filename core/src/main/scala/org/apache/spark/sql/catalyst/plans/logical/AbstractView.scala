@@ -1,13 +1,14 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.sources._
+import org.apache.spark.sql.sources.commands.WithExplicitRelationKind
 import org.apache.spark.sql.sources.sql.ViewKind
-import org.apache.spark.sql.sources.{DropRelation, TemporaryFlagRelation, ViewHandle}
 
 /**
   * A logical plan of a view.
   */
-trait AbstractView extends UnaryNode {
+trait AbstractView extends UnaryNode with commands.View {
   val plan: LogicalPlan
 
   val kind: ViewKind
@@ -20,8 +21,10 @@ trait AbstractView extends UnaryNode {
 /**
   * A view that has some persistence in a datasource.
   */
-trait Persisted extends TemporaryFlagRelation with DropRelation {
-  self: AbstractView =>
+trait Persisted
+  extends TemporaryFlagRelation
+  with DropRelation {
+  self: AbstractView with WithExplicitRelationKind =>
 
   val handle: ViewHandle
 

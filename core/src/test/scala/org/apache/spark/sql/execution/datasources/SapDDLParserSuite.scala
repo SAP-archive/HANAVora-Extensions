@@ -896,10 +896,17 @@ OPTIONS (
       """DROP VIEW v USIN com.sap.spark.vora
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement3))
+  }
 
-    val invStatement5 =
-      """DROP VIEW v5k""".stripMargin
-    intercept[SapParserException](ddlParser.parse(invStatement5))
+  test("Handle correct DROP VIEW statements") {
+    val statement = ddlParser.parse("DROP VIEW v1")
+
+    assertResult(
+      UnresolvedDropCommand(
+        View,
+        allowNotExisting = false,
+        TableIdentifier("v1"),
+        cascade = false))(statement)
   }
 
   test("Parse correct SHOW TABLES USING statement") {
