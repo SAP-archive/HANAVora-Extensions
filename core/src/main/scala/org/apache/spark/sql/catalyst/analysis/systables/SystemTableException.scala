@@ -1,5 +1,7 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
+import org.apache.spark.sql.catalyst.plans.logical.UnresolvedSystemTable
+
 /**
   * Exceptions for system tables.
   */
@@ -12,4 +14,7 @@ object SystemTableException {
     */
   class NotFoundException(name: String)
     extends Exception(s"Could not find the system table $name")
+
+  class InvalidProviderException(provider: SystemTableProvider, table: UnresolvedSystemTable)
+    extends Exception(s"Invalid provider $provider for system table $table")
 }

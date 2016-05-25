@@ -156,13 +156,7 @@ with AnnotationParsingRules{
       )
 
   override protected lazy val relationFactor: Parser[LogicalPlan] =
-    SYS ~> "." ~> ident ~ (USING ~> repsep(ident, ".")) ~ (OPTIONS ~> options).? ^^ {
-      case name ~ provider ~ opts =>
-        UnresolvedSystemTable(
-          name,
-          provider.mkString("."),
-          opts.getOrElse(Map.empty[String, String]))
-    } |
+    sysTable |
     ident ~ ("(" ~> repsep(start1, ",") <~ ")") ^^ {
       case name ~ arguments =>
         UnresolvedTableFunction(name, arguments)
@@ -171,6 +165,17 @@ with AnnotationParsingRules{
         case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
     } |
     ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) })
+
+  protected lazy val sysTable: Parser[UnresolvedSystemTable] =
+    SYS ~> "." ~> ident ~ ((USING ~> repsep(ident, ".")) ~ (OPTIONS ~> options).?).? ^^ {
+      case name ~ Some(provider ~ opts) =>
+        UnresolvedProviderBoundSystemTable(
+          name,
+          provider.mkString("."),
+          opts.getOrElse(Map.empty[String, String]))
+      case name ~ None =>
+        UnresolvedSparkLocalSystemTable(name)
+    }
 
   /**
    * Parser for data source specific functions. That is, functions

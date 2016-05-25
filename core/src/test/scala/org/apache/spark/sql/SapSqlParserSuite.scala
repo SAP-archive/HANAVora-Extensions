@@ -93,8 +93,8 @@ class SapSqlParserSuite
 
     assertResult(Project(                               // SELECT
       Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
-      UnresolvedSystemTable("TABLES",                   // FROM SYS.TABLES
-        "com.sap.spark", Map.empty)               // USING com.sap.spark
+      UnresolvedProviderBoundSystemTable("TABLES",      // FROM SYS.TABLES
+        "com.sap.spark", Map.empty)                     // USING com.sap.spark
     ))(parsed)
   }
 
@@ -104,7 +104,7 @@ class SapSqlParserSuite
 
     assertResult(Project(                               // SELECT
       Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
-      UnresolvedSystemTable("TABLES",                   // FROM SYS.TABLES
+      UnresolvedProviderBoundSystemTable("TABLES",      // FROM SYS.TABLES
         "com.sap.spark", Map("foo" -> "bar"))     // USING com.sap.spark
     ))(parsed)
   }
