@@ -30,127 +30,88 @@ class FieldExtractorSuite extends FunSuite {
 
   val annotations = Map("bar" -> "baz", "*" -> "qux")
 
+  type Field = (String, DataType, Boolean, Metadata)
+
   val fields = new {
-    val int = new Field("t", "foo", IntegerType, isNullable = false,
+    val int: Field = ("foo", IntegerType, false,
       annotations.foldLeft(new MetadataBuilder()) {
         case (builder, (k, v)) => builder.putString(k, v)
       }.build())
-    val decimal = int.copy(dataType =
+    val decimal = int.copy(_2 =
       DecimalType(numeric.precisionOf.decimal, numeric.scaleOf.decimal))
-    val double = int.copy(dataType = DoubleType)
-    val float = int.copy(dataType = FloatType)
-    val long = int.copy(dataType = LongType)
+    val double = int.copy(_2 = DoubleType)
+    val float = int.copy(_2 = FloatType)
+    val long = int.copy(_2 = LongType)
   }
 
-  def noStarExtractor(f: Field): FieldExtractor =
-    new FieldExtractor(0, f, checkStar = false)
-
+  def createExtractor(field: Field)(checkStar: Boolean): FieldExtractor = {
+    val (name, dataType, isNullable, metadata) = field
+    new FieldExtractor(0, "f", name, dataType, metadata, isNullable, checkStar)
+  }
 
   test("annotations with no checking for star") {
-    val extractor = new FieldExtractor(0, fields.int, checkStar = false)
+    val extractor = createExtractor(fields.int)(checkStar = false)
 
     assert(extractor.annotations == annotations)
   }
 
   test("annotations with checking for star") {
-    val extractor = new FieldExtractor(0, fields.int, checkStar = true)
+    val extractor = createExtractor(fields.int)(checkStar = true)
 
     assert(extractor.annotations == Map("bar" -> "baz"))
   }
 
   test("numericPrecision") {
     assertResult(Option(numeric.precisionOf.double)) {
-      noStarExtractor(fields.double).numericPrecision
+      createExtractor(fields.double)(checkStar = false).numericPrecision
     }
     assertResult(Option(numeric.precisionOf.decimal)) {
-      noStarExtractor(fields.decimal).numericPrecision
+      createExtractor(fields.decimal)(checkStar = false).numericPrecision
     }
     assertResult(Option(numeric.precisionOf.int)) {
-      noStarExtractor(fields.int).numericPrecision
+      createExtractor(fields.int)(checkStar = false).numericPrecision
     }
     assertResult(Option(numeric.precisionOf.float)) {
-      noStarExtractor(fields.float).numericPrecision
+      createExtractor(fields.float)(checkStar = false).numericPrecision
     }
     assertResult(Option(numeric.precisionOf.long)){
-      noStarExtractor(fields.long).numericPrecision
+      createExtractor(fields.long)(checkStar = false).numericPrecision
     }
   }
 
   test("numericScale") {
     assertResult(Option(numeric.scaleOf.double)){
-      noStarExtractor(fields.double).numericScale
+      createExtractor(fields.double)(checkStar = false).numericScale
     }
     assertResult(Option(numeric.scaleOf.decimal)){
-      noStarExtractor(fields.decimal).numericScale
+      createExtractor(fields.decimal)(checkStar = false).numericScale
     }
     assertResult(Option(numeric.scaleOf.int)){
-      noStarExtractor(fields.int).numericScale
+      createExtractor(fields.int)(checkStar = false).numericScale
     }
     assertResult(Option(numeric.scaleOf.float)){
-      noStarExtractor(fields.float).numericScale
+      createExtractor(fields.float)(checkStar = false).numericScale
     }
     assertResult(Option(numeric.scaleOf.long)){
-      noStarExtractor(fields.long).numericScale
+      createExtractor(fields.long)(checkStar = false).numericScale
     }
   }
 
   test("numericPrecisionRadix") {
     assertResult(Option(numeric.radixOf.double)){
-      noStarExtractor(fields.double).numericPrecisionRadix
+      createExtractor(fields.double)(checkStar = false).numericPrecisionRadix
     }
     assertResult(Option(numeric.radixOf.decimal)){
-      noStarExtractor(fields.decimal).numericPrecisionRadix
+      createExtractor(fields.decimal)(checkStar = false).numericPrecisionRadix
     }
     assertResult(Option(numeric.radixOf.int)){
-      noStarExtractor(fields.int).numericPrecisionRadix
+      createExtractor(fields.int)(checkStar = false).numericPrecisionRadix
     }
     assertResult(Option(numeric.radixOf.float)){
-      noStarExtractor(fields.float).numericPrecisionRadix
+      createExtractor(fields.float)(checkStar = false).numericPrecisionRadix
     }
     assertResult(Option(numeric.radixOf.long)){
-      noStarExtractor(fields.long).numericPrecisionRadix
+      createExtractor(fields.long)(checkStar = false).numericPrecisionRadix
     }
-  }
-
-  test("extract with no annotations") {
-    val f = fields.int.copy(metadata = new MetadataBuilder().build())
-    val extractor = new FieldExtractor(0, f, checkStar = false)
-
-    assert(extractor.extract() == Seq(
-      "t" ::
-        "foo" ::
-        0 ::
-        false ::
-        "INTEGER" ::
-        Some(numeric.precisionOf.int) ::
-        Some(numeric.radixOf.int) ::
-        Some(numeric.scaleOf.int) ::
-        None ::
-        None :: Nil
-    ))
-  }
-
-  test("extract with annotations") {
-    val extractor = new FieldExtractor(0, fields.int, checkStar = false)
-
-    val columnFieldsWithoutAnnotations =
-      "t" ::
-        "foo" ::
-        0 ::
-        false ::
-        "INTEGER" ::
-        Some(numeric.precisionOf.int) ::
-        Some(numeric.radixOf.int) ::
-        Some(numeric.scaleOf.int) :: Nil
-
-    val expected = annotations.map {
-      case (key, value) =>
-        columnFieldsWithoutAnnotations :+
-          key :+ value
-    }.toSet
-
-    val actual = extractor.extract().toSet
-
-    assert(expected == actual)
   }
 }

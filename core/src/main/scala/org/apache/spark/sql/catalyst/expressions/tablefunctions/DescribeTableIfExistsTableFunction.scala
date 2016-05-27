@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.analysis.{Analyzer, TableFunction}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.execution.tablefunctions.LogicalPlanExtractor
+import org.apache.spark.sql.execution.tablefunctions.{LogicalPlanExtractor, OutputFormatter}
 import org.apache.spark.sql.extension.ExtendedPlanner
 
 import scala.util.Try
@@ -14,7 +14,21 @@ class DescribeTableIfExistsTableFunction extends TableFunction {
   override def apply(planner: ExtendedPlanner)
                     (arguments: Seq[Any]): Seq[SparkPlan] = arguments match {
     case Seq(Some(plan: LogicalPlan)) =>
-      createOutputPlan(LogicalPlanExtractor(plan).extract()) :: Nil
+      val extractor = new LogicalPlanExtractor(plan)
+      val data = extractor.columns.flatMap { column =>
+        new OutputFormatter(
+          extractor.tableSchema,
+          column.tableName,
+          column.name,
+          column.index,
+          column.isNullable,
+          column.dataType,
+          column.numericPrecision,
+          column.numericPrecisionRadix,
+          column.numericScale,
+          column.nonEmptyAnnotations).format()
+      }
+      createOutputPlan(data) :: Nil
 
     case Seq(None) =>
       createOutputPlan(Nil) :: Nil

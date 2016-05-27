@@ -4,30 +4,32 @@ import org.apache.spark.sql.sources.sql.SqlBuilder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.GenericUtil._
 
-case class FieldExtractor(index: Int, field: Field, checkStar: Boolean) {
-  def tableName: String = field.tableName
-
-  def name: String = field.name
+case class FieldExtractor(
+    index: Int,
+    tableName: String,
+    name: String,
+    sparkDataType: DataType,
+    metadata: Metadata,
+    isNullable: Boolean,
+    checkStar: Boolean) {
 
   lazy val sqlBuilder = new SqlBuilder()
 
   // TODO (YH, AC): Improve it once native types have landed
   def dataType: String = {
-    field.dataType match {
+    sparkDataType match {
       case NodeType => "<INTERNAL>"
-      case _ => sqlBuilder.typeToSql(field.dataType)
+      case _ => sqlBuilder.typeToSql(sparkDataType)
     }
   }
 
   lazy val annotations: Map[String, String] =
-    MetadataAccessor.metadataToMap(field.metadata)
+    MetadataAccessor.metadataToMap(metadata)
                     .filter {
                       case (k, v) if checkStar => k != "*"
                       case _ => true
                     }
                     .mapValues(_.toString)
-
-  def isNullable: Boolean = field.isNullable
 
   // scalastyle:off magic.number
   /** Returns the numeric precision of the data type.
@@ -36,7 +38,7 @@ case class FieldExtractor(index: Int, field: Field, checkStar: Boolean) {
     * that can be present in a number.
     * @return The numeric precision of the data type
     */
-  def numericPrecision: Option[Int] = field.dataType matchOptional {
+  def numericPrecision: Option[Int] = sparkDataType matchOptional {
     case d: DecimalType => d.precision
     case _: IntegerType => 32 // Maximum number of digits as seen in binary
     case _: DoubleType => 53
@@ -50,7 +52,7 @@ case class FieldExtractor(index: Int, field: Field, checkStar: Boolean) {
     * data type is.
     * @return The numeric precision radix of the data type
     */
-  def numericPrecisionRadix: Option[Int] = field.dataType matchOptional {
+  def numericPrecisionRadix: Option[Int] = sparkDataType matchOptional {
     case _: DecimalType => 10
     case _: FloatType => 2
     case _: IntegerType => 2
@@ -64,28 +66,13 @@ case class FieldExtractor(index: Int, field: Field, checkStar: Boolean) {
     * places the data type can represent.
     * @return The numeric scale of the data type
     */
-  def numericScale: Option[Int] = field.dataType matchOptional {
+  def numericScale: Option[Int] = sparkDataType matchOptional {
     case p: DecimalType => p.scale
     case _: IntegerType => 0
     case _: LongType => 0
   }
   // scalastyle:on magic.number
 
-  def extract(): Seq[Seq[Any]] = {
-    // This step assures that there are rows in the first place
-    val nonEmptyAnnotations = if (annotations.isEmpty) Map(None -> None) else annotations
-    nonEmptyAnnotations.map {
-      case (key, value) =>
-        tableName ::
-          name ::
-          index ::
-          isNullable ::
-          dataType ::
-          numericPrecision ::
-          numericPrecisionRadix ::
-          numericScale ::
-          key ::
-          value :: Nil
-    }.toSeq
-  }
+  def nonEmptyAnnotations: Map[_ <: Any, _ <: Any] =
+    if (annotations.isEmpty) Map(None -> None) else annotations
 }

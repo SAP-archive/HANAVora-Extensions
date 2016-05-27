@@ -27,7 +27,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveReferencesWithHierarchies(analyzer) ::
     ResolveHierarchy(analyzer) ::
     ResolveStarAnnotations(analyzer) ::
-    ResolveAnnotations ::
+    ResolveAnnotations(analyzer) ::
     ResolveTableFunctions(analyzer) ::
     ResolveCountDistinctStar(analyzer) ::
     ResolveDeepDescribe(analyzer) ::

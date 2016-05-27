@@ -1,7 +1,8 @@
 package org.apache.spark.sql.execution.tablefunctions
 
+import org.apache.spark.sql.GlobalSapSQLContext
+import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
-import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class RunDescribeTableSuite
@@ -74,7 +75,32 @@ class RunDescribeTableSuite
     val expected =
       Set(List("", "persons", "leftOwner", 1, true, "VARCHAR(*)", null, null, null, "foo", "bar"))
 
-    assert(actual == expected)
+    assertResult(expected)(actual)
+  }
+
+  test("describe_table should work on aggregates (Bug 110908)") {
+    sqlc.sql(
+      """CREATE TABLE sales (CUSTOMER_ID int, YEAR int, REVENUE int)
+        |USING com.sap.spark.dstest""".stripMargin)
+
+    sqlc.sql(
+      """CREATE VIEW V1 AS SELECT YEAR @(Semantics.type = 'date'),
+        |SUM(REVENUE), CUSTOMER_ID
+        |FROM sales
+        |GROUP BY CUSTOMER_ID
+      """.stripMargin)
+
+    val actual = sqlc.sql("SELECT * FROM describe_table(SELECT * FROM V1)").collect()
+
+    // scalastyle:off magic.number
+    val expected =
+      Set(
+        List("", "sales", "YEAR", 1, true, "INTEGER", 32, 2, 0, "Semantics.type", "date"),
+        List("", "sales", "REVENUE", 2, true, "BIGINT", 64, 2, 0, null, null),
+        List("", "sales", "CUSTOMER_ID", 3, true, "INTEGER", 32, 2, 0, null, null))
+    // scalastyle:on magic.number
+
+    assertResult(expected)(actual.map(_.toSeq.toList).toSet)
   }
 
   test("describe hierarchy works correctly") {
@@ -85,8 +111,10 @@ class RunDescribeTableSuite
     val actual = result.map(_.toSeq.toList).toSet
 
     val expected =
-      Set(List("", "hv", "name", 1, true, "VARCHAR(*)", null, null, null, null, null),
-        List("", "hv", "node", 2, false, "<INTERNAL>", null, null, null, null, null))
+      Set(
+        List("", alterByCatalystSettings(sqlc.catalog, "animalsTbl"),
+          "name", 1, true, "VARCHAR(*)", null, null, null, null, null),
+        List("", "H", "node", 2, false, "<INTERNAL>", null, null, null, null, null))
 
     assert(expected == actual)
   }

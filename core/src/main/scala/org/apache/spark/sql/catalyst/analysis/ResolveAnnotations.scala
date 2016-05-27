@@ -1,7 +1,8 @@
 package org.apache.spark.sql.catalyst.analysis
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
+import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.PlanUtils._
 
@@ -14,21 +15,30 @@ import org.apache.spark.sql.util.CollectionUtil.RichSeq
   * 1. Iterate over the logical plan and transfer the metadata from any
   *     [[AnnotatedAttribute]] to its child.
   *
-  * 2. Reconstruct the relations between aliases and attribute references. To do
+  * 2. Since the [[AnnotatedAttribute]]s block spark from resolving some plans,
+  *    we have to do some custom resolution to not have anything unresolved.
+  *
+  * 3. Reconstruct the relations between aliases and attribute references. To do
   *    we traverse the logical plan bottom up and extract the metadata associated
   *    with its tree-sequence into a map.
   *
-  * 3. Apply the collected metadata on the logical plan top-down.
+  * 4. Apply the collected metadata on the logical plan top-down.
   *
   * TODO (YH, AC) we need to add an extra resolution rule for dimension metadata.
   * The idea is to add a flag to the annotated attribute that marks it as
   * generating-dimension-keyword annotation. This flag shall be evaluated here.
   */
-object ResolveAnnotations extends Rule[LogicalPlan] {
+case class ResolveAnnotations(analyzer: Analyzer) extends Rule[LogicalPlan] {
 
   def apply(plan: LogicalPlan): LogicalPlan = {
-    if (shouldApply(plan)) {
-      val withAppliedAnnotatedAttributes = applyAnnotatedAttributes(plan)
+    if (hasAnnotatedAttributes(plan)) {
+      /**
+        * We have to do some additional resolution logic since the
+        * annotated attributes block spark from analyzing some logical plans.
+        */
+      val withAdditionalResolution = resolve(plan)
+      val withAppliedAnnotatedAttributes = applyAnnotatedAttributes(withAdditionalResolution)
+      assert(!hasAnnotatedAttributes(withAppliedAnnotatedAttributes))
       val pruned = prune(withAppliedAnnotatedAttributes)
       val metadata = aggregateMetadata(pruned)
       setMetadata(withAppliedAnnotatedAttributes, metadata)
@@ -37,15 +47,24 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
     }
   }
 
-  private[sql] def shouldApply(plan: LogicalPlan): Boolean = {
-    plan.resolved && hasAnnotatedAttributes(plan)
+  private[sql] def resolve(plan: LogicalPlan): LogicalPlan = {
+    val postResolver = new RuleExecutor[LogicalPlan] {
+      val fixedPoint = new FixedPoint(analyzer.fixedPoint.maxIterations)
+
+      override protected val batches: Seq[Batch] =
+        Seq(new Batch(
+          "post_resolution",
+          fixedPoint,
+          analyzer.ResolveAliases,
+          analyzer.ResolveRelations,
+          analyzer.ResolveReferences))
+    }
+
+    postResolver.execute(plan)
   }
 
   private[sql] def hasAnnotatedAttributes(plan: LogicalPlan): Boolean = {
-    plan.find {
-      case Project(pl, _) => pl.exists(_.isInstanceOf[AnnotatedAttribute])
-      case _ => false
-    }.isDefined
+    plan.exists(_.expressions.exists(_.exists(_.isInstanceOf[AnnotatedAttribute])))
   }
 
   private[sql] def prune(plan: LogicalPlan): LogicalPlan = plan transformUp {
@@ -80,12 +99,8 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
   private[sql] def aggregateMetadata(plan: LogicalPlan) = {
     collectNamedExpressions(plan).foldLeft(Map.empty[Seq[ExprId], Metadata]) {
       case (acc, item) =>
-        val targetId = item match {
-          case Alias(child: NamedExpression, _) => child.exprId
-          case default => default.exprId
-        }
-        acc.find {
-          case (seq, _) => seq.contains(targetId)
+        exprIdOf(item).flatMap { targetId =>
+          acc.find { case (seq, _) => seq.contains(targetId) }
         } match {
           // Only aliases may override
           case Some((k, v)) if item.isInstanceOf[Alias] =>
@@ -94,12 +109,18 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
               .map(_ => k :+ item.exprId)
               .getOrElse(k)
             acc + (newSeq -> MetadataAccessor.propagateMetadata(v, item.metadata))
-          case default if !acc.keys.exists(_.contains(item.exprId)) =>
+          case default if item.resolved && !acc.keys.exists(_.contains(item.exprId)) =>
             acc + (Seq(item.exprId) -> item.metadata)
           case _ =>
             acc
         }
     }
+  }
+
+  private[sql] def exprIdOf(expr: NamedExpression): Option[ExprId] = expr match {
+    case Alias(child: NamedExpression, _) if child.resolved => Some(child.exprId)
+    case default if default.resolved => Some(default.exprId)
+    case _ => None
   }
 
   // scalastyle:off cyclomatic.complexity
