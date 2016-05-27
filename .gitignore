@@ -10,3 +10,5 @@ scalastyle-output.xml
 .cache
 metastore_db
 *.pyc
+gen/*
+import/*
