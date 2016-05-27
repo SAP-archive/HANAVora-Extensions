@@ -8,6 +8,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
 import org.apache.spark.sql.sources.sql.{Cube, Dimension, Plain, ViewKind}
+import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField}
 
 import scala.util.parsing.input.Position
 
@@ -243,8 +244,26 @@ with AnnotationParsingRules{
     *
      */
   protected lazy val selectWith: Parser[LogicalPlan] =
-    stringLit ~ (WITH ~> (className)) ^^ {
-      case s ~ c => UnresolvedSelectWith(s, c)
+    (stringLit) ~ (WITH ~> (className)) ~ (AS ~> tableCols).? ^^ {
+      case s ~ c ~ a => UnresolvedSelectWith(s, c, a)
+  }
+
+  /**
+    * Copied from Spark DDL Parser
+    */
+  protected lazy val tableCols: Parser[Seq[StructField]] = "(" ~> repsep(column, ",") <~ ")"
+
+  protected val COMMENT = Keyword("COMMENT")
+
+  protected lazy val column: Parser[StructField] =
+    ident ~ dataType ~ (COMMENT ~> stringLit).?  ^^ { case columnName ~ typ ~ cm =>
+      val meta = cm match {
+        case Some(comment) =>
+          new MetadataBuilder().putString(COMMENT.str.toLowerCase, comment).build()
+        case None => Metadata.empty
+      }
+
+      StructField(columnName, typ, nullable = true, meta)
     }
 
   /**
