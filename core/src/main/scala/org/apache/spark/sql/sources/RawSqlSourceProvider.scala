@@ -26,4 +26,11 @@ trait RawSqlSourceProvider {
     * @return schema of the result of sqlCommand parameter
     */
   def getResultingAttributes(sqlCommand: String): Seq[Attribute]
+
+  /**
+    * Runs a DDL statement
+    *
+    * @param sqlCommand user defined sql string
+    */
+  def executeDDL(sqlCommand: String): Unit
 }

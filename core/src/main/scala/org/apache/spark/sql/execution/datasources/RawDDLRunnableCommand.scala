@@ -19,7 +19,7 @@ private[sql] case class RawDDLRunnableCommand(ddlStatement: String)
 
     dataSource match {
       case rsp: RawSqlSourceProvider =>
-        rsp.getRDD(ddlStatement).collect()
+        rsp.executeDDL(ddlStatement)
       case _ => throw new RuntimeException("The provided datasource does not support " +
         "executing raw DDL statements.")
     }

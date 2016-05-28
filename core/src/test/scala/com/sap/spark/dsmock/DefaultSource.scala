@@ -187,6 +187,9 @@ class DefaultSource
 
   override def getResultingAttributes(sqlCommand: String): Seq[Attribute] =
     underlying.getResultingAttributes(sqlCommand)
+
+  // does nothing
+  override def executeDDL(ddlCommand: String): Unit = {}
 }
 
 object DefaultSource {
