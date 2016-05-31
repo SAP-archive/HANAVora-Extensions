@@ -13,7 +13,10 @@ import scala.util.Try
 /**
   * Resolves [[UnresolvedDropCommand]]s.
   */
-case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog) extends Rule[LogicalPlan] {
+case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
+  extends Rule[LogicalPlan]
+  with TableDependencyCalculator {
+
   private def failAnalysis(reason: String) = throw new AnalysisException(reason)
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformDown {
@@ -25,7 +28,7 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog) extends Rule
           lp.collectFirst { case WithExplicitRelationKind(relationKind) => relationKind }
             .getOrElse(Table) // By default, we treat something as a table
         checkValidKind(kind, tableIdent, targetKind)
-        buildDependentsMap(tableIdent)
+        buildDependentsMap(catalog, tableIdent)
       }
 
       affected.foreach(checkAllowedToDrop(cascade))
@@ -67,9 +70,9 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog) extends Rule
     }
   }
 
-  private def buildDependentsMap(identifier: TableIdentifier)
-      : Map[String, Option[DropRelation]] = {
-    val tables = getTables(identifier.database)
+  private def buildDependentsMap(catalog: Catalog, identifier: TableIdentifier)
+  : Map[String, Option[DropRelation]] = {
+    val tables = getTables(catalog, identifier.database)
     val tablesAndDependents = buildDependentsMap(tables)
 
     def aggregate(acc: Set[TableIdentifier],
@@ -84,40 +87,5 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog) extends Rule
     dependentsSet.flatMap { dependent =>
       tables.get(dependent).map(dependent.table -> getDropRelation(_))
     }.toMap
-  }
-
-  private def getTables(database: Option[String]): Map[TableIdentifier, LogicalPlan] =
-    catalog
-      .getTables(database)
-      .map {
-        case (name, _) =>
-          val ident = TableIdentifier(name, database)
-          val plan = catalog.lookupRelation(ident)
-          ident -> plan
-      }.toMap
-
-  private def buildDependentsMap(tables: Map[TableIdentifier, LogicalPlan])
-      : Map[TableIdentifier, Set[TableIdentifier]] = {
-    /**
-      * First, build up a map of table identifiers and the tables they
-      * are referencing in their logical plans.
-      */
-    val tablesAndReferences = tables.mapValues(_.collect {
-      case UnresolvedRelation(ident, _) => ident
-    }.toSet)
-
-    /**
-      * Then, iterate over all tables and the tables they are referencing. We know
-      * that if for instance table a references table b, that means table b has
-      * table a as dependent relation.
-      */
-    tablesAndReferences.foldLeft(Map.empty[TableIdentifier, Set[TableIdentifier]]
-                                    .withDefaultValue(Set.empty)) {
-      case (acc, (ident, references)) =>
-        references.foldLeft(acc) {
-          case (innerAcc, referenceIdentifier) =>
-            innerAcc + (referenceIdentifier -> (innerAcc(referenceIdentifier) + ident))
-        }
-    }
   }
 }

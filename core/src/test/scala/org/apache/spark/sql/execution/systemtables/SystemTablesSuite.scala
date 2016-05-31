@@ -8,7 +8,11 @@ import org.mockito.Mockito._
 import org.mockito.Matchers._
 import org.scalatest.FunSuite
 import SystemTablesSuite._
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.analysis.systables.DependenciesSystemTable.ReferenceDependency
 import org.apache.spark.sql.catalyst.analysis.systables._
+import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 
 /**
   * Test suites for system tables.
@@ -103,9 +107,28 @@ class SystemTablesSuite
       registry.resolve(UnresolvedProviderBoundSystemTable("foo", "bar", Map.empty))
     }
   }
+
+  test("dependencies system table produces correct results") {
+    sqlc.registerRawPlan(DummyPlan, "table")
+    sqlc.registerRawPlan(NonPersistedView(UnresolvedRelation(TableIdentifier("table"))), "view")
+
+    val Array(dependencies) = sqlc.sql("SELECT * FROM SYS.OBJECT_DEPENDENCIES").collect()
+    assertResult(
+      Row(
+        null,
+        "table",
+        "TABLE",
+        null,
+        "view",
+        "VIEW",
+        ReferenceDependency.id))(dependencies)
+  }
 }
 
 object SystemTablesSuite {
+  case object DummyPlan extends LeafNode {
+    override def output: Seq[Attribute] = Seq.empty
+  }
 
   trait DummySystemTable extends SystemTable {
     override def execute(sqlContext: SQLContext): Seq[Row] = Seq.empty

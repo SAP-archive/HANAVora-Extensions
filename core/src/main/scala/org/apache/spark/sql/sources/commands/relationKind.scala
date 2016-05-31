@@ -17,6 +17,10 @@ object RelationKind {
     case "view" => Some(View)
     case _ => None
   }
+
+  def typeOf(plan: LogicalPlan): String = plan.collectFirst {
+    case w: WithExplicitRelationKind => w.relationKind.name
+  }.getOrElse(Table.name)
 }
 
 sealed trait WithExplicitRelationKind {
