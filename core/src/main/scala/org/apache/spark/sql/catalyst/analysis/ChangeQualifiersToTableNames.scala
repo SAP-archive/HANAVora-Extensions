@@ -15,7 +15,7 @@ import org.apache.spark.sql.sources.sql.SqlLikeRelation
 object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
 
   override def apply(plan: LogicalPlan): LogicalPlan = {
-    val transformedPlan = plan transformUp {
+    plan transformUp {
       case lr@IsLogicalRelation(_) => lr
       case lp: LogicalPlan with Product =>
 
@@ -23,7 +23,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
         val expressionIdMap = collectExpressionIdMap(lp)
 
         /** Add qualifiers to every attribute reference based on [[ExprId]] */
-        val planWithQualifiersFixed = lp transformExpressionsDown {
+        lp transformExpressionsDown {
           case attr: AttributeReference if attr.qualifiers.length > 1 =>
             sys.error(s"Only 1 qualifier is supported per attribute: $attr ${attr.qualifiers}")
           case attr: AttributeReference =>
@@ -36,13 +36,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
                 withQualifiers(attr, Nil)
             }
         }
-
-        /** Now we need to delete the prefix in all the attributes. SPARK-8658. See below. */
-        DummyPlan(removeExpressionPrefixes(planWithQualifiersFixed))
     }
-
-    /** Remove [[DummyPlan]] nodes. SPARK-8658. See below. */
-    removeDummyPlans(transformedPlan)
   }
 
   /**
@@ -81,20 +75,8 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
 
     }).reverse.flatten.toMap
 
-  //
-  // Code to workaround SPARK-8658.
-  // https://issues.apache.org/jira/browse/SPARK-8658
-  // We need these tricks so that transformExpressionsDown
-  // works when only qualifiers changed. Currently, Spark ignores
-  // changes affecting only qualifiers.
-  //
-
-  /** XXX: Prefix to append temporarily (SPARK-8658) */
-  private val PREFIX = "XXX___"
-
   /**
     * Adds a qualifier to an attribute.
-    * Workarounds SPARK-8658.
     *
     * @param attr An [[AttributeReference]].
     * @param qualifiers New qualifiers.
@@ -103,34 +85,5 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
   private[this] def withQualifiers(
     attr: AttributeReference,
     qualifiers: Seq[String]): AttributeReference =
-    attr.copy(name = PREFIX.concat(attr.name))(
-      exprId = attr.exprId, qualifiers = qualifiers
-    )
-
-  /** XXX: Remove prefix from all expression names. SPARK-8658. */
-  private[this] def removeExpressionPrefixes(plan: LogicalPlan): LogicalPlan =
-    plan transformExpressionsDown {
-      case attr: AttributeReference =>
-        attr.copy(name = attr.name.replaceFirst(PREFIX, ""))(
-          exprId = attr.exprId, qualifiers = attr.qualifiers
-        )
-    }
-
-  /** XXX: Used to force change on transformUp (SPARK-8658) */
-  private case class DummyPlan(child: LogicalPlan) extends UnaryNode {
-    override def output: Seq[Attribute] = child.output
-  }
-
-  /** XXX: Remove all [[DummyPlan]] (SPARK-8658) */
-  private def removeDummyPlans(plan: LogicalPlan): LogicalPlan =
-    plan transformUp {
-      /* TODO: This is duplicated here */
-      case Subquery(name, Subquery(innerName, child)) =>
-        /* If multiple subqueries, preserve the outer one */
-        logDebug(s"Nested subqueries ($name, $innerName) -> $name")
-        Subquery(name, child)
-      case DummyPlan(child) => child
-      case p => p
-    }
-
+    attr.copy()(exprId = attr.exprId, qualifiers = qualifiers)
 }

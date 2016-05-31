@@ -54,9 +54,9 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
   }
 
   private[sql] def applyAnnotatedAttributes(plan: LogicalPlan): LogicalPlan = {
-    removeDummyPlans2(plan transformUp {
+    plan transformUp {
       case node =>
-        val planFixed = node transformExpressionsUp {
+        node transformExpressionsUp {
           case attribute@AnnotatedAttribute(expr) => expr match {
             case reference: AttributeReference =>
               sys.error(s"I have annotated attribute $attribute that references an " +
@@ -65,8 +65,7 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
               withMetadata(alias, attribute.metadata)
           }
         }
-        DummyPlan2(removeExpressionPrefixes(planFixed))
-    })
+    }
   }
 
   private[sql] def collectNamedExpressions(plan: LogicalPlan): Queue[NamedExpression] = {
@@ -105,9 +104,9 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
 
   // scalastyle:off cyclomatic.complexity
   private[sql] def setMetadata(plan: LogicalPlan, sets: Map[Seq[ExprId], Metadata]): LogicalPlan = {
-    val transformedPlan = plan transformUp {
+    plan transformUp {
       case lp =>
-        val planFixed = lp transformExpressionsDown {
+        lp transformExpressionsDown {
           case attr:AttributeReference =>
             sets.find {
               case (k, v) => k.contains(attr.exprId)
@@ -124,71 +123,32 @@ object ResolveAnnotations extends Rule[LogicalPlan] {
             }
           case p => p
         }
-        /** Now we need to delete the prefix in all the attributes. SPARK-8658. See below. */
-        DummyPlan2(removeExpressionPrefixes(planFixed))
     }
-    val temp = removeDummyPlans2(transformedPlan)
-    temp
   }
   // scalastyle:on cyclomatic.complexity
 
-  //
-  // Code to workaround SPARK-8658.
-  // https://issues.apache.org/jira/browse/SPARK-8658
-  // We need these tricks so that transformExpressionsDown
-  // works when only qualifiers changed. Currently, Spark ignores
-  // changes affecting only qualifiers.
-  //
-
-  /** XXX: Prefix to append temporarily (SPARK-8658) */
-  private val PREFIX = "XXX___"
-
   /**
-   * Adds a qualifier to an attribute.
-   * Workarounds SPARK-8658.
+   * Sets the metadata of the given [[AttributeReference]].
    *
    * @param attr An [[AttributeReference]].
-   * @param newMetadata New qualifiers.
-   * @return New [[AttributeReference]] with new qualifiers.
+   * @param newMetadata New metadata.
+   * @return New [[AttributeReference]] with new metadata.
    */
   private[this] def withMetadata(
                                     attr: AttributeReference,
                                     newMetadata: Metadata): AttributeReference =
-    attr.copy(name = PREFIX.concat(attr.name), attr.dataType, attr.nullable, metadata =
+    attr.copy(dataType = attr.dataType, nullable = attr.nullable, metadata =
       newMetadata)(exprId = attr.exprId, qualifiers = attr.qualifiers
     )
 
+  /**
+    * Sets the metadata of the given [[Alias]].
+    *
+    * @param attr An [[Alias]].
+    * @param newMetadata New metadata.
+    * @return New [[Alias]] with new metadata.
+    */
   private[this] def withMetadata(attr: Alias,
                                  newMetadata: Metadata): Alias =
-    attr.copy(attr.child, PREFIX.concat(attr.name))(attr.exprId, attr.qualifiers, Some(newMetadata))
-
-  /** XXX: Remove prefix from all expression names. SPARK-8658. */
-  private[this] def removeExpressionPrefixes(plan: LogicalPlan): LogicalPlan =
-    plan transformExpressionsDown {
-      case attr: AttributeReference =>
-        attr.copy(name = attr.name.replaceFirst(PREFIX, ""))(
-          exprId = attr.exprId, qualifiers = attr.qualifiers
-        )
-      case attr: Alias =>
-        attr.copy(child = attr.child, name = attr.name.replaceFirst(PREFIX, ""))(
-          exprId = attr.exprId, qualifiers = attr.qualifiers,
-          explicitMetadata = attr.explicitMetadata
-        )
-    }
-
-  /** XXX: Used to force change on transformUp (SPARK-8658) */
-  private case class DummyPlan2(child: LogicalPlan) extends UnaryNode {
-    override def output: Seq[Attribute] = child.output
-  }
-
-  /** XXX: Remove all [[DummyPlan2]] (SPARK-8658) */
-  private def removeDummyPlans2(plan: LogicalPlan): LogicalPlan =
-    plan transformUp {
-      /* TODO: This is duplicated here */
-      case Subquery(name, Subquery(innerName, child)) =>
-        /* If multiple subqueries, preserve the outer one */
-        Subquery(name, child)
-      case DummyPlan2(child) => child
-      case p => p
-    }
+    attr.copy(attr.child)(attr.exprId, attr.qualifiers, Some(newMetadata))
 }
