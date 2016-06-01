@@ -98,6 +98,23 @@ class SapSqlParserSuite
     ))(parsed)
   }
 
+  test("parse system table with SYS_ prefix (VORASPARK-277)") {
+    val statements =
+      "SELECT * FROM SYS_TABLES USING com.sap.spark" ::
+      "SELECT * FROM sys_TABLES USING com.sap.spark" ::
+      "SELECT * FROM SyS_TABLES USING com.sap.spark" :: Nil
+
+    val parsedStatements = statements.map(SapSqlParser.parse)
+
+    parsedStatements.foreach { parsed =>
+      assertResult(Project(                               // SELECT
+        Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
+        UnresolvedProviderBoundSystemTable("TABLES",      // FROM SYS.TABLES
+          "com.sap.spark", Map.empty)                     // USING com.sap.spark
+      ))(parsed)
+    }
+  }
+
   test("parse system table with options") {
     val parsed = SapSqlParser.parse("SELECT * FROM SYS.TABLES " +
       "USING com.sap.spark OPTIONS (foo \"bar\")")

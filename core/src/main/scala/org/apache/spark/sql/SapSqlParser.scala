@@ -166,8 +166,22 @@ with AnnotationParsingRules{
     } |
     ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) })
 
+  /**
+    * Parser for system table name. A system table name can be:
+    * 1. qualified name starting with SYS (e.g. SYS.TABLES).
+    * 2. table name starting with SYS_ (e.g. SYS_TABLES).
+    */
+  protected lazy val sysTableName: Parser[String] = {
+    // case-insensitive SYS_ followed by identifier.
+    """(?i:SYS)_([a-zA-Z][a-zA-Z_0-9]*)""".r ^^ {
+      case col => col.drop("SYS_".length)
+    } | SYS ~> "." ~> ident ^^ {
+      case name => name
+    }
+  }
+
   protected lazy val sysTable: Parser[UnresolvedSystemTable] =
-    SYS ~> "." ~> ident ~ ((USING ~> repsep(ident, ".")) ~ (OPTIONS ~> options).?).? ^^ {
+    sysTableName ~ ((USING ~> repsep(ident, ".")) ~ (OPTIONS ~> options).?).? ^^ {
       case name ~ Some(provider ~ opts) =>
         UnresolvedProviderBoundSystemTable(
           name,
