@@ -1,11 +1,13 @@
 package org.apache.spark.sql.execution.tablefunctions
 
-import org.apache.spark.sql.{Row, GlobalSapSQLContext}
+import org.apache.spark.sql.hierarchy.HierarchyTestUtils
+import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class RunDescribeTableSuite
   extends FunSuite
   with GlobalSapSQLContext
+  with HierarchyTestUtils
   with BeforeAndAfterEach {
 
   // scalastyle:off magic.number
@@ -73,6 +75,20 @@ class RunDescribeTableSuite
       Set(List("", "persons", "leftOwner", 1, true, "VARCHAR(*)", null, null, null, "foo", "bar"))
 
     assert(actual == expected)
+  }
+
+  test("describe hierarchy works correctly") {
+    createAnimalsTable(sqlc)
+    sqlc.sql(s"CREATE VIEW hv AS ${hierarchySQL(animalsTable, "name, node")}")
+
+    val result = sqlc.sql("SELECT * FROM DESCRIBE_TABLE(SELECT * FROM hv)").collect()
+    val actual = result.map(_.toSeq.toList).toSet
+
+    val expected =
+      Set(List("", "hv", "name", 1, true, "VARCHAR(*)", null, null, null, null, null),
+        List("", "hv", "node", 2, false, "<INTERNAL>", null, null, null, null, null))
+
+    assert(expected == actual)
   }
 
   test("Run describe table if exists on non existent table returns empty result") {

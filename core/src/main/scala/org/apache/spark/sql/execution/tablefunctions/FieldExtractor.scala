@@ -9,8 +9,15 @@ case class FieldExtractor(index: Int, field: Field, checkStar: Boolean) {
 
   def name: String = field.name
 
+  lazy val sqlBuilder = new SqlBuilder()
+
   // TODO (YH, AC): Improve it once native types have landed
-  def dataType: String = new SqlBuilder().typeToSql(field.dataType)
+  def dataType: String = {
+    field.dataType match {
+      case NodeType => "<INTERNAL>"
+      case _ => sqlBuilder.typeToSql(field.dataType)
+    }
+  }
 
   lazy val annotations: Map[String, String] =
     MetadataAccessor.metadataToMap(field.metadata)
