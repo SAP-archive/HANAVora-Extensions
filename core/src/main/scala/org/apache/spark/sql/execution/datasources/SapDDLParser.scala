@@ -317,7 +317,7 @@ class InternalSapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
     withConsumedInput(createViewUsing) ^^ {
       case ((name, plan, provider, opts, allowExisting, kind), text) =>
-        CreatePersistentViewCommand(kind, name, plan, text, provider, opts, allowExisting)
+        CreatePersistentViewCommand(kind, name, plan, text.trim, provider, opts, allowExisting)
     }
 
   /**

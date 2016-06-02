@@ -769,6 +769,7 @@ OPTIONS (
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
     assert(actual.kind == Plain)
+    assertResult(statement)(actual.viewSql)
     assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
     assertResult(false)(actual.allowExisting)
@@ -798,6 +799,7 @@ OPTIONS (
           )
         )
     ))(actual.plan)
+    assertResult(statement)(actual.viewSql)
     assertResult(false)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
@@ -818,6 +820,7 @@ OPTIONS (
     assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
     assertResult(true)(actual.allowExisting)
+    assertResult(statement)(actual.viewSql)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
     assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
@@ -833,7 +836,7 @@ OPTIONS (
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
     val persistedViewCommand = parsed.asInstanceOf[CreatePersistentViewCommand]
     assertResult(persistedViewCommand.identifier.table)("v")
-
+    assertResult(statement)(persistedViewCommand.viewSql)
     assert(persistedViewCommand.kind == Plain)
     assert(persistedViewCommand.plan.isInstanceOf[Project])
     val projection = persistedViewCommand.plan.asInstanceOf[Project]
@@ -1010,6 +1013,7 @@ OPTIONS (
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assertResult(statement)(actual.viewSql)
     assert(actual.kind == CubeKind)
     assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
