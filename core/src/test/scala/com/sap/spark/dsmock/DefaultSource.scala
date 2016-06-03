@@ -1,6 +1,8 @@
 package com.sap.spark.dsmock
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.sources.RawDDLObjectType.RawDDLObjectType
+import org.apache.spark.sql.sources.RawDDLStatementType.RawDDLStatementType
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView}
@@ -193,7 +195,11 @@ class DefaultSource
     underlying.getResultingAttributes(sqlCommand)
 
   // does nothing
-  override def executeDDL(ddlCommand: String): Unit = {}
+  override def executeDDL(identifier: String,
+                          objectType: RawDDLObjectType,
+                          statementType: RawDDLStatementType,
+                          ddlCommand: String,
+                          options: Map[String, String]): Unit = {}
 }
 
 object DefaultSource {

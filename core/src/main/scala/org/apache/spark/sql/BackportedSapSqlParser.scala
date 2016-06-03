@@ -414,7 +414,7 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
       )
   // scalastyle:on
 
-  private def toNarrowestIntegerType(value: String): Any = {
+  protected def toNarrowestIntegerType(value: String): Any = {
     val bigIntValue = BigDecimal(value)
 
     bigIntValue match {

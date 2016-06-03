@@ -80,11 +80,11 @@ class RunDescribeTableSuite
 
   test("describe_table should work on aggregates (Bug 110908)") {
     sqlc.sql(
-      """CREATE TABLE sales (CUSTOMER_ID int, YEAR int, REVENUE int)
+      """CREATE TABLE sales (CUSTOMER_ID int, YEAH int, REVENUE int)
         |USING com.sap.spark.dstest""".stripMargin)
 
     sqlc.sql(
-      """CREATE VIEW V1 AS SELECT YEAR @(Semantics.type = 'date'),
+      """CREATE VIEW V1 AS SELECT YEAH @(Semantics.type = 'date'),
         |SUM(REVENUE), CUSTOMER_ID
         |FROM sales
         |GROUP BY CUSTOMER_ID
@@ -95,7 +95,7 @@ class RunDescribeTableSuite
     // scalastyle:off magic.number
     val expected =
       Set(
-        List("", "sales", "YEAR", 1, true, "INTEGER", 32, 2, 0, "Semantics.type", "date"),
+        List("", "sales", "YEAH", 1, true, "INTEGER", 32, 2, 0, "Semantics.type", "date"),
         List("", "sales", "REVENUE", 2, true, "BIGINT", 64, 2, 0, null, null),
         List("", "sales", "CUSTOMER_ID", 3, true, "INTEGER", 32, 2, 0, null, null))
     // scalastyle:on magic.number

@@ -1,10 +1,12 @@
 package org.apache.spark.sql.execution.datasources
 
+import com.sap.spark.util.TestUtils
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.sources.RawDDLObjectType
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.sources.sql.{Dimension, Plain, Cube => CubeKind}
 import org.apache.spark.sql.types._
@@ -1021,23 +1023,26 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement5))
   }
 
-  /* new engine DDL via raw DDL execution */
-  test("test engine CREATE PARTITION FUNCTION") {
-    val parsed = ddlParser
-      .parse("CREATE PARTITION FUNCTION pf2(p1 INT) AS RANGE (p1) using com.sap.spark.engines")
-    assert(parsed == RawDDLCommand(
-      "CREATE PARTITION FUNCTION pf2(p1 INT) AS RANGE (p1)"))
-  }
+  test("test engine DDL from file") {
+    val tests: List[(String, String, String)] =
+      TestUtils.parsePTestFile("/EngineDDL.ptest")
 
-  test("test engine CREATE TABLE") {
-    // beware of whitespace (please leave it)
-    val parsed = ddlParser
-      .parse(
-        """CREATE TABLE tableName (col1 integer)
-          |uSinG
-          | com.sap.spark.engines""".stripMargin)
-    assert(parsed == RawDDLCommand(
-      "CREATE TABLE tableName (col1 integer)"))
+    tests.zipWithIndex.foreach {
+      case ((query, parsed, expect), i) =>
+        logInfo(s"test $i runs query: $query")
+        val queryWithDs =
+          query.contains("using test.data.source") match {
+            case false => query + " using test.data.source"
+            case _ => query
+          }
+        if (expect == "valid") {
+          val result = ddlParser.parse(queryWithDs)
+          println("result: " + result)
+          assert(result.toString.trim == parsed)
+        } else {
+          intercept[SapParserException](ddlParser.parse(queryWithDs))
+        }
+    }
   }
 }
 // scalastyle:on

@@ -2,9 +2,13 @@ package com.sap.spark.util
 
 import java.util.Locale
 
+import scala.io.Source
+
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{SQLContext, SapSQLContext}
 import org.apache.spark.sql.hive.SapHiveContext
+
+import scala.util.{Failure, Success}
 
 /**
  * Miscellaneous utilities for test suites.
@@ -46,4 +50,38 @@ object TestUtils {
 
   }
 
+  /**
+    * Parses a PTest file.
+    *
+    * PTest files contain queries with expected results and optionally a parsed representation
+    * of the query.
+    *
+    * @param fileName the name of the ptest file
+    * @return as sequence of 3-tuples with "($query, $parsed, $expect)"
+    */
+  def parsePTestFile(fileName: String): List[(String, String, String)] = {
+    val filePath = getFileFromClassPath(fileName)
+    val fileContents = Source.fromFile(filePath).getLines
+      .map(p => p.stripMargin.trim)
+      .filter(p => !p.isEmpty && !p.startsWith("//")) // filter empty rows and comments
+      .mkString("\n")
+    val p = new PTestFileParser
+
+    // strip semicolons from query and parsed
+    p(fileContents) match {
+      case Success(lines) =>
+        lines.map {
+          case (query, parsed, expect) =>
+            (stripSemicolon(query).trim, stripSemicolon(parsed).trim, expect.trim)
+        }
+      case Failure(ex) => throw ex
+    }
+  }
+
+  private def stripSemicolon(sql: String): String =
+    if (sql.endsWith(";")) {
+      sql.substring(0, sql.length-1)
+    } else {
+      sql
+    }
 }

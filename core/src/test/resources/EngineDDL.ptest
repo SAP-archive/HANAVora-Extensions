@@ -1,0 +1,644 @@
+$query:
+create collection my_collection
+$parsed:
+RawDDLCommand my_collection, collection, Create, create collection my_collection, test.data.source, Map()
+$expect:
+valid
+
+$query:
+create collection a.b
+$parsed:
+RawDDLCommand a.b, collection, Create, create collection a.b, test.data.source, Map()
+$expect:
+valid
+
+$query:
+create collection "system.new_collections"
+$expect:
+invalid
+
+$query:
+create collection collection.a[4]
+$expect:
+invalid
+
+$query:
+create collection new_collection partition by nosuchps(c1)
+$parsed:
+RawDDLCommand new_collection, collection, Create, create collection new_collection partition by nosuchps ( c1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create collection new_collection partition by ps1(c1)
+$parsed:
+RawDDLCommand new_collection, collection, Create, create collection new_collection partition by ps1 ( c1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create collection new_collection partition by ps1(c1, c2)
+$parsed:
+RawDDLCommand new_collection, collection, Create, create collection new_collection partition by ps1 ( c1, c2 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create collection new_collection partition by pspace(c1, c2, c3)
+$parsed:
+RawDDLCommand new_collection, collection, Create, create collection new_collection partition by pspace ( c1, c2, c3 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create graph mygraph
+$parsed:
+RawDDLCommand mygraph, graph, Create, create graph mygraph, test.data.source, Map()
+$expect:
+valid
+
+$query:
+create graph myschema.mygraph
+$parsed:
+RawDDLCommand myschema.mygraph, graph, Create, create graph myschema.mygraph, test.data.source, Map()
+$expect:
+valid
+
+$query:
+create graph myschema.mygraph partition by ps1(NODEID)
+$parsed:
+RawDDLCommand myschema.mygraph, graph, Create, create graph myschema.mygraph partition by ps1 ( NODEID ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 INTEGER, col2 INTEGER ) series ( period for series col1 )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 int, col2 int ) series ( period for series col1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 INTEGER, col2 INTEGER ) series (  )
+$expect:
+invalid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 default compression use (auto error 1.2 percent) compression on col2 between DATE '2010-01-01' and DATE '2010-12-31' use (apca error 1.2 percent))
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 default compression use ( auto error 1.2 percent ) compression on col2 between date '2010-01-01' and date '2010-12-31' use ( apca error 1.2 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 default compression use (auto error 1.2 percent) compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (apca error 1.2 percent))
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 default compression use ( auto error 1.2 percent ) compression on ( col2..col3 ) between date '2010-01-01' and date '2010-12-31' use ( apca error 1.2 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (spline error 1.2 percent))
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 compression on ( col2..col3 ) between date '2010-01-01' and date '2010-12-31' use ( spline error 1.2 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER, col4 INTEGER, col5 INTEGER, col6 INTEGER) series (period for series col1 compression on (col2..col3,col4,col5..col6 ) between DATE '2010-01-01' and DATE '2010-12-31' use (sdt error 1.2 percent))
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int, col4 int, col5 int, col6 int ) series ( period for series col1 compression on ( col2..col3, col4, col5..col6 ) between date '2010-01-01' and date '2010-12-31' use ( sdt error 1.2 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (spline error 102.0 percent))
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 compression on ( col2..col3 ) between date '2010-01-01' and date '2010-12-31' use ( spline error 102.0 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER, col4 INTEGER, col5 INTEGER, col6 INTEGER) series (period for series col1 compression on (col2..col3,col4,col5..col6 ) between DATE '2010-01-01' and DATE '2010-12-31' use (sdt error 1.2 percent))
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int, col4 int, col5 int, col6 int ) series ( period for series col1 compression on ( col2..col3, col4, col5..col6 ) between date '2010-01-01' and date '2010-12-31' use ( sdt error 1.2 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (spline error 102.0 percent))
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 compression on ( col2..col3 ) between date '2010-01-01' and date '2010-12-31' use ( spline error 102.0 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (spline error -1.2 percent))
+$expect:
+invalid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (spline -1.2 percent))
+$expect:
+invalid
+
+$query:
+create table t(col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (spline errors -1.2 percent))
+$expect:
+invalid
+
+$query:
+create table t ( col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 start DATE '01-01-2010' end DATE '12-31-2010' equidistant increment by 1 day missing values allowed rounding on load not allowed)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 start date '01-01-2010' end date '12-31-2010' equidistant increment by 1 day missing values allowed rounding on load not allowed ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 start DATE '01-01-2010' end DATE '12-31-2010')
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 start date '01-01-2010' end date '12-31-2010' ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 start DATE '01-01-2010' end DATE '12-31-2010' equidistant increment by 1 year missing values allowed rounding on load not allowed)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 start date '01-01-2010' end date '12-31-2010' equidistant increment by 1 year missing values allowed rounding on load not allowed ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 minvalue DATE '01-01-2010' maxvalue DATE '12-31-2010' populate)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 minvalue date '01-01-2010' maxvalue date '12-31-2010' populate ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP, col2 INTEGER, col3 INTEGER) series (period for series col1 minvalue DATE '01-01-2010' maxvalue DATE '12-31-2010' not populate)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp, col2 int, col3 int ) series ( period for series col1 minvalue date '01-01-2010' maxvalue date '12-31-2010' not populate ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 integer) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 int ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 timestamp) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 timestamp ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 time) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 time ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 string) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 varchar(*) ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 date) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 date ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 double) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 double ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 float) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 float ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t (column1 decimal) series (period for series column1)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( column1 decimal(10,0) ) series ( period for series column1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer) series (
+period for series a
+start TIME '09:20:11.12304'
+end TIME '10:20:11.23201'
+equidistant
+increment by 1 day
+missing values allowed
+rounding on load not allowed
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int ) series ( period for series a start time '09:20:11.12304' end time '10:20:11.23201' equidistant increment by 1 day missing values allowed rounding on load not allowed ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer) series (
+period for series a
+start TIME '09:20:11.12304'
+end TIME '10:20:11.23201'
+equidistant
+increment by 0.5 day
+missing values allowed
+rounding on load not allowed
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int ) series ( period for series a start time '09:20:11.12304' end time '10:20:11.23201' equidistant increment by 0.5 day missing values allowed rounding on load not allowed ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 DOUBLE, col2 INTEGER, col3 INTEGER) series (
+period for series col1
+default compression use (auto error 1.2 percent)
+compression on (col2..col3) between DATE '2010-01-01' and DATE '2010-12-31' use (apca error 1.2 percent)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 double, col2 int, col3 int ) series ( period for series col1 default compression use ( auto error 1.2 percent ) compression on ( col2..col3 ) between date '2010-01-01' and date '2010-12-31' use ( apca error 1.2 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer, c integer, d integer, e double, f double, g double) series (
+period for series a
+compression on(a..d,e,f,g) between DATE '2010-01-01' and DATE '2010-12-31' use (apca error 1.2 percent)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int, c int, d int, e double, f double, g double ) series ( period for series a compression on ( a..d, e, f, g ) between date '2010-01-01' and date '2010-12-31' use ( apca error 1.2 percent ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer, c integer, d integer, e double, f double, g double) series (
+period for series a
+compression on (a,b,c,d,e,f,g) use (apca)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int, c int, d int, e double, f double, g double ) series ( period for series a compression on ( a, b, c, d, e, f, g ) use ( apca ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer, c integer, d integer, e double, f double, g double) series (
+period for series a
+compression on(a,b,c..g) use (apca)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int, c int, d int, e double, f double, g double ) series ( period for series a compression on ( a, b, c..g ) use ( apca ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer, c integer, d integer, e double, f double, g double) series (
+period for series a
+compression on(a..g) use (apca)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int, c int, d int, e double, f double, g double ) series ( period for series a compression on ( a..g ) use ( apca ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer, c integer, d integer, e double, f double, g double) series (
+period for series a
+compression on(c..f) use (apca)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int, c int, d int, e double, f double, g double ) series ( period for series a compression on ( c..f ) use ( apca ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(a integer, b integer, c integer, d integer, e double, f double, g double) series (
+period for series a
+compression on(b) use (apca)
+compression on(c) use (sdt)
+compression on(a) use (spline)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( a int, b int, c int, d int, e double, f double, g double ) series ( period for series a compression on ( b ) use ( apca ) compression on ( c ) use ( sdt ) compression on ( a ) use ( spline ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 DOUBLE) series (
+period for series col1
+compression on col1
+between DATE '2010-01-01' and DATE '2010-12-31' use (apca),
+between DATE '2011-01-01' and DATE '2011-12-31' use (sdt)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 double ) series ( period for series col1 compression on col1 between date '2010-01-01' and date '2010-12-31' use ( apca ), between date '2011-01-01' and date '2011-12-31' use ( sdt ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 DOUBLE) series (
+period for series col1
+compression on col1
+between DATE '2010-01-01' and DATE '2010-12-31' use (apca)
+compression on col1
+between DATE '2011-01-01' and DATE '2011-12-31' use (sdt)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 double ) series ( period for series col1 compression on col1 between date '2010-01-01' and date '2010-12-31' use ( apca ) compression on col1 between date '2011-01-01' and date '2011-12-31' use ( sdt ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 DOUBLE) series (
+period for series col1
+compression on col1
+between DATE '2010-01-01' and DATE '2010-12-31' use (apca),
+between DATE '2010-12-31' and DATE '2011-12-31' use (sdt)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 double ) series ( period for series col1 compression on col1 between date '2010-01-01' and date '2010-12-31' use ( apca ), between date '2010-12-31' and date '2011-12-31' use ( sdt ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1)
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1) BOUNDARIES( 0 )
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ) boundaries ( 0 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1) BOUNDARIES( 1, 100, 1000 ) MIN PARTITIONS 5
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ) boundaries ( 1, 100, 1000 ) min partitions 5, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1) BOUNDARIES( DATE '2014-01-01', DATE '2015-01-01', DATE '2016-01-01' ) MIN PARTITIONS 5
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ) boundaries ( date '2014-01-01', date '2015-01-01', date '2016-01-01' ) min partitions 5, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1) BOUNDARIES( 1, 100, 1000 ) MAX PARTITIONS 10
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ) boundaries ( 1, 100, 1000 ) max partitions 10, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1) BOUNDARIES( 1, 100, 1000 ) MIN PARTITIONS 5 MAX PARTITIONS 10
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ) boundaries ( 1, 100, 1000 ) min partitions 5 max partitions 10, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1) MIN PARTITIONS 5 MAX PARTITIONS 10
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ) min partitions 5 max partitions 10, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1) MAX PARTITIONS 10
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ) max partitions 10, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS RANGE (p1)
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as range ( p1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS RANGE (p1), HASH (p2)
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as range ( p1 ), hash ( p2 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS RANGE (p1), HASH (p2), AUTO
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as range ( p1 ), hash ( p2 ), auto, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS RANGE (p1), HASH (p2), AUTO
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as range ( p1 ), hash ( p2 ), auto, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS AUTO
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as auto, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS HASH(p1, p2) MIN PARTITIONS 5 MAX PARTITIONS 10
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as hash ( p1, p2 ) min partitions 5 max partitions 10, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS HASH(p1, p2) MIN PARTITIONS 5
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as hash ( p1, p2 ) min partitions 5, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS HASH(p1, p2) MAX PARTITIONS 10
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as hash ( p1, p2 ) max partitions 10, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT, p2 DATE) AS HASH MIN PARTITIONS 5 MAX PARTITIONS 10
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int, p2 date ) as hash min partitions 5 max partitions 10, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1 INT) AS BLOCK(p1) PARTITIONS 10 BLOCKSIZE 1000
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1 int ) as block ( p1 ) partitions 10 blocksize 1000, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION SCHEME ps1 USING pf1
+$parsed:
+RawDDLCommand ps1, partition scheme, Create, create partition scheme ps1 using pf1, test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION SCHEME ps1 USING pf1 WITH COLOCATION
+$parsed:
+RawDDLCommand ps1, partition scheme, Create, create partition scheme ps1 using pf1 with colocation, test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table if not exists t ( col1 INTEGER, col2 INTEGER ) series ( period for series col1 ) partition by ps1(c1)
+$parsed:
+RawDDLCommand t, table, Create, create table if not exists t ( col1 int, col2 int ) series ( period for series col1 ) partition by ps1 ( c1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table if not exists t ( col1 INTEGER, col2 INTEGER COMMENT 'ughlabughla' ) series ( period for series col1 )
+$parsed:
+RawDDLCommand t, table, Create, create table if not exists t ( col1 int, col2 int comment 'ughlabughla' ) series ( period for series col1 ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t(col1 DOUBLE, col2 INTEGER, col3 INTEGER) series (
+period for series col1
+default compression use (none)
+compression on col1
+between TIMESTAMP '2010-01-01' and TIMESTAMP '2010-12-31' use (apca),
+between TIMESTAMP '2011-01-01' and TIMESTAMP '2011-12-31' use (sdt)
+)
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 double, col2 int, col3 int ) series ( period for series col1 default compression use ( none ) compression on col1 between timestamp '2010-01-01' and timestamp '2010-12-31' use ( apca ), between timestamp '2011-01-01' and timestamp '2011-12-31' use ( sdt ) ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+CREATE PARTITION FUNCTION pf1(p1.p11[5], p2.(p3, p5.p6), any, p4.p5.p6.any) AS AUTO
+$parsed:
+RawDDLCommand pf1, partition function, Create, create partition function pf1 ( p1.p11[5], p2.(p3, p5.p6), any, p4.p5.p6.any ) as auto, test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP) series (period for series col1 equidistant increment by 1 year )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp ) series ( period for series col1 equidistant increment by 1 year ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP) series (period for series col1 equidistant increment by 1 month )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp ) series ( period for series col1 equidistant increment by 1 month ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP) series (period for series col1 equidistant increment by 1 day )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp ) series ( period for series col1 equidistant increment by 1 day ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP) series (period for series col1 equidistant increment by 1 hour )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp ) series ( period for series col1 equidistant increment by 1 hour ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP) series (period for series col1 equidistant increment by 1 minute )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp ) series ( period for series col1 equidistant increment by 1 minute ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP) series (period for series col1 equidistant increment by 1 second )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp ) series ( period for series col1 equidistant increment by 1 second ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+create table t ( col1 TIMESTAMP) series (period for series col1 equidistant increment by 1 millisecond )
+$parsed:
+RawDDLCommand t, table, Create, create table t ( col1 timestamp ) series ( period for series col1 equidistant increment by 1 millisecond ), test.data.source, Map()
+$expect:
+valid
+
+$query:
+drop graph g
+$parsed:
+RawDDLCommand g, graph, Drop, drop graph g, test.data.source, Map()
+$expect:
+valid
+
+$query:
+drop collection c
+$parsed:
+RawDDLCommand c, collection, Drop, drop collection c, test.data.source, Map()
+$expect:
+valid
+
+$query:
+drop series table t
+$parsed:
+RawDDLCommand t, table, Drop, drop table t, test.data.source, Map()
+$expect:
+valid
+
+$query:
+append graph g using test.data.source options (files '/path/to/file.csv')
+$parsed:
+RawDDLCommand g, graph, Append, , test.data.source, Map(files -> /path/to/file.csv)
+$expect:
+valid
+
+$query:
+append collection c using test.data.source options (files '/path/to/file.csv')
+$parsed:
+RawDDLCommand c, collection, Append, , test.data.source, Map(files -> /path/to/file.csv)
+$expect:
+valid
+
+$query:
+append series table t using test.data.source options (files '/path/to/file.csv')
+$parsed:
+RawDDLCommand t, table, Append, , test.data.source, Map(files -> /path/to/file.csv)
+$expect:
+valid
