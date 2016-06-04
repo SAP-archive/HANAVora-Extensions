@@ -53,11 +53,8 @@ object SQLRunner extends Logging {
       sqlContext.sql(cmd)
     }
 
-    val inputReader = new BufferedReader(new InputStreamReader(inputStream))
-
-    inputReader
-      .lines()
-      .toArray // convert java iterator to scala array
+    scala.io.Source.fromInputStream(inputStream)
+      .getLines()
       .mkString("\n") // newlines are newlines, again
       .split(';')
       .map(_.trim)
