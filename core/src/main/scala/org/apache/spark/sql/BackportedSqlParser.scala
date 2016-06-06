@@ -7,7 +7,6 @@ import org.apache.spark.sql.types._
 
 import scala.language.implicitConversions
 
-import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._

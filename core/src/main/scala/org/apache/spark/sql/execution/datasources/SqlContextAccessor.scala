@@ -4,6 +4,8 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
+import scala.language.implicitConversions
+
 /**
  * The purpose of this object is to provide a temporary access to the catalog so
  * we can write logical plans without any analysis which is important since some
