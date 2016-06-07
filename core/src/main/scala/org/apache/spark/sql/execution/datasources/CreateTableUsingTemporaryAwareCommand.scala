@@ -26,7 +26,7 @@ case class CreateTableUsingTemporaryAwareCommand(
 
   def run(sqlContext: SQLContext): Seq[Row] = {
     // Convert the table name according to the case-sensitivity settings
-    val tableId = alterByCatalystSettings(sqlContext, tableIdentifier)
+    val tableId = alterByCatalystSettings(sqlContext.catalog, tableIdentifier)
 
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
@@ -70,7 +70,7 @@ case class CreateTableUsingTemporaryAwareCommand(
                                 tableId: TableIdentifier): ResolvedDataSource = {
     // Convert the partitioning function according to the case-sensitivity settings
     val partitioningFunctionId = partitioningFunction
-      .map(n => alterByCatalystSettings(sqlContext, n))
+      .map(n => alterByCatalystSettings(sqlContext.catalog, n))
 
     dataSource match {
       case drp: PartitionedRelationProvider =>

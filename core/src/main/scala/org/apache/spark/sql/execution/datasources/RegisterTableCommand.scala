@@ -24,7 +24,7 @@ private[sql] case class RegisterTableCommand(
   extends RunnableCommand {
   override def run(sqlContext: SQLContext): Seq[Row] = {
     // Convert the table name according to the case-sensitivity settings
-    val tableId = alterByCatalystSettings(sqlContext, tableName)
+    val tableId = alterByCatalystSettings(sqlContext.catalog, tableName)
 
     /** Instantiate the provider */
     val resolvedProvider: RegisterAllTableRelations =

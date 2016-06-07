@@ -18,9 +18,10 @@ trait AbstractDropViewCommand extends AbstractViewCommand {
     */
   def dropFromSpark(sqlContext: SQLContext): Unit = {
     val catalog = sqlContext.catalog
+    val relationId = alterByCatalystSettings(catalog, identifier)
 
-    if (catalog.tableExists(identifier)) {
-      catalog.unregisterTable(identifier)
+    if (catalog.tableExists(relationId)) {
+      catalog.unregisterTable(relationId)
     }
   }
 }
@@ -40,7 +41,8 @@ trait UnPersisting extends ProviderBound {
     * @param viewProvider The provider to execute the drop on.
     */
   def dropFromProvider(sqlContext: SQLContext, viewProvider: AbstractViewProvider[_]): Unit = {
-    viewProvider.drop(DropViewInput(sqlContext, options, identifier, allowNotExisting))
+    val relationId = alterByCatalystSettings(sqlContext.catalog, identifier)
+    viewProvider.drop(DropViewInput(sqlContext, options, relationId, allowNotExisting))
   }
 }
 

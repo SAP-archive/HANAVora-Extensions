@@ -78,7 +78,8 @@ trait AbstractCreateViewCommand extends AbstractViewCommand {
     */
   def ensureAllowedToWrite(sqlContext: SQLContext): Unit = {
     if (!allowedToWriteRelationInSpark(sqlContext)) {
-      sys.error(s"Relation ${identifier.table} already exists")
+      sys.error(s"Relation ${alterByCatalystSettings(sqlContext.catalog, identifier).table} " +
+        s"already exists")
     }
   }
 
@@ -88,7 +89,7 @@ trait AbstractCreateViewCommand extends AbstractViewCommand {
     * @return True if it is okay to write in the spark catalog, false otherwise.
     */
   def allowedToWriteRelationInSpark(sqlContext: SQLContext): Boolean = {
-    !sqlContext.catalog.tableExists(identifier)
+    !sqlContext.catalog.tableExists(alterByCatalystSettings(sqlContext.catalog, identifier))
   }
 
   /**
@@ -96,7 +97,7 @@ trait AbstractCreateViewCommand extends AbstractViewCommand {
     * @param sqlContext The sqlContext in which's catalog the view is registered.
     */
   def registerInCatalog(view: AbstractView, sqlContext: SQLContext): Unit = {
-    sqlContext.registerRawPlan(view, identifier.table)
+    sqlContext.registerRawPlan(view, alterByCatalystSettings(sqlContext.catalog, identifier).table)
   }
 }
 
@@ -112,7 +113,8 @@ trait Persisting extends ProviderBound {
   val allowExisting: Boolean
 
   override def allowedToWriteRelationInSpark(sqlContext: SQLContext): Boolean = {
-    allowExisting || !sqlContext.catalog.tableExists(identifier)
+    allowExisting ||
+      !sqlContext.catalog.tableExists(alterByCatalystSettings(sqlContext.catalog, identifier))
   }
 
   /**
@@ -123,7 +125,8 @@ trait Persisting extends ProviderBound {
   def registerInProvider(sqlContext: SQLContext,
                          viewProvider: AbstractViewProvider[_]): ViewHandle = {
     viewProvider.create(
-      CreateViewInput(sqlContext, plan, viewSql, options, identifier, allowExisting))
+      CreateViewInput(sqlContext, plan, viewSql, options,
+        alterByCatalystSettings(sqlContext.catalog, identifier), allowExisting))
   }
 }
 

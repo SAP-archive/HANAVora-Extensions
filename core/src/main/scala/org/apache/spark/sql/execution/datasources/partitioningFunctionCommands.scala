@@ -27,7 +27,7 @@ private[sql] case class CreateHashPartitioningFunctionCommand(parameters: Map[St
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext, name)
+    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
@@ -61,7 +61,7 @@ private[sql] case class CreateRangeSplitPartitioningFunctionCommand(parameters: 
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext, name)
+    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
@@ -94,7 +94,7 @@ private[sql] case class CreateRangeIntervalPartitioningFunctionCommand
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext, name)
+    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
@@ -123,7 +123,7 @@ private[sql] case class DropPartitioningFunctionCommand
   extends RunnableCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext, name)
+    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {

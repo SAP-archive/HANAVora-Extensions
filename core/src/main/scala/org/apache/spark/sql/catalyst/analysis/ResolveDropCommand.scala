@@ -4,7 +4,7 @@ import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.datasources.{DropRunnableCommand, LogicalRelation}
+import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.DropRelation
 import org.apache.spark.sql.sources.commands.{RelationKind, Table, UnresolvedDropCommand, WithExplicitRelationKind}
 
@@ -21,14 +21,15 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformDown {
     case UnresolvedDropCommand(kind, allowNotExisting, tableIdent, cascade) =>
-      val plan = resolvePlan(kind, tableIdent, allowNotExisting)
+      val tableId = alterByCatalystSettings(catalog, tableIdent)
+      val plan = resolvePlan(kind, tableId, allowNotExisting)
 
       val affected = plan.map { lp =>
         val targetKind =
           lp.collectFirst { case WithExplicitRelationKind(relationKind) => relationKind }
             .getOrElse(Table) // By default, we treat something as a table
-        checkValidKind(kind, tableIdent, targetKind)
-        buildDependentsMap(catalog, tableIdent)
+        checkValidKind(kind, tableId, targetKind)
+        buildDependentsMap(catalog, tableId)
       }
 
       affected.foreach(checkAllowedToDrop(cascade))

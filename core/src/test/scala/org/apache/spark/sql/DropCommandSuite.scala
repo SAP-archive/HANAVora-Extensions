@@ -6,6 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode}
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
+import org.apache.spark.sql.hive.SapHiveContext
 import org.apache.spark.sql.sources.commands.{Table, View, WithExplicitRelationKind}
 import org.apache.spark.sql.sources.{BaseRelation, DropRelation}
 import org.apache.spark.sql.types.StructType
@@ -134,6 +135,29 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
     val result2 = sqlContext.tables().collect()
     assert(result2.length == 1)
     assert(result2.contains(Row(someTable2, true)))
+  }
+
+  test("Drop a Spark table is case-insensitive when SapHiveContext is being used (bug 113693)") {
+    val tableName = "casetest"
+    sqlContext.sql(s"""CREATE TABLE $tableName (id string)
+                      |USING com.sap.spark.dstest
+                      |OPTIONS ()""".stripMargin)
+
+    // Sanity check
+    assert(sqlContext.sql("SHOW TABLES").collect().length == 1)
+
+    sqlContext match {
+      case _: SapSQLContext =>
+        val ex = intercept[AnalysisException](
+        sqlContext.sql(s"DROP TABLE ${tableName.toUpperCase}"))
+        assert(ex.getMessage().contains("Table CASETEST does not exist."))
+
+        assert(sqlContext.sql("SHOW TABLES").collect().length == 1)
+      case _: SapHiveContext =>
+        sqlContext.sql(s"DROP TABLE ${tableName.toUpperCase}")
+
+        assert(sqlContext.sql("SHOW TABLES").collect().length == 0)
+    }
   }
 
   test("Drop table cascade also drops related views (Bug 106016)") {

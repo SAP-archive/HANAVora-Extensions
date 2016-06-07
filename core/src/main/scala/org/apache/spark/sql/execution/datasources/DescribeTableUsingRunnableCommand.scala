@@ -42,7 +42,7 @@ case class DescribeTableUsingRunnableCommand(name: TableIdentifier,
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     // Convert the table name according to the case-sensitivity settings
-    val tableId = alterByCatalystSettings(sqlContext, name).toSeq
+    val tableId = alterByCatalystSettings(sqlContext.catalog, name).toSeq
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
