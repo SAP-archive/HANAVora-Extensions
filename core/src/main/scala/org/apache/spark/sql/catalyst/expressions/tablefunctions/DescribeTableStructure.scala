@@ -3,6 +3,8 @@ package org.apache.spark.sql.catalyst.expressions.tablefunctions
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference, Attribute}
 import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType, DataType}
 
+import scala.language.implicitConversions
+
 /** The output structure of the describe table command. */
 object DescribeTableStructure {
   private sealed trait NullableInfo { val isNullable: Boolean }
