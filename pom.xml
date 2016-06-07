@@ -440,6 +440,13 @@
     </profile>
     <profile>
       <id>full-tests</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.sap.hl.currency</groupId>
+          <artifactId>currency-conversion</artifactId>
+          <version>1.1.1</version>
+        </dependency>
+      </dependencies>
       <build>
         <pluginManagement>
           <plugins>
@@ -456,6 +463,31 @@
       <activation>
         <activeByDefault>true</activeByDefault>
       </activation>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.scalatest</groupId>
+              <artifactId>scalatest-maven-plugin</artifactId>
+              <configuration>
+                <tagsToExclude>
+                  org.scalatest.tags.Slow,com.sap.tags.ExternalLibraryNeeded
+                </tagsToExclude>
+              </configuration>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
+    <profile>
+      <id>push-validation</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.sap.hl.currency</groupId>
+          <artifactId>currency-conversion</artifactId>
+          <version>1.1.1</version>
+        </dependency>
+      </dependencies>
       <build>
         <pluginManagement>
           <plugins>

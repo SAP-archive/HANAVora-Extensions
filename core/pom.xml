@@ -67,11 +67,6 @@
       <artifactId>asm</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.sap.hl.currency</groupId>
-      <artifactId>currency-conversion</artifactId>
-      <version>1.0</version>
-    </dependency>
   </dependencies>
 
 

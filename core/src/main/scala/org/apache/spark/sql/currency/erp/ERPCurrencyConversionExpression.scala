@@ -1,26 +1,22 @@
 package org.apache.spark.sql.currency.erp
 
-import com.sap.hl.currency.api.CurrencyConversionLineItems
-import com.sap.hl.currency.erp.{ERPConversionData, ERPConversionProvider}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.expressions.{Expression, ImplicitCastInputTypes}
-import org.apache.spark.sql.currency.erp.ERPCurrencyConversionFunction.ERPCurrencyConversionOptions
+import org.apache.spark.sql.currency.erp.ERPConversionLoader.ConversionFunction
 import org.apache.spark.sql.types.{AbstractDataType, DataType, DoubleType, StringType}
 import org.apache.spark.unsafe.types.UTF8String
 
 
 /**
  * This expression uses the [[com.sap.hl.currency.api.CurrencyConversionProvider]]
- * to convert currencies.
+ * to convert currencies, if this class is on the class path.
  *
- * @param erpData ERP data object (created on the driver)
- * @param options Currency conversion options generated from SQL options (on the driver)
+ * @param conversionFunction the conversion closure initialized on the spark driver
  * @param children child expressions
  */
 case class ERPCurrencyConversionExpression(
-    erpData: ERPConversionData,
-    options: ERPCurrencyConversionOptions,
+    conversionFunction: ConversionFunction,
     children: Seq[Expression])
   extends Expression
   with ImplicitCastInputTypes
@@ -33,23 +29,6 @@ case class ERPCurrencyConversionExpression(
   protected val TO_INDEX = 4
   protected val DATE_INDEX = 5
   protected val NUM_ARGS = 6
-
-  private var provider: Option[ERPConversionProvider] = None
-
-  private def getProvider: ERPConversionProvider = {
-    provider match {
-      case Some(p) => p
-      case None => synchronized {
-        provider match {
-          case Some(p) => p
-          case None =>
-            val nextProvider = new ERPConversionProvider(options.toExternalOptionObject, erpData)
-            provider = Option(nextProvider)
-            nextProvider
-        }
-      }
-    }
-  }
 
   override def eval(input: InternalRow): Any = {
     val inputArguments = children.map(_.eval(input))
@@ -67,8 +46,8 @@ case class ERPCurrencyConversionExpression(
     val date = Option(inputArguments(DATE_INDEX).asInstanceOf[UTF8String]).map(_.toString)
 
     // perform conversion
-    val conversion = getProvider.getConversion(
-      CurrencyConversionLineItems(client, conversionType, sourceCurrency, targetCurrency, date))
+    val conversion =
+      conversionFunction(client, conversionType, sourceCurrency, targetCurrency, date)
     val resultTry = conversion(amount)
 
     // If 'resultTry' holds a 'Failure', we have to propagate it because potential failure
