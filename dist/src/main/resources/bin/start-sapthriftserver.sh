@@ -88,4 +88,5 @@ fi
 
 SPARK_VORA_ASSEMBLY_JAR=${SPARK_VORA_ASSEMBLY_DIR}/${ASSEMBLY_JARS}
 
-exec "$SPARK_HOME"/bin/spark-submit --class org.apache.spark.sql.hive.thriftserver.SapThriftServer "$@" $SPARK_VORA_ASSEMBLY_JAR
+exec "$SPARK_HOME"/bin/spark-submit --class org.apache.spark.sql.hive.thriftserver.SapThriftServer \
+     "$@" $SPARK_VORA_ASSEMBLY_JAR --hiveconf spark.sql.hive.thriftServer.singleSession=true

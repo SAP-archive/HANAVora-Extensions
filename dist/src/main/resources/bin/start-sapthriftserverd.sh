@@ -106,4 +106,5 @@ SPARK_VORA_ASSEMBLY_JAR=${SPARK_VORA_ASSEMBLY_DIR}/${ASSEMBLY_JARS}
 
 
 
-exec "$SPARK_HOME"/sbin/spark-daemon.sh submit $CLASS 1 $SPARK_VORA_ASSEMBLY_JAR "$@"
+exec "$SPARK_HOME"/sbin/spark-daemon.sh submit $CLASS 1 $SPARK_VORA_ASSEMBLY_JAR "$@" \
+     --hiveconf spark.sql.hive.thriftServer.singleSession=true
