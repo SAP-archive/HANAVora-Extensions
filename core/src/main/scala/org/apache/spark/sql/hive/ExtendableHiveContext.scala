@@ -7,9 +7,11 @@ import org.apache.spark.sql.catalyst.analysis.{Analyzer, _}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.ExtractPythonUDFs
+import org.apache.spark.sql.execution.{CacheManager, ExtractPythonUDFs}
 import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.execution.ui.SQLListener
 import org.apache.spark.sql.extension._
+import org.apache.spark.sql.hive.client.{ClientInterface, ClientWrapper}
 
 /**
  * Extendable [[HiveContext]]. This context is composable with traits
@@ -19,9 +21,26 @@ import org.apache.spark.sql.extension._
  * @param sparkContext The SparkContext.
  */
 @DeveloperApi
-private[hive] class ExtendableHiveContext(@transient override val sparkContext: SparkContext)
-  extends HiveContext(sparkContext) with SQLContextExtensionBase {
+private[hive] class ExtendableHiveContext(
+    @transient override val sparkContext: SparkContext,
+    cacheManager: CacheManager,
+    listener: SQLListener,
+    @transient protected val execHive: ClientWrapper,
+    @transient protected val metaHive: ClientInterface,
+    isRootContext: Boolean)
+  extends HiveContext(
+    sparkContext,
+    cacheManager,
+    listener,
+    execHive,
+    metaHive,
+    isRootContext)
+  with SQLContextExtensionBase {
+
   self =>
+
+  def this(sc: SparkContext) =
+    this(sc, new CacheManager, SQLContext.createListenerAndUI(sc), null, null, true)
 
   // register the functions on instantiation
   registerBuiltins(functionRegistry)
