@@ -21,6 +21,7 @@ package object erp {
     PARAM_TABLE_NAMES.zip(PARAM_TABLE_NAMES.map(_.toUpperCase)).toMap
 
   val DO_UPDATE_FALSE = "false"
+  val DO_UPDATE_TRUE = "true"
   val ERROR_HANDLING_FAIL = "fail_on_error"
   val ERROR_HANDLING_NULL = "set_to_null"
   val ERROR_HANDLING_KEEP = "keep_unconverted"

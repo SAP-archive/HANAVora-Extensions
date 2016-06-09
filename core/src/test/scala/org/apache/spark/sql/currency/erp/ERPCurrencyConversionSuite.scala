@@ -1,10 +1,11 @@
 package org.apache.spark.sql.currency.erp
 
 import org.apache.spark.sql.currency.{CurrencyConversionException, CurrencyConversionFunction, ERPDataRow}
-import org.apache.spark.sql.hive.{HiveContext, SapHiveContext}
-import org.apache.spark.sql.{AnalysisException, GlobalSapSQLContext, Row, SapSQLContext}
+import org.apache.spark.sql.hive.SapHiveContext
+import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.scalatest.{BeforeAndAfterEach, FunSuite, ShouldMatchers, Tag}
 
+import scala.annotation.tailrec
 
 object UnexpectedConversionProvider
 
@@ -21,15 +22,45 @@ class ERPCurrencyConversionSuite
   with ShouldMatchers
   with BeforeAndAfterEach {
 
-  val FUNCTION_NAME = CurrencyConversionFunction.functions
-    .filter(_._2 == ERPCurrencyConversionFunction).head._1
+
+  def throwsNicely[T](action: => T): Unit = {
+    val err = intercept [Exception] {action}
+    assert(
+      containsCurrencyConversionException(err),
+      "An exception was thrown, but it did not contain hints to currency conversion")
+  }
+
+  /**
+    * Check whether the give nexception contains a CurrencyConversionException as a cause.
+    *
+    * Note: HiveContext silently swallows exceptions during expression generation and reports the
+    * corresponding UDF as absent. Therefore, we log an error in the builder so that the user can
+    * see from the logs what went wrong. However, there will be no [[CurrencyConversionException]]
+    * when HiveContext is used - in this case this function returns true.
+    *
+    * @param err exception to analyze
+    * @return
+    */
+  @tailrec
+  private def containsCurrencyConversionException(err: Throwable): Boolean = {
+    val isHiveContext = sqlContext.isInstanceOf[SapHiveContext]
+    val earlyAbort = err.isInstanceOf[CurrencyConversionException] || isHiveContext
+
+    (earlyAbort, Option(err.getCause)) match {
+      case (true, _) => true
+      case (maybe, None) => maybe
+      case (_, Some(cause)) => containsCurrencyConversionException(cause)
+    }
+  }
+
+  val FUNCTION_NAME =
+    CurrencyConversionFunction.functions.filter(_._2 == ERPCurrencyConversionFunction).head._1
 
   /* Used to test the different behaviour of the context implementations
    * without running the tests in the Maven test phase.
-   * In the Maven test phase both, the [SapSQLContext] and the [SapHiveContext]
-   * are used.
-   * Uncomment to test against the [SapHiveContext], else the [SapSQLContext]
-   * is used. Left here to document the context dependence of this component.
+   * In the Maven test phase both [SapSQLContext] and [SapHiveContext] are used.
+   * Uncomment to test against the [SapHiveContext], e.g. when running from IntelliJ. Otherwise,
+   * the [SapSQLContext] is used. Left here to ease development.
    */
   // System.setProperty("test.with.hive.context", "true")
 
@@ -94,7 +125,7 @@ class ERPCurrencyConversionSuite
     sqlContext.createDataFrame(dataRDD).registerTempTable(DATA_TABLE)
 
     // set default options
-    setOption(PARAM_DO_UPDATE, "true")
+    setOption(PARAM_DO_UPDATE, DO_UPDATE_TRUE)
     setOption(PARAM_ACCURACY, "compatibility")
     setOption(PARAM_DATE_FORMAT, "auto_detect")
     setOption(PARAM_LOOKUP, "regular")
@@ -123,7 +154,7 @@ class ERPCurrencyConversionSuite
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_FAIL)
     sqlContext.sql(QUERY_WITH_FIX_ARGS).collect().map(_ (2))
     sqlContext.sql(QUERY).collect().map(_ (2))
-    val ex = intercept[Exception] {
+    throwsNicely {
       sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().map(_ (2))
     }
   }
@@ -132,9 +163,9 @@ class ERPCurrencyConversionSuite
     val optionName = "date_format"
     val default = "auto_detect"
 
-    // this should fail
     setOption(optionName, "DEFINITELY_INVALID")
-    an [Exception] should be thrownBy {
+
+    throwsNicely {
       sqlContext.sql(QUERY_WITH_FIX_ARGS).collect().map(_ (2))
     }
 
@@ -146,28 +177,25 @@ class ERPCurrencyConversionSuite
   test("error handling works", ExternalLibraryNeeded) {
     // default should fail
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_FAIL)
-    an [Exception] should be thrownBy {
+    throwsNicely {
       sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().map(_ (2))
     }
 
     // bogus should fail as well
     setOption(PARAM_ERROR_HANDLING, "BOGUS VALUE")
-    an [Exception] should be thrownBy {
+    throwsNicely {
       sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().map(_ (2))
     }
 
     // keep should work
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_KEEP)
-    sqlContext
-      .sql(QUERY_WITH_UNKNOWN_CLIENT)
-      .collect()
-      .foreach {
-        case Row(left: Double, _, right: Double, _*) => left should be (right)
-      }
+    sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().foreach {
+      case Row(left: Double, _, right: Double, _ *) => left should be (right)
+    }
 
     // null should also work
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_NULL)
-    sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().forall(_.isNullAt(2)) should be(true)
+    sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().forall(_.isNullAt(2)) should be (true)
   }
 
   test("conversion is distributed", ExternalLibraryNeeded) {
@@ -181,31 +209,22 @@ class ERPCurrencyConversionSuite
     ERPCurrencyConversionTestUtils.dropERPTables(sqlContext, ERP_TABLE_MAPPING)
     sqlContext.sql(QUERY).collect().map(_ (2))
 
-    /* now it should fail, depending on SapHiveContext or SapSQLContext
-     * with an [[AnalysisException]] or an [[CurrencyConversionException]]
-     */
-    setOption(PARAM_DO_UPDATE, "true")
-    sqlContext match {
-      case ctx if ctx.isInstanceOf[SapSQLContext] =>
-        val ex = intercept[CurrencyConversionException] {
-          val rows = sqlContext.sql(QUERY).collect()
-        }
-      case ctx if ctx.isInstanceOf[SapHiveContext] =>
-        val ex = intercept[AnalysisException] {
-          val rows = sqlContext.sql(QUERY).collect()
-        }
-      case _ =>
-        throw new IllegalStateException(
-          "This test is only meant for [SapSQLContext] or [SapHiveContext] instances.")
+    setOption(PARAM_DO_UPDATE, DO_UPDATE_TRUE)
+
+    // after we force an update, conversion should fail because of missing tables
+    // the type of error thrown depends on the context: SQLContext will propagate
+    // [[CurrencyConversionException]], HiveContext will wrap it in an [[AnalysisException]].
+    throwsNicely {
+      val rows = sqlContext.sql(QUERY).collect()
     }
 
     // should be true since unsuccessful
-    sqlContext.getConf(CONF_PREFIX + PARAM_DO_UPDATE) should be ("true")
+    sqlContext.getConf(CONF_PREFIX + PARAM_DO_UPDATE) should be (DO_UPDATE_TRUE)
 
     // now it should work again
     ERPCurrencyConversionTestUtils.createERPTables(sqlContext, ERP_TABLE_MAPPING, PARALLELISM)
     sqlContext.sql(QUERY).collect().map(_ (2))
-    sqlContext.getConf(CONF_PREFIX + PARAM_DO_UPDATE) should be ("false")
+    sqlContext.getConf(CONF_PREFIX + PARAM_DO_UPDATE) should be (DO_UPDATE_FALSE)
   }
 
   test("caching and switching by prefix works", ExternalLibraryNeeded) {
@@ -219,35 +238,30 @@ class ERPCurrencyConversionSuite
     ERPCurrencyConversionFunction.conversionFunctionHolder.get should not be erpDataRef
   }
 
-  if (sqlContext.isInstanceOf[HiveContext]) {
-    // HiveContext uses its own function registry (in 1.6), rewrapping exceptions in the expression
-    // builder
-
-    test("fails meaningfully if erp library is missing", ExternalLibraryNeeded) {
-      val backup_modulename = ERPConversionLoader.MODULE_NAME
-      setOption(PARAM_DO_UPDATE, "true")
-      ERPConversionLoader.MODULE_NAME = "invalid.BOGUS"
-      try {
-        an[CurrencyConversionException] should be thrownBy {
-          sqlContext.sql(QUERY).collect().map(_ (2))
-        }
-      } finally {
-        ERPConversionLoader.MODULE_NAME = backup_modulename
+  test("fails meaningfully if erp library is missing", ExternalLibraryNeeded) {
+    val backup_modulename = ERPConversionLoader.MODULE_NAME
+    setOption(PARAM_DO_UPDATE, DO_UPDATE_TRUE)
+    ERPConversionLoader.MODULE_NAME = "invalid.BOGUS"
+    try {
+      throwsNicely {
+        sqlContext.sql(QUERY).collect().map(_ (2))
       }
+    } finally {
+      ERPConversionLoader.MODULE_NAME = backup_modulename
     }
+  }
 
-    test("fails meaningfully if erp library has unexpected version", ExternalLibraryNeeded) {
-      val backup_modulename = ERPConversionLoader.MODULE_NAME
-      setOption(PARAM_DO_UPDATE, "true")
-      ERPConversionLoader.MODULE_NAME =
-        "org.apache.spark.sql.currency.erp.UnexpectedConversionProvider"
-      try {
-        an[CurrencyConversionException] should be thrownBy {
-          sqlContext.sql(QUERY).collect().map(_ (2))
-        }
-      } finally {
-        ERPConversionLoader.MODULE_NAME = backup_modulename
+  test("fails meaningfully if erp library has unexpected version", ExternalLibraryNeeded) {
+    val backup_modulename = ERPConversionLoader.MODULE_NAME
+    setOption(PARAM_DO_UPDATE, DO_UPDATE_TRUE)
+    ERPConversionLoader.MODULE_NAME =
+      "org.apache.spark.sql.currency.erp.UnexpectedConversionProvider"
+    try {
+      throwsNicely {
+        sqlContext.sql(QUERY).collect().map(_ (2))
       }
+    } finally {
+      ERPConversionLoader.MODULE_NAME = backup_modulename
     }
   }
 }

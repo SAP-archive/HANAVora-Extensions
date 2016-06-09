@@ -3,9 +3,12 @@ package org.apache.spark.sql.currency.erp
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.expressions.{Expression, ImplicitCastInputTypes}
+import org.apache.spark.sql.currency.CurrencyConversionException
 import org.apache.spark.sql.currency.erp.ERPConversionLoader.ConversionFunction
 import org.apache.spark.sql.types.{AbstractDataType, DataType, DoubleType, StringType}
 import org.apache.spark.unsafe.types.UTF8String
+
+import scala.util.control.NonFatal
 
 
 /**
@@ -30,6 +33,9 @@ case class ERPCurrencyConversionExpression(
   protected val DATE_INDEX = 5
   protected val NUM_ARGS = 6
 
+  protected val errorMessage = "Currency conversion library encountered an internal error"
+
+
   override def eval(input: InternalRow): Any = {
     val inputArguments = children.map(_.eval(input))
 
@@ -51,8 +57,10 @@ case class ERPCurrencyConversionExpression(
     val resultTry = conversion(amount)
 
     // If 'resultTry' holds a 'Failure', we have to propagate it because potential failure
-    // handling already took place. Therefore, we just call '.get' and hope for the best.
-    resultTry.get.orNull // unwrap Option, converting 'None' to 'null'
+    // handling already took place. We just wrap it in case it is a cryptic error.
+    resultTry.recover {
+      case NonFatal(err) => throw new CurrencyConversionException(errorMessage, err)
+    }.get.orNull
   }
 
   override def dataType: DataType = DoubleType
