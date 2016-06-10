@@ -10,7 +10,7 @@ sealed trait ViewKind {
   val classTag: ClassTag[A]
 
   def createNonPersisted(plan: LogicalPlan): A
-  def createPersisted(plan: LogicalPlan, handle: ViewHandle): A with Persisted
+  def createPersisted(plan: LogicalPlan, handle: ViewHandle, provider: String): A with Persisted
 }
 
 sealed abstract class BaseViewKind[V <: AbstractView: ClassTag] extends ViewKind {
@@ -21,25 +21,29 @@ sealed abstract class BaseViewKind[V <: AbstractView: ClassTag] extends ViewKind
 object Plain extends BaseViewKind[View] {
   override def createNonPersisted(plan: LogicalPlan): View = NonPersistedView(plan)
 
-  override def createPersisted(plan: LogicalPlan, handle: ViewHandle): View with Persisted =
-    PersistedView(plan, handle)
+  override def createPersisted(plan: LogicalPlan,
+                               handle: ViewHandle,
+                               provider: String): View with Persisted =
+    PersistedView(plan, handle, provider)
 }
 
 object Dimension extends BaseViewKind[DimensionView] {
   override def createNonPersisted(plan: LogicalPlan): DimensionView =
     NonPersistedDimensionView(plan)
 
-  override def createPersisted(plan: LogicalPlan, handle: ViewHandle)
+  override def createPersisted(plan: LogicalPlan, handle: ViewHandle, provider: String)
     : DimensionView with Persisted =
-    PersistedDimensionView(plan, handle)
+    PersistedDimensionView(plan, handle, provider)
 }
 
 object Cube extends BaseViewKind[CubeView] {
   override def createNonPersisted(plan: LogicalPlan): CubeView =
     NonPersistedCubeView(plan)
 
-  override def createPersisted(plan: LogicalPlan, handle: ViewHandle): CubeView with Persisted =
-    PersistedCubeView(plan, handle)
+  override def createPersisted(plan: LogicalPlan,
+                               handle: ViewHandle,
+                               provider: String): CubeView with Persisted =
+    PersistedCubeView(plan, handle, provider)
 }
 
 object ViewKind {

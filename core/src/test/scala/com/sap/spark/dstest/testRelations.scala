@@ -1,7 +1,7 @@
 package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.sources.commands.Table
+import org.apache.spark.sql.sources.commands.{Table, WithOrigin}
 import org.apache.spark.sql.sources.{BaseRelation, DropRelation, TemporaryFlagRelation}
 import org.apache.spark.sql.types._
 
@@ -16,7 +16,10 @@ case class DummyRelationWithTempFlag(
   extends BaseRelation
   with TemporaryFlagRelation
   with DropRelation
-  with Table {
+  with Table
+  with WithOrigin {
+
+  override val provider: String = "com.sap.spark.dstest"
 
   override def isTemporary(): Boolean = temporary
 
@@ -28,7 +31,10 @@ case class DummyRelationWithoutTempFlag(
     schema: StructType)
   extends BaseRelation
   with DropRelation
-  with Table {
+  with Table
+  with WithOrigin {
+
+  override val provider: String = "com.sap.spark.dstest"
 
   override def dropTable(): Unit = {}
 }

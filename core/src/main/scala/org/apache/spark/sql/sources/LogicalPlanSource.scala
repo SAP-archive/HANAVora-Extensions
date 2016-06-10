@@ -34,8 +34,8 @@ case class CreatePersistentViewSource(createViewStatement: String, handle: ViewH
   def logicalPlan(sqlContext: SQLContext): LogicalPlan = {
     sqlContext.parseSql(createViewStatement) match {
       // This might seem repetitive but in the future the commands might drastically differ
-      case CreatePersistentViewCommand(kind, _, plan, _, _, _, _) =>
-        kind.createPersisted(plan, handle)
+      case CreatePersistentViewCommand(kind, _, plan, _, provider, _, _) =>
+        kind.createPersisted(plan, handle, provider)
 
       case unknown =>
         throw new RuntimeException(s"Could not extract view query from $unknown")

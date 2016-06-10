@@ -2,12 +2,12 @@ package org.apache.spark.sql.catalyst.analysis.systables
 
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.sources.commands.WithExplicitRelationKind
+import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.sources.commands.{WithExplicitRelationKind, WithOrigin}
 import org.apache.spark.sql.sources.{DatasourceCatalog, TemporaryFlagRelation}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 import org.apache.spark.sql.{DefaultDatasourceResolver, Row, SQLContext}
-
 
 object TablesSystemTableProvider extends SystemTableProvider with LocalSpark with ProviderBound {
   override def create(): SystemTable =
@@ -30,8 +30,13 @@ case object SparkLocalTablesSystemTable extends TablesSystemTable {
         }.getOrElse(true) // By default, we treat it as temporary
         val kind = plan.collectFirst {
           case r: WithExplicitRelationKind => r.relationKind.name
+          case LogicalRelation(r: WithExplicitRelationKind, _) => r.relationKind.name
         }.getOrElse("TABLE") // By default, we treat it as a table
-        Row(table, isTemporary.toString.toUpperCase, kind.toUpperCase)
+        val origin = plan.collectFirst {
+          case o: WithOrigin => o.provider
+          case LogicalRelation(o: WithOrigin, _) => o.provider
+        }
+        Row(table, isTemporary.toString.toUpperCase, kind.toUpperCase, origin.orNull)
       }
   }
 }
@@ -56,7 +61,8 @@ case class ProviderBoundTablesSystemTable(
       .map(relationInfo => Row(
         relationInfo.name,
         relationInfo.isTemporary.toString.toUpperCase,
-        relationInfo.kind.toUpperCase))
+        relationInfo.kind.toUpperCase,
+        provider))
   }
 }
 
@@ -65,6 +71,7 @@ sealed trait TablesSystemTable extends SystemTable {
     StructField("TABLE_NAME", StringType, nullable = false) ::
       StructField("IS_TEMPORARY", StringType, nullable = false) ::
       StructField("KIND", StringType, nullable = false) ::
+      StructField("PROVIDER", StringType, nullable = true) ::
       Nil
   ).toAttributes
 }

@@ -15,7 +15,7 @@ sealed trait View extends AbstractView {
  *
  * @param plan The query plan of the view.
  */
-case class PersistedView(plan: LogicalPlan, handle: ViewHandle)
+case class PersistedView(plan: LogicalPlan, handle: ViewHandle, provider: String)
   extends AbstractView
   with View
   with Persisted

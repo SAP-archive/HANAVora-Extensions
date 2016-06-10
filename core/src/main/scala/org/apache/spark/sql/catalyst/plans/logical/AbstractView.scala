@@ -2,7 +2,7 @@ package org.apache.spark.sql.catalyst.plans.logical
 
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.sources.commands.WithExplicitRelationKind
+import org.apache.spark.sql.sources.commands.{WithExplicitRelationKind, WithOrigin}
 import org.apache.spark.sql.sources.sql.ViewKind
 
 /**
@@ -23,10 +23,13 @@ trait AbstractView extends UnaryNode with commands.View {
   */
 trait Persisted
   extends TemporaryFlagRelation
-  with DropRelation {
+  with DropRelation
+  with WithOrigin {
   self: AbstractView with WithExplicitRelationKind =>
 
   val handle: ViewHandle
+
+  override val provider: String
 
   override def isTemporary(): Boolean = false
 

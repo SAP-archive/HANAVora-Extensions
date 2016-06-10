@@ -32,7 +32,7 @@ case class CreatePersistentViewCommand(
     withValidProvider { provider =>
       ensureAllowedToWrite(sqlContext)
       val handle = registerInProvider(sqlContext, provider)
-      val view = kind.createPersisted(plan, handle)
+      val view = kind.createPersisted(plan, handle, this.provider)
       registerInCatalog(view, sqlContext)
       Seq.empty
     }

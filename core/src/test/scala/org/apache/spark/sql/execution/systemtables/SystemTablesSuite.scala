@@ -46,8 +46,8 @@ class SystemTablesSuite
 
       val values = sqlc.sql("SELECT * FROM SYS.TABLES USING com.sap.spark.dsmock").collect()
       assertResult(Set(
-        Row("foo", "FALSE", "TABLE"),
-        Row("bar", "TRUE", "VIEW")))(values.toSet)
+        Row("foo", "FALSE", "TABLE", "com.sap.spark.dsmock"),
+        Row("bar", "TRUE", "VIEW", "com.sap.spark.dsmock")))(values.toSet)
     }
   }
 
@@ -58,9 +58,9 @@ class SystemTablesSuite
 
     val values = sqlc.sql("SELECT * FROM SYS.TABLES").collect()
     assertResult(Set(
-      Row("foo", "TRUE", "TABLE"),
-      Row("bar", "TRUE", "VIEW"),
-      Row("baz", "FALSE", "VIEW")
+      Row("foo", "TRUE", "TABLE", "com.sap.spark.dstest"),
+      Row("bar", "TRUE", "VIEW", null),
+      Row("baz", "FALSE", "VIEW", "com.sap.spark.dstest")
     ))(values.toSet)
   }
 

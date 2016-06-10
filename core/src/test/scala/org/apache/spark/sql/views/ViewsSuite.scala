@@ -193,7 +193,8 @@ class ViewsSuite extends FunSuite
         Project(
           UnresolvedAlias(UnresolvedStar(None)) :: Nil,
           UnresolvedRelation(TableIdentifier("t"))),
-        DefaultSource.DropViewHandle("v", "view")
+        DefaultSource.DropViewHandle("v", "view"),
+        "com.sap.spark.dstest"
       )))(actual)
   }
 
@@ -289,7 +290,8 @@ class ViewsSuite extends FunSuite
               Some(IsNull(UnresolvedAttribute("pred"))),
               UnresolvedAttribute("node")
             ))),
-        DefaultSource.DropViewHandle("v1", "view")
+        DefaultSource.DropViewHandle("v1", "view"),
+        "com.sap.spark.dstest"
     )))(actual)
   }
 }

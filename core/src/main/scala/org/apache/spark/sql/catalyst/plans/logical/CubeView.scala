@@ -15,7 +15,7 @@ sealed trait CubeView extends AbstractView {
  *
  * @param plan The query plan of the view.
  */
-case class PersistedCubeView(plan: LogicalPlan, handle: ViewHandle)
+case class PersistedCubeView(plan: LogicalPlan, handle: ViewHandle, provider: String)
   extends AbstractView
   with CubeView
   with Persisted

@@ -15,7 +15,7 @@ sealed trait DimensionView extends AbstractView {
  *
  * @param plan The query plan of the view.
  */
-case class PersistedDimensionView(plan: LogicalPlan, handle: ViewHandle)
+case class PersistedDimensionView(plan: LogicalPlan, handle: ViewHandle, provider: String)
   extends AbstractView
   with DimensionView
   with Persisted
