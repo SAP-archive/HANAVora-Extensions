@@ -27,9 +27,14 @@ class DefaultSource
   with DimensionViewProvider
   with DatasourceCatalog
   with PartitioningFunctionProvider
-  with RawSqlSourceProvider {
+  with RawSqlSourceProvider
+  with MetadataCatalog {
 
   val underlying: DefaultSource = DefaultSource.currentMock
+
+  override def getTableMetadata(sqlContext: SQLContext,
+                                options: Map[String, String]): Seq[TableMetadata] =
+    underlying.getTableMetadata(sqlContext, options)
 
   override def createRelation(sqlContext: SQLContext,
                               parameters: Map[String, String]): BaseRelation =

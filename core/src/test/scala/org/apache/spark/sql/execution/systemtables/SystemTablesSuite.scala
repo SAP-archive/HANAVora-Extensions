@@ -13,6 +13,7 @@ import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.analysis.systables.DependenciesSystemTable.ReferenceDependency
 import org.apache.spark.sql.catalyst.analysis.systables._
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
+import org.apache.spark.sql.sources.TableMetadata
 
 /**
   * Test suites for system tables.
@@ -20,6 +21,21 @@ import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 class SystemTablesSuite
   extends FunSuite
   with GlobalSapSQLContext {
+
+  test("Select from TABLE_METADATA system table returns table metadata") {
+    withMock { dataSource =>
+      when(dataSource.getTableMetadata(any[SQLContext], any[Map[String, String]]))
+        .thenReturn(Seq(TableMetadata("foo", Map("bar" -> "baz", "qux" -> "bang"))))
+
+      val values =
+        sqlc
+          .sql("SELECT * FROM SYS.TABLE_METADATA USING com.sap.spark.dsmock")
+          .collect()
+          .toSet
+
+      assertResult(Set(Row("foo", "bar", "baz"), Row("foo", "qux", "bang")))(values)
+    }
+  }
 
   test("Select from TABLES system table and target a datasource") {
     withMock { dataSource =>

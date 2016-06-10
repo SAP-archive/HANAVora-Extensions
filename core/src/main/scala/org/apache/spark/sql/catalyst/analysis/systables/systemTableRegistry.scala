@@ -85,4 +85,5 @@ class SimpleSystemTableRegistry extends SystemTableRegistry {
 object SystemTableRegistry extends SimpleSystemTableRegistry {
   register("tables", TablesSystemTableProvider)
   register("object_dependencies", DependenciesSystemTableProvider)
+  register("table_metadata", MetadataSystemTableProvider)
 }
