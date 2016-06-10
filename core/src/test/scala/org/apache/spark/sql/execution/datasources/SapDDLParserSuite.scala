@@ -2,9 +2,6 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedStar, UnresolvedAlias, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.{Literal, Alias, AnnotatedAttribute}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical._
@@ -14,7 +11,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SapParserDialect, SapParserException}
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{FunSuite, GivenWhenThen, Inside}
+import org.scalatest.{FunSuite, GivenWhenThen}
 
 // scalastyle: off file.size.limit
 class SapDDLParserSuite
@@ -208,10 +205,7 @@ CREATE TEMPORARY TABLE testBaldat (field1 string, field2 string, field3 string,
 USING com.sap.spark.vora
 OPTIONS (
   tableName "testBaldat",
-  paths "/user/u1234/data.csv",
-  hosts "a1.b.c.d.com,a2.b.c.d.com,a3.b.c.d.com",
-  zkurls "a1.b.c.d.com:2181,a2.b.c.d.com:2181",
-  nameNodeUrl "a5.b.c.d.com:8020"
+  files "/user/u1234/data.csv"
 )"""
     ddlParser.parse(testTable, exceptionOnError = true)
     ddlParser.parse(testTable, exceptionOnError = false)
@@ -296,21 +290,15 @@ OPTIONS (
       ("""CREATE TEMPORARY TABL____ table001 (a1 int, a2 int)
 USING com.sap.spark.vora
 OPTIONS (
-  tableName "table001",
-  hosts "localhost",
-  local "true")""", 1, 18),
+  tableName "table001")""", 1, 18),
       ("""CREATE TEMPORARY TABLE table001 (a1 int, a2 int)
 USIN_ com.sap.spark.vora
 OPTIONS (
-  tableName "table001",
-  hosts "localhost",
-  local "true")""", 2, 1),
+  tableName "table001")""", 2, 1),
       ("""CREATE TEMPORARY TABLE tab01(a int)
 USING com.sap.spark.vora
 OPTIONS (
-  tableName "table001",
-  hosts "localhost",
-  local "true"    """, 6, 19),
+  tableName "table001" """, 4, 24),
       ("SELCT * FROM table001", 1, 1),
       ("CREAT TABLE table001(a1 int)", 1, 1),
       ("", 1, 1),
@@ -356,10 +344,7 @@ OPTIONS (
                         USING com.sap.spark.vora
                         OPTIONS (
                         tableName "test1",
-                        paths "/data.csv",
-                        hosts "1.1.1.1",
-                        zkurls "1.1.1.1",
-                        nameNodeUrl "1.1.1.1")"""
+                        files "/data.csv")"""
     val parsedStmt1 = ddlParser.parse(testStatement1)
     assert(parsedStmt1.isInstanceOf[CreateTablePartitionedByUsing])
 
@@ -378,10 +363,7 @@ OPTIONS (
                         USING com.sap.spark.vora
                         OPTIONS (
                         tableName "test1",
-                        paths "/data.csv",
-                        hosts "1.1.1.1",
-                        zkurls "1.1.1.1",
-                        nameNodeUrl "1.1.1.1")"""
+                        files "/data.csv")"""
     val parsedStmt2 = ddlParser.parse(testStatement2)
     assert(parsedStmt2.isInstanceOf[CreateTablePartitionedByUsing])
 
@@ -401,10 +383,7 @@ OPTIONS (
                         USING com.sap.spark.vora
                         OPTIONS (
                         tableName "test1",
-                        paths "/data.csv",
-                        hosts "1.1.1.1",
-                        zkurls "1.1.1.1",
-                        nameNodeUrl "1.1.1.1")"""
+                        files "/data.csv")"""
     val parsedStmt3 = ddlParser.parse(testStatement3)
     assert(parsedStmt3.isInstanceOf[CreateTablePartitionedByUsing])
 
@@ -426,10 +405,7 @@ OPTIONS (
                        USING com.sap.spark.vora
                        OPTIONS (
                        tableName "test1",
-                       paths "/data.csv",
-                       hosts "1.1.1.1",
-                       zkurls "1.1.1.1",
-                       nameNodeUrl "1.1.1.1")"""
+                       files "/data.csv")"""
     intercept[SapParserException](ddlParser.parse(invStatement))
   }
 
@@ -438,14 +414,14 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS HASH
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1")
+        |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
     assert(ddlParser.parse(testTable).isInstanceOf[CreateHashPartitioningFunction])
 
     val cpf = parsedStmt.asInstanceOf[CreateHashPartitioningFunction]
-    assert(cpf.parameters.contains("zkurls"))
-    assert(cpf.parameters("zkurls") == "1.1.1.1")
+    assert(cpf.parameters.contains("discovery"))
+    assert(cpf.parameters("discovery") == "1.1.1.1")
     assert(cpf.name == "test")
     assert(cpf.datatypes == Seq(IntegerType, StringType))
     assert(cpf.provider == "com.sap.spark.vora")
@@ -456,14 +432,14 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS HASH PARTITIONS 7
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
     assert(ddlParser.parse(testTable).isInstanceOf[CreateHashPartitioningFunction])
 
     val cpf = parsedStmt.asInstanceOf[CreateHashPartitioningFunction]
-    assert(cpf.parameters.contains("zkurls"))
-    assert(cpf.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf.parameters.contains("discovery"))
+    assert(cpf.parameters("discovery") == "1.1.1.1")
     assert(cpf.name == "test")
     assert(cpf.datatypes == Seq(IntegerType, StringType))
     assert(cpf.partitionsNo.isDefined)
@@ -477,14 +453,14 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS (5, 10, 15)
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt1 = ddlParser.parse(testTable1)
     assert(ddlParser.parse(testTable1).isInstanceOf[CreateRangeSplittersPartitioningFunction])
 
     val cpf1 = parsedStmt1.asInstanceOf[CreateRangeSplittersPartitioningFunction]
-    assert(cpf1.parameters.contains("zkurls"))
-    assert(cpf1.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf1.parameters.contains("discovery"))
+    assert(cpf1.parameters("discovery") == "1.1.1.1")
     assert(cpf1.name == "test")
     assert(cpf1.datatype == IntegerType)
     assert(!cpf1.rightClosed)
@@ -495,14 +471,14 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS RIGHT CLOSED (5, 20)
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt2 = ddlParser.parse(testTable2)
     assert(ddlParser.parse(testTable2).isInstanceOf[CreateRangeSplittersPartitioningFunction])
 
     val cpf2 = parsedStmt2.asInstanceOf[CreateRangeSplittersPartitioningFunction]
-    assert(cpf2.parameters.contains("zkurls"))
-    assert(cpf2.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf2.parameters.contains("discovery"))
+    assert(cpf2.parameters("discovery") == "1.1.1.1")
     assert(cpf2.name == "test")
     assert(cpf2.datatype == IntegerType)
     assert(cpf2.rightClosed)
@@ -515,14 +491,14 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer) AS RANGE START 5 END 20 STRIDE 2
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt1 = ddlParser.parse(testTable1)
     assert(ddlParser.parse(testTable1).isInstanceOf[CreateRangeIntervalPartitioningFunction])
 
     val cpf1 = parsedStmt1.asInstanceOf[CreateRangeIntervalPartitioningFunction]
-    assert(cpf1.parameters.contains("zkurls"))
-    assert(cpf1.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf1.parameters.contains("discovery"))
+    assert(cpf1.parameters("discovery") == "1.1.1.1")
     assert(cpf1.name == "test")
     assert(cpf1.datatype == IntegerType)
     assert(cpf1.start == 5)
@@ -534,14 +510,14 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer) AS RANGE START 5 END 25 PARTS 3
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt2 = ddlParser.parse(testTable2)
     assert(ddlParser.parse(testTable2).isInstanceOf[CreateRangeIntervalPartitioningFunction])
 
     val cpf2 = parsedStmt2.asInstanceOf[CreateRangeIntervalPartitioningFunction]
-    assert(cpf2.parameters.contains("zkurls"))
-    assert(cpf2.parameters("zkurls") == "1.1.1.1,2.2.2.2")
+    assert(cpf2.parameters.contains("discovery"))
+    assert(cpf2.parameters("discovery") == "1.1.1.1")
     assert(cpf2.name == "test")
     assert(cpf2.datatype == IntegerType)
     assert(cpf2.start == 5)
@@ -602,7 +578,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test () AS HASH
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val ex1 = intercept[DDLException](ddlParser.parse(invStatement9))
     assert(ex1.getMessage.contains("The hashing function argument list cannot be empty."))
@@ -611,7 +587,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test AS RANGE SPLITTERS ("5", "10", "15")
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement10))
 
@@ -619,7 +595,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test () AS RANGE SPLITTERS ()
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val ex4 = intercept[DDLException](ddlParser.parse(invStatement11))
     assert(ex4.getMessage.contains("The range function argument list cannot be empty."))
@@ -628,7 +604,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLITTERS (5, 10, 15)
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val ex5 = intercept[DDLException](ddlParser.parse(invStatement12))
     assert(ex5.getMessage.contains("The range functions cannot have more than one argument."))
@@ -637,7 +613,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS RANGE SPLIYTTERS (5, 10, 15)
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement13))
 
@@ -645,7 +621,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test AS RANGE START 5 END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement14))
 
@@ -653,7 +629,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test () AS RANGE START 5 END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val ex6 = intercept[DDLException](ddlParser.parse(invStatement15))
     assert(ex6.getMessage.contains("The range function argument list cannot be empty."))
@@ -662,7 +638,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START 5 END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     val ex7 = intercept[DDLException](ddlParser.parse(invStatement16))
     assert(ex7.getMessage.contains("The range functions cannot have more than one argument."))
@@ -671,7 +647,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START 5 END 10 STRdIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement17))
 
@@ -679,7 +655,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START END 10 STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement18))
 
@@ -687,7 +663,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "DF" END STRIDE 1
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement19))
 
@@ -695,7 +671,7 @@ OPTIONS (
       """CREATE PARTITION FUNCTION test (integer, string) AS RANGE START "DF" END "ZZ"
         |USING com.sap.spark.vora
         |OPTIONS (
-        |zkurls "1.1.1.1,2.2.2.2")
+        |discovery "1.1.1.1")
       """.stripMargin
     intercept[SapParserException](ddlParser.parse(invStatement20))
   }
@@ -810,7 +786,7 @@ OPTIONS (
     val statement = """CREATE VIEW IF NOT EXISTS v
                    |AS SELECT * FROM t
                    |USING com.sap.spark.vora
-                   |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+                   |OPTIONS(discovery "1.1.1.1")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
@@ -823,14 +799,14 @@ OPTIONS (
     assertResult(statement)(actual.viewSql)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
-    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
   }
 
   test("Parse correct CREATE VIEW USING with annotations") {
     val statement = """CREATE VIEW IF NOT EXISTS v
                       |AS SELECT a as al @ ( b = 'c' ) FROM t
                       |USING com.sap.spark.vora
-                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
@@ -849,7 +825,7 @@ OPTIONS (
     assertAnnotatedProjection(expected)(projection.projectList)
 
     assertResult("com.sap.spark.vora")(persistedViewCommand.provider)
-    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(persistedViewCommand.options)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(persistedViewCommand.options)
   }
 
   test("Handle incorrect CREATE VIEW statements") {
@@ -877,7 +853,7 @@ OPTIONS (
   test("Handle correct DROP VIEW USING OPTIONS") {
     val statement = """DROP VIEW IF EXISTS v
                       |USING com.sap.spark.vora
-                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
     assert(parsed.isInstanceOf[DropPersistentViewCommand])
@@ -886,7 +862,7 @@ OPTIONS (
     assertResult(true)(actual.allowNotExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
-    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
   }
 
   test("Handle incorrect DROP VIEW statements") {
@@ -915,14 +891,14 @@ OPTIONS (
   test("Parse correct SHOW TABLES USING statement") {
     val statement = """SHOW TABLES
                       |USING com.sap.spark.vora
-                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
     assert(parsed.isInstanceOf[ShowTablesUsingCommand])
 
     val actual = parsed.asInstanceOf[ShowTablesUsingCommand]
     assertResult("com.sap.spark.vora")(actual.provider)
-    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
   }
 
   test("Handle incorrect SHOW TABLES USING statement") {
@@ -940,14 +916,14 @@ OPTIONS (
   test("Parse correct DESCRIBE TABLE USING statement") {
     val statement = """DESCRIBE TABLE t1
                       |USING com.sap.spark.vora
-                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
     assert(parsed.isInstanceOf[DescribeTableUsingCommand])
 
     val actual = parsed.asInstanceOf[DescribeTableUsingCommand]
     assertResult("com.sap.spark.vora")(actual.provider)
-    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
   }
 
   test("Handle incorrect DESCRIBE TABLE USING statement") {
@@ -966,7 +942,7 @@ OPTIONS (
     val statement = """CREATE DIMENSION VIEW IF NOT EXISTS v
                       |AS SELECT * FROM t
                       |USING com.sap.spark.vora
-                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
@@ -978,7 +954,7 @@ OPTIONS (
     assertResult(true)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
-    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
   }
 
   test("Handle incorrect CREATE DIMENSION VIEW statements") {
@@ -1007,7 +983,7 @@ OPTIONS (
     val statement = """CREATE CUBE VIEW IF NOT EXISTS v
                       |AS SELECT * FROM t
                       |USING com.sap.spark.vora
-                      |OPTIONS(zkurls "1.1.1.1,2.2.2.2")""".stripMargin
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
 
     val parsed = ddlParser.parse(statement)
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
@@ -1020,7 +996,7 @@ OPTIONS (
     assertResult(true)(actual.allowExisting)
     assertResult(TableIdentifier("v"))(actual.identifier)
     assertResult("com.sap.spark.vora")(actual.provider)
-    assertResult(Map[String, String]("zkurls" -> "1.1.1.1,2.2.2.2"))(actual.options)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
   }
 
   test("Handle incorrect CREATE CUBE VIEW statements") {

@@ -106,9 +106,7 @@ class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
          |CREATE TABLE test (name varchar(20), age integer)
          |USING com.sap.spark.dstest
          |OPTIONS (
-         |tableName "test",
-         |local "true",
-         |hosts "localhost"
+         |tableName "test"
          |)
        """.stripMargin)
 
