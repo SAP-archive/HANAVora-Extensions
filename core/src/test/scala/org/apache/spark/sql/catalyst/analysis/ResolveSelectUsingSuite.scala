@@ -1,15 +1,15 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import com.sap.spark.dsmock.DefaultSource
-import org.apache.spark.sql.AnalysisException
+import org.apache.spark.sql.{AnalysisException, GlobalSapSQLContext}
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
-import org.apache.spark.sql.catalyst.plans.logical.{SelectUsing, UnresolvedSelectUsing}
+import org.apache.spark.sql.catalyst.plans.logical.{Statistics, SelectUsing, UnresolvedSelectUsing}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 
-class ResolveSelectUsingSuite extends FunSuite {
+class ResolveSelectUsingSuite extends FunSuite with GlobalSapSQLContext {
 
   def testWithMockedSource(block: => Unit): Unit = {
     DefaultSource.withMock{ defaultSource =>
@@ -84,6 +84,19 @@ class ResolveSelectUsingSuite extends FunSuite {
       val resolvedPlan = ResolveSelectUsing(analyzer).apply(unresolvedPlan)
 
       assert(resolvedPlan == SelectUsing(rawSqlString, className, Seq.empty))
+    }
+  }
+
+  test("Resolved select with has 'statistics'") {
+    testWithMockedSource {
+      val unresolvedPlan = UnresolvedSelectUsing(rawSqlString, className,
+        Some(Seq.empty))
+      val analyzer = mock(classOf[Analyzer])
+
+      val resolvedPlan = ResolveSelectUsing(analyzer).apply(unresolvedPlan)
+
+      // the 'statistics' call would throw if not implemented!
+      assert(resolvedPlan.statistics.isInstanceOf[Statistics])
     }
   }
 }

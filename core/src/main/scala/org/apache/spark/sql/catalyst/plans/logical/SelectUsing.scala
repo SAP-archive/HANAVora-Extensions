@@ -1,4 +1,6 @@
 package org.apache.spark.sql.catalyst.plans.logical
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.types.StructField
 
@@ -13,6 +15,16 @@ case class SelectUsing(
   extends LeafNode {
 
   override lazy val resolved = true
+
+  @transient override lazy val statistics: Statistics = Statistics(
+    /**
+      * TODO: Instead of returning a default value here, find a way to return a meaningful size
+      *
+      * until now: we set it to larger than `spark.sql.autoBroadcastJoinThreshold` to be sure that
+      * those tables are _not_ broadcasted during a join (which is not suitable for large tables)
+      */
+    sizeInBytes = BigInt(SQLContext.getOrCreate(SparkContext.getOrCreate()).conf.defaultSizeInBytes)
+  )
 }
 
 /**
