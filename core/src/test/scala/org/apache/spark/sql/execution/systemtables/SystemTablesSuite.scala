@@ -139,6 +139,37 @@ class SystemTablesSuite
         "VIEW",
         ReferenceDependency.id))(dependencies)
   }
+
+  test("Projection of system tables works correctly (bug 114354)") {
+    withMock { dataSource =>
+      when(dataSource.getRelations(any[SQLContext], any[Map[String, String]]))
+        .thenReturn(
+          new dataSource.RelationInfo("t1", false, "TABLE", None) ::
+            new dataSource.RelationInfo("t2", true, "TABLE", None) ::
+            new dataSource.RelationInfo("v1", true, "VIEW", None) ::
+            new dataSource.RelationInfo("v2", true, "VIEW", None) :: Nil)
+
+      val result1 = sqlc
+        .sql("SELECT TABLE_NAME FROM SYS.TABLES USING com.sap.spark.dsmock").collect()
+      assertResult(Set(Row("t1"), Row("t2"), Row("v1"), Row("v2")))(result1.toSet)
+      val result2 = sqlc
+        .sql("SELECT TABLE_NAME, KIND FROM SYS.TABLES using com.sap.spark.dsmock").collect()
+      assertResult(Set(Row("t1", "TABLE"), Row("t2", "TABLE"),
+        Row("v1", "VIEW"), Row("v2", "VIEW")))(result2.toSet)
+      val result3 = sqlc
+        .sql("SELECT TABLE_NAME AS test, KIND FROM SYS.TABLES USING com.sap.spark.dsmock").collect()
+      assertResult(Set(Row("t1", "TABLE"), Row("t2", "TABLE"),
+        Row("v1", "VIEW"), Row("v2", "VIEW")))(result3.toSet)
+      val result4 = sqlc
+        .sql("SELECT * FROM SYS.TABLES USING com.sap.spark.dsmock WHERE TABLE_NAME LIKE \"t1\"")
+        .collect()
+      assertResult(Set(Row("t1", "FALSE", "TABLE", "com.sap.spark.dsmock")))(result4.toSet)
+      val result5 = sqlc
+        .sql("SELECT * FROM SYS.TABLES USING com.sap.spark.dsmock LIMIT 1").collect()
+      assertResult(Set(Row("t1", "FALSE", "TABLE", "com.sap.spark.dsmock")))(result5.toSet)
+    }
+  }
+
 }
 
 object SystemTablesSuite {

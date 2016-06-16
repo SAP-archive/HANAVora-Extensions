@@ -2,7 +2,7 @@ package org.apache.spark.sql.execution
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.analysis.systables.SystemTable
-import org.apache.spark.sql.{Row, Strategy}
+import org.apache.spark.sql.Strategy
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -14,7 +14,7 @@ import org.apache.spark.sql.extension.ExtendedPlanner
   * @param planner The [[ExtendedPlanner]].
   */
 case class SystemTablesStrategy(planner: ExtendedPlanner) extends Strategy {
-  override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan flatMap {
+  override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
     case s: SystemTable =>
       PhysicalSystemTable(s) :: Nil
     case _ => Nil
