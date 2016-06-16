@@ -29,3 +29,21 @@ class OutputFormatter(val inputValues: Any*) {
   }
 }
 
+object OutputFormatter {
+
+  /**
+    * Returns a map with `null -> null` in case the given map is empty, else the given map.
+    *
+    * @param map The map to check and return.
+    * @tparam K The key type.
+    * @tparam V The value type.
+    * @return `Map(null -> null)` if the given map was empty, else the given map.
+    */
+  def toNonEmptyMap[K, V](map: Map[K, V]): Map[K, V] =
+    if (map.isEmpty) {
+      Map((null.asInstanceOf[K], null.asInstanceOf[V]))
+    } else {
+      map
+    }
+}
+

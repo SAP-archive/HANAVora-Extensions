@@ -34,6 +34,10 @@ class DefaultSource
 
   val underlying: DefaultSource = DefaultSource.currentMock
 
+  override def getSchemas(sqlContext: SQLContext,
+                          options: Map[String, String]): Map[RelationKey, SchemaDescription] =
+    underlying.getSchemas(sqlContext, options)
+
   override def getTableMetadata(sqlContext: SQLContext,
                                 options: Map[String, String]): Seq[TableMetadata] =
     underlying.getTableMetadata(sqlContext, options)

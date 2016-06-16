@@ -18,6 +18,11 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   with DatasourceCatalog
   with PartitioningFunctionProvider {
 
+
+  override def getSchemas(sqlContext: SQLContext,
+                          options: Map[String, String]): Map[RelationKey, SchemaDescription] =
+    Map.empty
+
   override def createHashPartitioningFunction(sqlContext: SQLContext,
                                               parameters: Map[String, String],
                                               name: String,

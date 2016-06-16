@@ -1,19 +1,21 @@
 package org.apache.spark.sql.execution.systemtables
 
-import org.apache.spark.sql.{GlobalSapSQLContext, Row, SQLContext}
 import com.sap.spark.dsmock.DefaultSource._
-import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.catalyst.plans.logical._
-import org.mockito.Mockito._
-import org.mockito.Matchers._
-import org.scalatest.FunSuite
-import SystemTablesSuite._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.analysis.systables.DependenciesSystemTable.ReferenceDependency
 import org.apache.spark.sql.catalyst.analysis.systables._
+import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
-import org.apache.spark.sql.sources.TableMetadata
+import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
+import org.apache.spark.sql.sources.commands.Table
+import org.apache.spark.sql.sources.{RelationKey, SchemaDescription, SchemaField, TableMetadata}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{GlobalSapSQLContext, Row, SQLContext}
+import org.mockito.Matchers._
+import org.mockito.Mockito._
+import org.scalatest.FunSuite
 
 /**
   * Test suites for system tables.
@@ -21,6 +23,87 @@ import org.apache.spark.sql.sources.TableMetadata
 class SystemTablesSuite
   extends FunSuite
   with GlobalSapSQLContext {
+
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    sqlc.catalog.unregisterAllTables()
+  }
+
+  val schema = StructType(
+    StructField(
+      "foo",
+      StringType,
+      nullable = false,
+      new MetadataBuilder().putString("meta", "data").build()) ::
+    StructField(
+      "bar",
+      IntegerType,
+      nullable = true) :: Nil
+  )
+
+  private def toSchemaField(structField: StructField, customType: String): SchemaField =
+    SchemaField(
+      structField.name,
+      customType,
+      structField.nullable,
+      Some(structField.dataType),
+      MetadataAccessor.metadataToMap(structField.metadata))
+
+  val schemaFields = schema.map { field =>
+    field.dataType match {
+      case StringType => toSchemaField(field, "CUSTOM-String")
+      case IntegerType => toSchemaField(field, "CUSTOM-Integer")
+    }
+  }
+
+  test("SELECT from SCHEMAS system table with local spark is also aware of views") {
+    val table = DummyTable(schema)
+    sqlc.registerRawPlan(table, "tab")
+    sqlc.sql(
+      """CREATE VIEW v AS
+        |SELECT foo as vFoo @ (meta = 'morph'),
+        |bar as vBar @ (meta = 'data')
+        |FROM tab""".stripMargin)
+
+    val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS").collect()
+    // scalastyle:off magic.number
+    assertResult(Set(
+      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data"),
+      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null),
+      Row(null, "tab", "vFoo", 1, false, "string", "string", null, null, null, "meta", "morph"),
+      Row(null, "tab", "vBar", 2, true, "int", "int", 32, 2, 0, "meta", "data")
+    ))(values.toSet)
+    // scalastyle:on magic.number
+  }
+
+  test("SELECT from SCHEMAS system table with local spark returns spark catalog data") {
+    val table = DummyTable(schema)
+    sqlc.registerRawPlan(table, "tab")
+
+    val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS").collect()
+    // scalastyle:off magic.number
+    assertResult(Set(
+      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data"),
+      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null)
+    ))(values.toSet)
+    // scalastyle:on magic.number
+  }
+
+  test("SELECT from SCHEMAS system table with target provider returns formatted data") {
+    withMock { dataSource =>
+      when(dataSource.getSchemas(any[SQLContext], any[Map[String, String]]))
+        .thenReturn(Map(RelationKey("tab") -> SchemaDescription(Table, schemaFields)))
+
+      val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS USING com.sap.spark.dsmock").collect()
+      // scalastyle:off magic.number
+      assertResult(Set(
+        Row(null, "tab", "foo", 1, false, "CUSTOM-String", "string", null, null, null,
+          "meta", "data"),
+        Row(null, "tab", "bar", 2, true, "CUSTOM-Integer", "int", 32, 2, 0, null, null)
+      ))(values.toSet)
+      // scalastyle:on magic.number
+    }
+  }
 
   test("Select from TABLE_METADATA system table returns table metadata") {
     withMock { dataSource =>
@@ -173,6 +256,10 @@ class SystemTablesSuite
 }
 
 object SystemTablesSuite {
+  case class DummyTable(structType: StructType) extends LeafNode {
+    override val output: Seq[Attribute] = structType.toAttributes
+  }
+
   case object DummyPlan extends LeafNode {
     override def output: Seq[Attribute] = Seq.empty
   }

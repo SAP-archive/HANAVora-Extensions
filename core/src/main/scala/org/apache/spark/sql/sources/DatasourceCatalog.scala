@@ -47,4 +47,15 @@ trait DatasourceCatalog {
     * @deprecated (YH) please use ''getRelations'' method.
     */
   def getTableNames(sqlContext: SQLContext, parameters: Map[String, String]): Seq[String]
+
+  /**
+    * Retrieves the schemas of the tables of this provider.
+    *
+    * @param sqlContext The [[SQLContext]].
+    * @param options The options.
+    * @return A mapping of relations and their [[SchemaDescription]]s.
+    */
+  def getSchemas(sqlContext: SQLContext,
+                 options: Map[String, String]): Map[RelationKey, SchemaDescription] = Map.empty
+
 }

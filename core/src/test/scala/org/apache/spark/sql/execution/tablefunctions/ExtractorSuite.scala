@@ -43,13 +43,13 @@ class ExtractorSuite extends FunSuite {
   }
 
   test("annotations with no checking for star") {
-    val extractor = new AnnotationsExtractor(metadata, checkStar = false)
+    val extractor = AnnotationsExtractor(metadata, checkStar = false)
 
     assert(extractor.annotations == annotations)
   }
 
   test("annotations with checking for star") {
-    val extractor = new AnnotationsExtractor(metadata, checkStar = true)
+    val extractor = AnnotationsExtractor(metadata, checkStar = true)
 
     assert(extractor.annotations == annotations - "*")
   }
