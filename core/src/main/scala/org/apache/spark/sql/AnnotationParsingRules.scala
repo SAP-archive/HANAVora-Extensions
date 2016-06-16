@@ -12,7 +12,7 @@ import org.apache.spark.unsafe.types.UTF8String
 private[sql] trait AnnotationParsingRules extends AbstractSparkSQLParser {
 
   // we want to use SqlLexical which offers more options compared to standard one.
-  override val lexical = new SqlLexical
+  override val lexical = new VoraSqlLexical
 
   lexical.delimiters += "?"
 

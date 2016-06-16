@@ -6,10 +6,10 @@ import org.apache.spark.sql.types.StructField
   * Class representing a direct sql call to a datasource implementing raw SQL interface
   * [[org.apache.spark.sql.sources.RawSqlSourceProvider]]
   */
-case class SelectWith(
-                       sqlCommand: String,
-                       className: String,
-                       output: Seq[Attribute])
+case class SelectUsing(
+    sqlCommand: String,
+    className: String,
+    output: Seq[Attribute])
   extends LeafNode {
 
   override lazy val resolved = true
@@ -17,15 +17,18 @@ case class SelectWith(
 
 /**
   * Unresolved representation, will be resolved by the Analyzer rule
-  * [[org.apache.spark.sql.catalyst.analysis.ResolveSelectWith]]
+  * [[org.apache.spark.sql.catalyst.analysis.ResolveSelectUsing]]
   *
-  * @param sqlCommand
-  * @param className
+  * @param sqlCommand the raw SQL string to execute
+  * @param className the name of the data source
   * @param fields if None, the schema gets inferred from the data source, if set, it is assumed to
   *               be the correct schema
   */
-case class UnresolvedSelectWith(sqlCommand: String, className: String,
-                                fields: Option[Seq[StructField]] = None) extends LeafNode {
+case class UnresolvedSelectUsing(
+    sqlCommand: String,
+    className: String,
+    fields: Option[Seq[StructField]] = None)
+  extends LeafNode {
 
   override def output: Seq[Attribute] = Nil
 

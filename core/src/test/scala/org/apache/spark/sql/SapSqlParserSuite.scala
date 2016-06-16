@@ -68,25 +68,25 @@ class SapSqlParserSuite
   val rawSqlString = "SELECT something bla FROM A"
   val className = "class.name"
 
-  test ("RAW SQL: 'select ....' WITH class.name") {
-    // ('SQL COMMANDO FROM A' WITH com.sap.spark.engines) JOIN SELECT * FROM X
-    assert(SapSqlParser.parse(s"'$rawSqlString' WITH $className")
-      .equals(UnresolvedSelectWith(rawSqlString, className)))
+  test ("RAW SQL: ``select ....`` USING class.name") {
+    // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
+    assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className")
+      .equals(UnresolvedSelectUsing(rawSqlString, className)))
   }
 
-  test ("RAW SQL: 'select ....' WITH class.name AS (schema)") {
+  test ("RAW SQL: ``select ....`` USING class.name AS (schema)") {
     val schema = "(a integer, b double)"
     val schemaFields = Seq(StructField("a", IntegerType), StructField("b", DoubleType))
 
-    // ('SQL COMMANDO FROM A' WITH com.sap.spark.engines) JOIN SELECT * FROM X
-    assert(SapSqlParser.parse(s"'$rawSqlString' WITH $className AS $schema")
-      .equals(UnresolvedSelectWith(rawSqlString, className, Some(schemaFields))))
+    // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
+    assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className AS $schema")
+      .equals(UnresolvedSelectUsing(rawSqlString, className, Some(schemaFields))))
   }
 
-  test ("RAW SQL: 'select ....' WITH class.name AS () - empty schema") {
-    // ('SQL COMMANDO FROM A' WITH com.sap.spark.engines) JOIN SELECT * FROM X
-    assert(SapSqlParser.parse(s"'$rawSqlString' WITH $className AS ()")
-      .equals(UnresolvedSelectWith(rawSqlString, className, Some(Seq.empty))))
+  test ("RAW SQL: ``select ....`` USING class.name AS () - empty schema") {
+    // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
+    assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className AS ()")
+      .equals(UnresolvedSelectUsing(rawSqlString, className, Some(Seq.empty))))
   }
 
   test("parse system table") {

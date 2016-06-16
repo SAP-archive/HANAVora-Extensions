@@ -1,16 +1,16 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.{SQLContext, Strategy}
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, SelectWith}
+import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, SelectUsing}
 import org.apache.spark.sql.execution.{PhysicalRDD, RDDConversions, SparkPlan}
 import org.apache.spark.sql.sources.RawSqlSourceProvider
 
 /**
-  * Translates [[org.apache.spark.sql.catalyst.plans.logical.SelectWith]] into a physical plan
+  * Translates [[org.apache.spark.sql.catalyst.plans.logical.SelectUsing]] into a physical plan
   */
 private[sql] object RawSqlSourceStrategy extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    case SelectWith(sqlCommand, className, attributes) => {
+    case SelectUsing(sqlCommand, className, attributes) => {
       // 1. instantiate "class name" which is the provider
       val dataSource: Any = ResolvedDataSource.lookupDataSource(className).newInstance()
 

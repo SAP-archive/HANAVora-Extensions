@@ -4,11 +4,11 @@ import com.sap.spark.dsmock.DefaultSource
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, ExprId}
-import org.apache.spark.sql.catalyst.plans.logical.SelectWith
+import org.apache.spark.sql.catalyst.plans.logical.SelectUsing
 import org.apache.spark.sql.execution.datasources.RawSqlSourceStrategy
 import org.apache.spark.sql.execution.{PhysicalRDD, SparkPlan}
 import org.apache.spark.sql.types.{IntegerType, StringType}
-import org.apache.spark.sql.{GlobalSapSQLContext, Row}
+import org.apache.spark.sql.{GlobalSapSQLContext, Row, SapParserException}
 import org.apache.spark.{OneToOneDependency, Partition, SparkContext, TaskContext}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -37,7 +37,7 @@ class RawSqlSourceStrategySuite extends FunSuite
 
   test("(Physical) Strategy transforms correctly") {
     testWithMockedSource {
-      val logicalPlan = SelectWith(sqlCommand, className, attributes)
+      val logicalPlan = SelectUsing(sqlCommand, className, attributes)
 
       val physicalPlan: SparkPlan = RawSqlSourceStrategy.apply(logicalPlan).head
 
@@ -51,20 +51,22 @@ class RawSqlSourceStrategySuite extends FunSuite
 
   test("Error is thrown if data source does not implement the RawSqlProvider Interface"){
     testWithMockedSource {
-      val logicalPlan = SelectWith(sqlCommand, "none.existant.class", attributes)
+      val logicalPlan = SelectUsing(sqlCommand, "none.existant.class", attributes)
 
       intercept[ClassNotFoundException](RawSqlSourceStrategy.apply(logicalPlan).head)
     }
   }
 
+
   /**
     * This test is supposed to test the 'full stack' from parsing, over physical planning
     */
-  test("RawSQL test with Parsing, Logcial Plan, and Physical Planning without specified schema"){
+  test(s"RawSQL test with Parsing, Logcial Plan, and Physical Planning without specified " +
+    s"schema. Left Delimiter ``, Right Delimiter ``"){
     testWithMockedSource {
-      val df = sqlc.sql(s"""'${sqlCommand}' WITH ${className}""")
+      val df = sqlc.sql(s"""``${sqlCommand}`` USING ${className}""")
 
-      assert(df.logicalPlan == SelectWith(sqlCommand, className, attributes))
+      assert(df.logicalPlan == SelectUsing(sqlCommand, className, attributes))
 
       checkPhysicalPlan(df.queryExecution.executedPlan,
         "org.apache.spark.sql.sources.RawSqlSourceStrategySuite.DummyRDD",
@@ -74,16 +76,17 @@ class RawSqlSourceStrategySuite extends FunSuite
     }
   }
 
-  test("RawSQL test with Parsing, Logcial Plan, and Physical Planning with specified schema"){
+  test(s"RawSQL test with Parsing, Logcial Plan, and Physical Planning with specified schema." +
+    s" Left Delimiter ``, Right Delimiter ``"){
     testWithMockedSource {
-      val df = sqlc.sql(s"""'${sqlCommand}' WITH ${className} AS (a integer)""")
+      val df = sqlc.sql(s"""``${sqlCommand}`` USING ${className}""")
 
-      assert(df.logicalPlan.isInstanceOf[SelectWith])
-      val selectWith = df.logicalPlan.asInstanceOf[SelectWith]
-      assert(selectWith.sqlCommand == sqlCommand)
-      assert(selectWith.className == className)
-      assert(selectWith.output.head.name == "a"
-        && selectWith.output.head.dataType == IntegerType)
+      assert(df.logicalPlan.isInstanceOf[SelectUsing])
+      val selectUsing = df.logicalPlan.asInstanceOf[SelectUsing]
+      assert(selectUsing.sqlCommand == sqlCommand)
+      assert(selectUsing.className == className)
+      assert(selectUsing.output.head.name == "a"
+        && selectUsing.output.head.dataType == IntegerType)
 
       checkPhysicalPlan(df.queryExecution.executedPlan,
         "org.apache.spark.sql.sources.RawSqlSourceStrategySuite.DummyRDD",
@@ -96,18 +99,26 @@ class RawSqlSourceStrategySuite extends FunSuite
     }
   }
 
-  test("RawSQL test with Parsing, Logcial Plan, and Physical Planning with specified " +
-    "but empty schema"){
+  test(s"RawSQL test with Parsing, Logcial Plan, and Physical Planning with specified " +
+    s"but empty schema. Left Delimiter ``, Right Delimiter ``"){
     testWithMockedSource {
-      val df = sqlc.sql(s"""'${sqlCommand}' WITH ${className} AS ()""")
+      val df = sqlc.sql(s"""``${sqlCommand}`` USING ${className} AS ()""")
 
-      assert(df.logicalPlan == SelectWith(sqlCommand, className, Seq.empty))
+      assert(df.logicalPlan == SelectUsing(sqlCommand, className, Seq.empty))
 
       checkPhysicalPlan(df.queryExecution.executedPlan,
         "org.apache.spark.sql.sources.RawSqlSourceStrategySuite.DummyRDD",
         (rdd => rdd.asInstanceOf[DummyRDD].sqlCommand),
         sqlCommand,
         Seq.empty)
+    }
+  }
+
+  test("RawSQL with only one ` should fail!") {
+    testWithMockedSource {
+      intercept[SapParserException]{
+        val df = sqlc.sql(s"""`${sqlCommand}` USING ${className} AS ()""")
+      }
     }
   }
 

@@ -95,7 +95,7 @@ with AnnotationParsingRules{
    * Overriden to hook [[createView]] parser.
    */
   override protected lazy val start: Parser[LogicalPlan] =
-    selectWith | start1 | insert | cte | createView | describeTable
+    selectUsing | start1 | insert | cte | createView | describeTable
 
   /**
    * Overriden to hook [[hierarchy]] parser.
@@ -306,15 +306,19 @@ with AnnotationParsingRules{
     */
   protected lazy val className: Parser[String] = repsep(ident, ".") ^^ { case s => s.mkString(".")}
 
+  /** A parser which matches a raw sql literal */
+  def rawSqlLit: Parser[String] =
+    elem("raw sql literal", _.isInstanceOf[lexical.RawSqlLiteral]) ^^ (_.chars)
+
   /**
     * Parses RAW Sql, i.e., sql we do not parse but pass directly to an appropriate datasource
     *
     * Example: "some engine specifc syntax" WITH com.sap.spark.engines
     *
      */
-  protected lazy val selectWith: Parser[LogicalPlan] =
-    (stringLit) ~ (WITH ~> (className)) ~ (AS ~> tableCols).? ^^ {
-      case s ~ c ~ a => UnresolvedSelectWith(s, c, a)
+  protected lazy val selectUsing: Parser[LogicalPlan] =
+    rawSqlLit ~ (USING ~> className) ~ (AS ~> tableCols).? ^^ {
+      case s ~ c ~ a => UnresolvedSelectUsing(s, c, a)
   }
 
   /**
