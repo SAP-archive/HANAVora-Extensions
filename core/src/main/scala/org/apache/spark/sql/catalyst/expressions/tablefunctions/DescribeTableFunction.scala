@@ -6,31 +6,15 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.tablefunctions.{LogicalPlanExtractor, OutputFormatter}
 import org.apache.spark.sql.extension.ExtendedPlanner
+import org.apache.spark.sql.sources.sql.SqlBuilder
 
 /** A function that describes the given argument in form of a table. */
-class DescribeTableFunction extends TableFunction {
+class DescribeTableFunction extends DescribeTableFunctionBase {
   override def apply(planner: ExtendedPlanner)
                     (arguments: Seq[Any]): Seq[SparkPlan] = arguments match {
     case Seq(plan: LogicalPlan) =>
-      val extractor = new LogicalPlanExtractor(plan)
-      val data = extractor.columns.flatMap { column =>
-        new OutputFormatter(
-          extractor.tableSchema,
-          column.tableName,
-          column.name,
-          column.index,
-          column.isNullable,
-          column.dataType,
-          column.numericPrecision,
-          column.numericPrecisionRadix,
-          column.numericScale,
-          column.nonEmptyAnnotations).format()
-      }
-      createOutputPlan(data) :: Nil
+      execute(plan)
 
     case _ => throw new IllegalArgumentException("Wrong number of arguments given (1 required)")
   }
-
-  override def output: Seq[Attribute] = DescribeTableStructure.output
 }
-

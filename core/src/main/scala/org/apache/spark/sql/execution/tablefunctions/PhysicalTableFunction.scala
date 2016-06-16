@@ -23,22 +23,21 @@ trait PhysicalTableFunction extends SparkPlan {
     */
   override protected def doExecute(): RDD[InternalRow] = {
     val values = this.run()
-    val enforcer = new SchemaEnforcer(output)
 
     // This step makes sure that values corresponding to the schema are returned.
-    val enforced = enforcer.enforce(values)
-    val converted = convert(enforced)
+    val rows = values.map(Row.fromSeq)
+    val converted = convert(rows)
     sparkContext.parallelize(converted)
   }
 
   /** Converts the given rows to [[org.apache.spark.rdd.RDD]]s using the specified schema.
     *
-    * @param values The values to convert
+    * @param rows The rows to convert
     * @return The converted [[RDD]]s
     */
-  protected def convert(values: Seq[Seq[Any]]): Seq[InternalRow] = {
+  protected def convert(rows: Seq[Row]): Seq[InternalRow] = {
     val converter = CatalystTypeConverters.createToCatalystConverter(schema)
                                           .andThen(_.asInstanceOf[InternalRow])
-    values.map(value => converter(Row(value:_*)))
+    rows.map(converter)
   }
 }

@@ -3,7 +3,6 @@ package org.apache.spark.sql.execution
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.tablefunctions.{LogicalPlanExtractor, OutputFormatter}
-import org.apache.spark.sql.sources.sql.SqlBuilder
 import org.apache.spark.sql.types._
 
 /**
@@ -16,8 +15,6 @@ import org.apache.spark.sql.types._
 private[sql]
 case class DescribeRunnableCommand(plan: LogicalPlan) extends RunnableCommand {
 
-  lazy val sqlBuilder = new SqlBuilder
-
   override val output = StructType(
       StructField("NAME", StringType, nullable = false) ::
       StructField("POSITION", IntegerType, nullable = false) ::
@@ -29,11 +26,17 @@ case class DescribeRunnableCommand(plan: LogicalPlan) extends RunnableCommand {
   override def run(sqlContext: SQLContext): Seq[Row] = {
     val extractor = new LogicalPlanExtractor(plan)
     extractor.columns.flatMap { column =>
+      val nonEmptyAnnotations =
+        if (column.annotations.isEmpty) {
+          Map((null, null))
+        } else {
+          column.annotations
+        }
       new OutputFormatter(
         column.name,
         column.index - 1, // OLAP_DESCRIBE expects indices to start with 0
-        column.dataType,
-        column.nonEmptyAnnotations).format().map(Row.fromSeq)
+        column.inferredVoraType,
+        nonEmptyAnnotations).format().map(Row.fromSeq)
     }
   }
 }
