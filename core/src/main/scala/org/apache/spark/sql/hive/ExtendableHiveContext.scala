@@ -92,7 +92,8 @@ private[hive] class ExtendableHiveContext(
   override protected[sql] lazy val optimizer: Optimizer =
     new ExtendableOptimizer(
       earlyBatches = optimizerEarlyBatches,
-      mainBatchRules = optimizerMainBatchRules
+      mainBatchRules = optimizerMainBatchRules,
+      postBatches = optimizerPostBatches
     )
 
   @transient

@@ -11,7 +11,8 @@ import org.apache.spark.sql.catalyst.rules.Rule
   * @param mainBatchRules Rules to include in the main optimizer batch (e.g. constant folding).
   */
 private[sql] class ExtendableOptimizer(earlyBatches: Seq[ExtendableOptimizerBatch] = Nil,
-                                       mainBatchRules: Seq[Rule[LogicalPlan]] = Nil)
+                                       mainBatchRules: Seq[Rule[LogicalPlan]] = Nil,
+                                       postBatches: Seq[ExtendableOptimizerBatch] = Nil)
   extends Optimizer {
 
   /** Batches from [[DefaultOptimizer]] (Spark defaults). */
@@ -19,6 +20,8 @@ private[sql] class ExtendableOptimizer(earlyBatches: Seq[ExtendableOptimizerBatc
 
   /** Batches to be preprended based on [[earlyBatches]]. */
   private val preMainBatches = earlyBatches map extendedBatchToInternalBatch
+
+  private val postAllBatches = postBatches map extendedBatchToInternalBatch
 
   /** Name of the batch to be considered the main one. This varies with the Spark version. */
   private val mainOptimizationsBatchName = "Operator Optimizations"
@@ -29,7 +32,8 @@ private[sql] class ExtendableOptimizer(earlyBatches: Seq[ExtendableOptimizerBatc
       case removeSubQueriesBatch :: otherBatches =>
         removeSubQueriesBatch ::
           preMainBatches.toList ++
-            appendToBatch(mainOptimizationsBatchName, otherBatches, mainBatchRules)
+            appendToBatch(mainOptimizationsBatchName, otherBatches, mainBatchRules) ++
+            postAllBatches
       case otherBatches =>
         sys.error("Impossible to add the extended optimizer rules")
     }

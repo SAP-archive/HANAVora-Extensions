@@ -39,6 +39,8 @@ private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
 
   override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] = Nil
 
+  override protected def optimizerPostBatches: List[ExtendableOptimizerBatch] = Nil
+
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] = Nil
 
   /** Default copied from Spark code base. */

@@ -83,7 +83,8 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
   override protected[sql] lazy val optimizer: Optimizer =
     new ExtendableOptimizer(
       earlyBatches = optimizerEarlyBatches,
-      mainBatchRules = optimizerMainBatchRules
+      mainBatchRules = optimizerMainBatchRules,
+      postBatches = optimizerPostBatches
     )
 
   /**

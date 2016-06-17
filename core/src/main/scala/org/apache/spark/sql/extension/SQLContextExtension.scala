@@ -47,6 +47,8 @@ private[sql] trait SQLContextExtension {
     */
   protected def optimizerMainBatchRules: List[Rule[LogicalPlan]]
 
+  protected def optimizerPostBatches: List[ExtendableOptimizerBatch]
+
   /**
    * Additional planning strategies.
    *
