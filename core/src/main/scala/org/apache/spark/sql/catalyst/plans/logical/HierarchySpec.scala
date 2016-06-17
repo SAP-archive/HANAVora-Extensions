@@ -9,7 +9,7 @@ import org.apache.spark.sql.types.DataType
 /**
   * Defines the hierarchy specification.
   */
-private[sql] sealed abstract class HierarchySpec extends UnaryNode {
+sealed abstract class HierarchySpec extends UnaryNode {
 
   /**
     * The start where clause.
@@ -74,11 +74,11 @@ private[sql] sealed abstract class HierarchySpec extends UnaryNode {
   * @param startWhere Start where clause.
   * @param orderBy Order by clause.
   */
-private[sql] case class AdjacencyListHierarchySpec(source:LogicalPlan,
-                                                   childAlias: String,
-                                                   parenthoodExp: Expression,
-                                                   startWhere: Option[Expression],
-                                                   orderBy: Seq[SortOrder]) extends HierarchySpec {
+case class AdjacencyListHierarchySpec(source:LogicalPlan,
+                                      childAlias: String,
+                                      parenthoodExp: Expression,
+                                      startWhere: Option[Expression],
+                                      orderBy: Seq[SortOrder]) extends HierarchySpec {
 
   /**
     * @inheritdoc
@@ -129,11 +129,11 @@ private[sql] case class AdjacencyListHierarchySpec(source:LogicalPlan,
   * @param startWhere Start where clause.
   * @param orderBy Order by clause.
   */
-private[sql] case class LevelBasedHierarchySpec(source: LogicalPlan,
-                                                levels: Seq[Expression],
-                                                startWhere: Option[Expression],
-                                                orderBy: Seq[SortOrder],
-                                                matcher: LevelMatcher) extends HierarchySpec {
+case class LevelBasedHierarchySpec(source: LogicalPlan,
+                                   levels: Seq[Expression],
+                                   startWhere: Option[Expression],
+                                   orderBy: Seq[SortOrder],
+                                   matcher: LevelMatcher) extends HierarchySpec {
 
   /**
     * @inheritdoc

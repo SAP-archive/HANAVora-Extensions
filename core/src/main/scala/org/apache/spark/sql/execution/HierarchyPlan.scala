@@ -3,8 +3,8 @@ package org.apache.spark.sql.execution
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst._
-import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.catalyst.plans.logical.{AdjacencyListHierarchySpec, HierarchySpec, LevelBasedHierarchySpec}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
+import org.apache.spark.sql.catalyst.plans.logical.LevelMatcher
 import org.apache.spark.sql.hierarchy._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.RddUtils
@@ -13,23 +13,14 @@ import org.apache.spark.sql.util.RddUtils
   * The hierarchy execution.
   *
   * @param child The child plan.
-  * @param spec The hierarchy spec.
   * @param node The node attribute of the output hierarchy table.
   */
-private[sql] case class HierarchyPlan(child: SparkPlan, spec: HierarchySpec, node: Attribute)
+private[sql] abstract class HierarchyPlan(child: SparkPlan, node: Attribute)
   extends UnaryNode {
 
-  private lazy val builder: HierarchyBuilder[Row, Row] = spec match {
-    case AdjacencyListHierarchySpec(_, _, parenthoodExp, startWhere, orderBy) =>
-      HierarchyRowBroadcastBuilder(child.output, parenthoodExp, startWhere, orderBy)
-    case LevelBasedHierarchySpec(_, levels, startWhere, orderBy, matcher) =>
-      HierarchyRowLevelBasedBuilder(
-        child.output,
-        levels,
-        startWhere,
-        orderBy,
-        matcher)
-  }
+  protected val builder: HierarchyBuilder[Row, Row]
+
+  protected val pathDataType: DataType
 
   override def output: Seq[Attribute] = child.output :+ node
 
@@ -40,7 +31,7 @@ private[sql] case class HierarchyPlan(child: SparkPlan, spec: HierarchySpec, nod
     val mappedRDD = RddUtils.rowRddToRdd(rdd, child.schema)
 
     /** Build the hierarchy */
-    val resultRdd = builder.buildHierarchyRdd(mappedRDD, spec.pathDataType)
+    val resultRdd = builder.buildHierarchyRdd(mappedRDD, pathDataType)
 
     val cachedResultRdd = resultRdd.cache()
 
@@ -52,4 +43,38 @@ private[sql] case class HierarchyPlan(child: SparkPlan, spec: HierarchySpec, nod
 
     resultInternalRdd
   }
+}
+
+private[sql] case class AdjacencyListHierarchyPlan(child: SparkPlan,
+                                                   parenthoodExp: Expression,
+                                                   startWhere: Option[Expression],
+                                                   orderBy: Seq[SortOrder],
+                                                   node: Attribute,
+                                                   dataType: DataType)
+  extends HierarchyPlan(child, node) {
+
+  override protected val builder: HierarchyBuilder[Row, Row] =
+      HierarchyRowBroadcastBuilder(child.output, parenthoodExp, startWhere, orderBy)
+
+  override protected val pathDataType = dataType
+}
+
+private[sql] case class LevelHierarchyPlan(child: SparkPlan,
+                                           levels: Seq[Expression],
+                                           startWhere: Option[Expression],
+                                           orderBy: Seq[SortOrder],
+                                           matcher: LevelMatcher,
+                                           node: Attribute,
+                                           dataType: DataType)
+  extends HierarchyPlan(child, node) {
+
+  override protected val builder: HierarchyBuilder[Row, Row] =
+    HierarchyRowLevelBasedBuilder(
+      child.output,
+      levels,
+      startWhere,
+      orderBy,
+      matcher)
+
+  override protected val pathDataType = dataType
 }
