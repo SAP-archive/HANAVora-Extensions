@@ -57,9 +57,10 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
       ExecutedCommand(cmd) :: Nil
     case DescribeTableUsingCommand(provider, name, options) =>
       ExecutedCommand(DescribeTableUsingRunnableCommand(provider, name, options)) :: Nil
-    case RawDDLCommand(identifier, objectType, statementType, sqlCommand, provider, options) =>
+    case RawDDLCommand(
+      identifier, objectType, statementType, sparkSchema, sqlCommand, provider, options) =>
       ExecutedCommand(RawDDLRunnableCommand(
-        identifier, objectType, statementType, sqlCommand, provider, options)) :: Nil
+        identifier, objectType, statementType, sparkSchema, sqlCommand, provider, options)) :: Nil
     case _ => Nil
   }).headOption.toSeq
   // scalastyle:on cyclomatic.complexity

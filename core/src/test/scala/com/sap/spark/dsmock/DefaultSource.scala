@@ -202,6 +202,7 @@ class DefaultSource
   override def executeDDL(identifier: String,
                           objectType: RawDDLObjectType,
                           statementType: RawDDLStatementType,
+                          sparkSchema: Option[StructType],
                           ddlCommand: String,
                           options: Map[String, String]): Unit = {}
 }

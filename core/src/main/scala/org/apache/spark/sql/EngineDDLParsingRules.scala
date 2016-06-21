@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.{RawDDLStatementType, RawDDLObjectType}
 import org.apache.spark.sql.sources.commands.RawDDLCommand
-import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.types._
 
 /**
   * A parser extension for engine DDL.
@@ -81,6 +81,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.PartitionFunction,
           RawDDLStatementType.Create,
+          None,
           query,
           clazz,
           Map.empty[String, String])
@@ -94,6 +95,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.PartitionScheme,
           RawDDLStatementType.Create,
+          None,
           query,
           clazz,
           Map.empty[String, String])
@@ -108,6 +110,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
               identifier,
               RawDDLObjectType.Graph,
               RawDDLStatementType.Create,
+              None,
               query,
               clazz,
               opts.getOrElse(Map.empty[String, String]))
@@ -122,6 +125,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.Collection,
           RawDDLStatementType.Create,
+          None,
           query,
           clazz,
           opts.getOrElse(Map.empty[String, String]))
@@ -130,11 +134,12 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
   protected lazy val engineSeriesDefinition: Parser[LogicalPlan] =
     seriesDefinition ~ (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
       case series ~ clazz ~ opts =>
-      val (identifier, query) = series
+      val (identifier, query, sparkSchema) = series
           RawDDLCommand(
             identifier,
             RawDDLObjectType.Series,
             RawDDLStatementType.Create,
+            Some(sparkSchema),
             query,
             clazz,
             opts.getOrElse(Map.empty[String, String]))
@@ -147,6 +152,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.Graph,
           RawDDLStatementType.Drop,
+          None,
           s"$drop $graph $identifier",
           clazz,
           Map.empty[String, String])
@@ -159,6 +165,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.Collection,
           RawDDLStatementType.Drop,
+          None,
           s"$drop $graph $identifier",
           clazz,
           Map.empty[String, String])
@@ -171,6 +178,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.Series,
           RawDDLStatementType.Drop,
+          None,
           s"$drop $table $identifier",
           clazz,
           Map.empty[String, String])
@@ -183,6 +191,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.Graph,
           RawDDLStatementType.Append,
+          None,
           "",
           clazz,
           opts)
@@ -195,6 +204,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.Collection,
           RawDDLStatementType.Append,
+          None,
           "",
           clazz,
           opts)
@@ -207,6 +217,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           identifier,
           RawDDLObjectType.Series,
           RawDDLStatementType.Append,
+          None,
           "",
           classname,
           opts)
@@ -245,7 +256,8 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
   protected lazy val partitionFunctionColumnDefinition: Parser[String] =
     ident ~ dataTypeExt ^^ {
       case columnName ~ typ =>
-        s"$columnName $typ"
+        val (typeString, dataType) = typ
+        s"$columnName $typeString"
     }
 
   protected lazy val partitionFunctionIdentifierDefinitionList: Parser[String] =
@@ -362,17 +374,20 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           ).flatten.mkString(" ")
     }
 
-  protected lazy val seriesDefinition: Parser[(String, String)] =
+  protected lazy val seriesDefinition: Parser[(String, String, StructType)] =
     CREATE ~ TABLE ~ (IF ~> NOT <~ EXISTS).? ~ identifierChain ~
       tableColsNoAnnotation ~ seriesClause ~ partitionClause.? ^^ {
       case create ~ table ~ not ~ identifier ~ columns ~ series ~ partition =>
-        identifier ->
+        val (columnString, columnStructType) = columns
+        val ddlString =
           Seq(
             Some("create table"),
             not.map(_ => "if not exists"),
-            Some(s"$identifier $columns $series"),
+            Some(s"$identifier $columnString $series"),
             partition
           ).flatten.mkString(" ")
+
+        (identifier, ddlString, columnStructType)
     }
 
   protected lazy val partitionClause: Parser[String] =
@@ -381,28 +396,45 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
         s"partition by $identifier $brace1 $names $brace2"
     }
 
-  protected lazy val tableColsNoAnnotation: Parser[String] =
+  protected lazy val tableColsNoAnnotation: Parser[(String, StructType)] =
     "(" ~ repsep(columnDataTypeExt, ",") ~ ")" ^^ {
       case brace1 ~ cols ~ brace2 =>
-        s"$brace1 ${cols.mkString(", ")} $brace2"
+        val stringResult =
+          s"$brace1 ${cols.map(c => c._1).mkString(", ")} $brace2"
+        val structResult = StructType(cols.map(c => c._2))
+        (stringResult, structResult)
     }
 
-  protected lazy val columnDataTypeExt: Parser[String] =
+  protected lazy val columnDataTypeExt: Parser[(String, StructField)] =
     ident ~ dataTypeExt ~ (COMMENT ~> stringLit).? ^^ {
       case identifier ~ datatype ~ comment =>
-        Seq(
-          Some(s"$identifier $datatype"),
-          comment.map(c => s"${COMMENT.str.toLowerCase()} '$c'")
-        ).flatten.mkString(" ")
+        val (datatypeString, datatypeType) = datatype
+        val stringResult =
+          Seq(
+            Some(s"$identifier $datatypeString"),
+            comment.map(c => s"${COMMENT.str.toLowerCase()} '$c'")
+          ).flatten.mkString(" ")
+
+        val meta = comment match {
+          case Some(cm) =>
+            new MetadataBuilder().putString(COMMENT.str.toLowerCase, cm).build()
+          case None => Metadata.empty
+        }
+        val fieldResult = StructField(identifier, datatypeType, nullable = true, meta)
+        (stringResult, fieldResult)
     }
 
   // todo: move type mapping to analysis phase
-  protected lazy val dataTypeExt: Parser[String] =
+  // todo: proper handling of time type
+  protected lazy val dataTypeExt: Parser[(String, DataType)] =
     (primitiveType ^^ {
-      case s: StringType => "varchar(*)"
-      case default => default.simpleString
+      case s: StringType => ("varchar(*)", StringType)
+      case default => (default.simpleString, default)
       }
-    | TIME
+    | TIME ^^ {
+      case _ =>
+        ("time", TimestampType)
+      }
     )
 
   protected lazy val seriesClause: Parser[String] =

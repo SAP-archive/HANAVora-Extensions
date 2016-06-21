@@ -1037,7 +1037,6 @@ OPTIONS (
           }
         if (expect == "valid") {
           val result = ddlParser.parse(queryWithDs)
-          println("result: " + result)
           assert(result.toString.trim == parsed)
         } else {
           intercept[SapParserException](ddlParser.parse(queryWithDs))
