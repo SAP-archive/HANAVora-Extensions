@@ -1,7 +1,7 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.expressions.{IsNull, EqualTo, AttributeReference}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.Node
 import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.apache.spark.sql.types._
@@ -293,7 +293,7 @@ class HierarchySuite
       AttributeReference("succ", LongType, nullable = false)()
     ),
     Some(IsNull(AttributeReference("pred", LongType, nullable = true)())),
-    Seq()
+    Seq(SortOrder(AttributeReference("ord", IntegerType)(), Ascending))
   ))
 
   def integrationStartWithExpression(builder: HierarchyBuilder[Row, Row]): Unit = {
@@ -332,64 +332,45 @@ class HierarchySuite
     }
   }
 
-  buildFromAdjacencyListTest(HierarchyJoinBuilder(
-    startWhere = (myRow: EmployeeRow) => myRow.pred.isEmpty,
-    pk = (myRow: EmployeeRow) => myRow.succ,
-    pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
-    init = (myRow: EmployeeRow, ordKey: Option[Long]) =>
-      PartialResult(pk = myRow.succ, path = Seq(myRow.succ)),
-    ord = (myRow: EmployeeRow) => myRow.ord,
-    modify = (pr: PartialResult, myRow: EmployeeRow, ord) =>
-      PartialResult(path = pr.path ++ Seq(myRow.succ), pk = myRow.succ)
-  ))
-
   buildFromAdjacencyListTest(HierarchyBroadcastBuilder(
-    pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
-    key = (myRow: EmployeeRow) => myRow.succ,
-    startWhere = Some((myRow: EmployeeRow) => myRow.pred.isEmpty),
-    ord = (myRow: EmployeeRow) => myRow.ord,
-    transformRowFunction = (r: EmployeeRow, node: Node) =>
-      PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
+    pred = (r: Row) => r.get(1).asInstanceOf[Long],
+    key = (r: Row) => r.get(2).asInstanceOf[Long],
+    startWhere = Some((r: Row) => r.get(1) == null),
+    attributes = Seq(
+      AttributeReference("name", StringType, nullable = false)(),
+      AttributeReference("pred", LongType, nullable = true)(),
+      AttributeReference("succ", LongType, nullable = false)(),
+      AttributeReference("ord", IntegerType, nullable = false)()
+    ),
+    sortOrder = Seq(SortOrder(BoundReference(3, IntegerType, nullable = false), Ascending)),
+    transformRowFunction = (r: Row, n: Node) =>
+      Row(n.path.asInstanceOf[Seq[Long]], r.get(2))
   ))
 
-  def buildFromAdjacencyListTest(builder: HierarchyBuilder[EmployeeRow, PartialResult]) {
+  def buildFromAdjacencyListTest(builder: HierarchyBuilder[Row, Row]) {
     test("unitary: testing method buildFromAdjacencyList of class " +
       builder.getClass.getSimpleName){
-      val rdd = sc.parallelize(organizationHierarchy)
-      val hBuilder = HierarchyBroadcastBuilder(
-        pred = (myRow: EmployeeRow) => myRow.pred.getOrElse(-1),
-        key = (myRow: EmployeeRow) => myRow.succ,
-        startWhere = Some((myRow: EmployeeRow) => myRow.pred.isEmpty),
-        ord = (myRow: EmployeeRow) => myRow.ord,
-        transformRowFunction = (r: EmployeeRow, node: Node) =>
-          PartialResult(path = node.path.asInstanceOf[Seq[Long]], pk = r.succ)
-      )
+      val rdd = sc.parallelize(organizationHierarchy.map(r => Row(r.name, r.pred, r.succ, r.ord)))
       val hierarchy = builder.buildHierarchyRdd(rdd, LongType)
 
       val expected = Set(
-        PartialResult(List(1), 1),
-        PartialResult(List(1, 2), 2),
-        PartialResult(List(1, 3), 3),
-        PartialResult(List(1, 2, 4), 4),
-        PartialResult(List(1, 2, 5), 5),
-        PartialResult(List(1, 2, 4, 6), 6),
-        PartialResult(List(1, 2, 4, 7), 7)
+        Row(List(1), 1),
+        Row(List(1, 2), 2),
+        Row(List(1, 3), 3),
+        Row(List(1, 2, 4), 4),
+        Row(List(1, 2, 5), 5),
+        Row(List(1, 2, 4, 6), 6),
+        Row(List(1, 2, 4, 7), 7)
       )
       assertResult(expected)(hierarchy.collect().toSet)
 
       val in_order = hierarchy.collect().toVector
       assertResult(1)(  // should follow in order
-        in_order.indexOf(PartialResult(List(1, 3), 3)) -
-          in_order.indexOf(PartialResult(List(1, 2), 2))
-      )
+        in_order.indexOf(Row(List(1, 3), 3)) - in_order.indexOf(Row(List(1, 2), 2)))
       assertResult(1)(  // should follow in order
-        in_order.indexOf(PartialResult(List(1, 2, 5), 5)) -
-          in_order.indexOf(PartialResult(List(1, 2, 4), 4))
-      )
+        in_order.indexOf(Row(List(1, 2, 5), 5)) - in_order.indexOf(Row(List(1, 2, 4), 4)))
       assertResult(1)(  // should follow in order
-        in_order.indexOf(PartialResult(List(1, 2, 4, 7), 7)) -
-          in_order.indexOf(PartialResult(List(1, 2, 4, 6), 6))
-      )
+        in_order.indexOf(Row(List(1, 2, 4, 7), 7)) - in_order.indexOf(Row(List(1, 2, 4, 6), 6)))
     }
   }
 

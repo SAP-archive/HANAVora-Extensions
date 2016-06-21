@@ -1,6 +1,6 @@
 package org.apache.spark.sql.hierarchy
 
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{Row, SQLContext}
 
 import scala.reflect.ClassTag
 import scala.util.Random
@@ -45,6 +45,53 @@ trait HierarchyTestUtils {
     EmployeeRow("Minion 1", Some(2L), 5L, 2),
     EmployeeRow("Minion 2", Some(4L), 6L, 1),
     EmployeeRow("Minion 3", Some(4L), 7L, 2)
+  )
+
+  /*
+     This is an abstract hierarchy with three order columns:
+     'ord' and 'semiOrd' and monotonic and they lead to the below pre-rank visitation.
+     'reverseOrd' is the reverse of 'ord' and will lead to the mirror of the below tree.
+     For more information look at the tests in [[HierarchyUDFsSuite]].
+
+                          l1(1)
+                          /  \\
+                         /    \ \
+                        /      \  \
+                       /        \   \
+                      /          \    \
+                     /            \      \
+                    /              \        \
+                  l2.1(2)          l2.2(11)  l2.3(16)
+                  /   \               /   \
+                 /     \             /     \
+             l3.1(3) l3.2(4)      l3.3(12) l3.4(15)
+                        |          /    \
+                        |         /      \
+                     l4.1(5)   l4.2(13) l4.3(14)
+                     /     \
+                    /       \
+                 l5.1(6)  l5.2(7)
+                           / | \
+                         /   |   \
+                  l6.1(8) l6.2(9) l6.3(10)
+  */
+  protected def abstractHierarchy: Seq[AbstractRow] = Seq(
+    AbstractRow("l1.1", None, 1, 16, "a"),
+    AbstractRow("l2.1", Some("l1.1"), 2, 15, "a"),
+    AbstractRow("l2.2", Some("l1.1"), 3, 14, "a"),
+    AbstractRow("l2.3", Some("l1.1"), 4, 13, "a"),
+    AbstractRow("l3.1", Some("l2.1"), 5, 12, "b"),
+    AbstractRow("l3.2", Some("l2.1"), 6, 11, "b"),
+    AbstractRow("l3.3", Some("l2.2"), 7, 10, "b"),
+    AbstractRow("l3.4", Some("l2.2"), 8, 9, "b"),
+    AbstractRow("l4.1", Some("l3.2"), 9, 8, "c"),
+    AbstractRow("l4.2", Some("l3.3"), 10, 7, "c"),
+    AbstractRow("l4.3", Some("l3.3"), 11, 6, "e"),
+    AbstractRow("l5.1", Some("l4.1"), 12, 5, "e"),
+    AbstractRow("l5.2", Some("l4.1"), 13, 4, "f"),
+    AbstractRow("l6.1", Some("l5.2"), 14, 3, "f"),
+    AbstractRow("l6.2", Some("l5.2"), 15, 2, "f"),
+    AbstractRow("l6.3", Some("l5.2"), 16, 1, "z")
   )
 
   protected def leveledOrganizationHierarchy: Seq[LevelEmployeeRow] = Seq(
@@ -105,6 +152,7 @@ trait HierarchyTestUtils {
   )
 
   def orgTbl: String = "organizationTbl"
+  def abstractTbl: String = "abstractTbl"
   def leveledOrgTbl: String = "leveledOrgTbl"
   def numericTbl: String = "numericTbl"
   def addressesTable: String = "addressesTbl"
@@ -115,6 +163,10 @@ trait HierarchyTestUtils {
 
   def createOrgTable(sc: SQLContext): Unit = {
     createTable(sc, organizationHierarchy, orgTbl)
+  }
+
+  def createAbstractTable(sc: SQLContext): Unit = {
+    createTable(sc, abstractHierarchy, abstractTbl)
   }
 
   def createLeveledOrgTable(sc: SQLContext): Unit = {

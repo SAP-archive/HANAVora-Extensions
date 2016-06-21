@@ -3,19 +3,22 @@ package org.apache.spark.sql.hierarchy
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.CatalystTypeConverters
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DataType, Node}
+import org.apache.spark.sql.types.{DataType, Node, StructType}
+import org.apache.spark.sql.util.RddUtils
 
-import scala.collection.mutable
+import scala.collection.{Seq, mutable}
 import scala.reflect.ClassTag
 
 // scalastyle:off method.length
-case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: ClassTag]
-(pred: I => C,
- key: I => C,
- startWhere: Option[I => Boolean],
- ord: I => C,
- transformRowFunction: (I, Node) => O) extends HierarchyBuilder[I, O] with Logging {
+case class HierarchyBroadcastBuilder[C: ClassTag, N: ClassTag]
+(pred: Row => C,
+ key: Row => C,
+ startWhere: Option[Row => Boolean],
+ attributes: Seq[Attribute],
+ sortOrder: Seq[SortOrder],
+ transformRowFunction: (Row, Node) => Row) extends HierarchyBuilder[Row, Row] with Logging {
 
   def buildTree(refs: mutable.Map[C, Tree[C]],
                 t: Tree[C],
@@ -25,7 +28,6 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
 
     val children =
       candidateMap.getOrElse(t.root, Array[HRow[C]]())
-        .sortWith({ (lhs, rhs) => lhs.ord < rhs.ord })
         .map({ childRow =>
           new Tree(parent = Some(t), root = childRow.succ)
         })
@@ -41,33 +43,23 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
     ranks
   }
 
-  /**
-   * Providing sibling-order is optional: use succ as fallback for now.
-   *
-   * @param row
-   * @return
-   */
-  private def orderFunc(row: I): Long = {
-    val v = ord match {
-      case null => key(row)
-      case _ => ord(row)
+  override def buildHierarchyRdd(rdd: RDD[Row], pathDataType: DataType): RDD[Row] = {
+    logDebug("ordering the source rdd")
+    val converted = RddUtils.rddToRowRdd(rdd, StructType.fromAttributes(attributes))
+    implicit val ordering = new InterpretedOrdering(sortOrder)
+    val ordered = converted.sortBy {
+      case row => row
     }
-    v match {
-      case l: Long => l
-      case i: Int => i.toLong
-      case _ => -1L
-    }
-  }
+    val rowConverter = CatalystTypeConverters.createToScalaConverter(
+      StructType.fromAttributes(attributes))
 
-  override def buildHierarchyRdd(rdd: RDD[I], pathDataType: DataType): RDD[O] = {
     logDebug(s"Collecting data to build hierarchy")
-    val data = rdd mapPartitions { iter =>
+    val data = ordered mapPartitions { iter =>
       iter map { row =>
         HRow[C](
-          pred = pred(row),
-          succ = key(row),
-          ord = orderFunc(row),
-          isRoot = startWhere.map({ sw => sw(row) })
+          pred = pred(rowConverter(row).asInstanceOf[Row]),
+          succ = key(rowConverter(row).asInstanceOf[Row]),
+          isRoot = startWhere.map({ sw => sw(rowConverter(row).asInstanceOf[Row]) })
         )
       }
     } collect()
@@ -82,13 +74,12 @@ case class HierarchyBroadcastBuilder[I: ClassTag, O: ClassTag, C: ClassTag, N: C
       }
     }
     if (roots.isEmpty) {
-      rdd.sparkContext.emptyRDD[O]
+      rdd.sparkContext.emptyRDD[Row]
     } else {
       logTrace(s"Grouping candidates")
       val candidateMap = nonRoots.groupBy(_.pred)
 
       logDebug(s"Building hierarchy")
-      val refs = mutable.Map[C, Tree[C]]()
       val forest = {
         val trees = roots map { hrow => new Tree[C](None, hrow.succ, preRank = 1) }
         val refs = mutable.Map[C, Tree[C]]()
@@ -150,29 +141,25 @@ object HierarchyRowBroadcastBuilder {
         rowFunctions.bindExpression(s, attributes))
     }
 
-    // Todo(Weidner): currently, only first ordering rule is applied:
-    val ord = searchBy.isEmpty match{
-      case true => null
-      case false =>
-        rowFunctions.rowGet[java.lang.Long](
-          attributes.indexWhere(_.name ==
-            searchBy.head.child.asInstanceOf[AttributeReference].name))
+    val boundOrd = searchBy.map {
+      case SortOrder(child, direction) =>
+        SortOrder(rowFunctions.bindExpression(child, attributes), direction)
     }
 
-    new HierarchyBroadcastBuilder[Row, Row, Any, Node](
-      pred, succ, startsWhere, ord, rowFunctions.rowAppend
+    new HierarchyBroadcastBuilder[Any, Node](
+      pred, succ, startsWhere, attributes, boundOrd, rowFunctions.rowAppend
     )
   }
 }
 
-private case class HRow[C](pred: C, succ: C, ord: Long, isRoot: Option[Boolean])
+private case class HRow[C](pred: C, succ: C, isRoot: Option[Boolean])
 
 private[hierarchy] case class Ranks(var pre: Int, var post: Int)
 
 private[hierarchy] class Forest[T](
                                     val refs: mutable.Map[T,Tree[T]],
                                     val trees: Seq[Tree[T]]
-                                    ) extends Serializable {
+                                  ) extends Serializable {
 
   def findTree(id: T): Option[Tree[T]] = refs.get(id)
 
