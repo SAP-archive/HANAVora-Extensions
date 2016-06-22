@@ -80,6 +80,72 @@ class HierarchyUDFsSuite
     }
   }
 
+  test("adjacency lisy hierarchy with multiple SEARCH BY columns works correctly") {
+    createAbstractTable(sqlContext)
+    val hierarchy = sqlContext.sql(s"""SELECT * FROM HIERARCHY
+                                       | (USING $abstractTbl AS v JOIN PARENT u ON v.pred = u.name
+                                       | SEARCH BY ord ASC
+                                       | START WHERE pred IS NULL
+                                       | SET node) AS H""".stripMargin)
+    hierarchy.registerTempTable("h")
+    val result = sqlContext.sql("SELECT name, PRE_RANK(node) FROM h").collect().toSet
+    val expected = Set(
+      Row("l2.3", 16),
+      Row("l1.1", 1),
+      Row("l2.1", 2),
+      Row("l2.2", 11),
+      Row("l3.1", 3),
+      Row("l3.2", 4),
+      Row("l3.3", 12),
+      Row("l3.4", 15),
+      Row("l4.1", 5),
+      Row("l4.2", 13),
+      Row("l4.3", 14),
+      Row("l5.1", 6),
+      Row("l5.2", 7),
+      Row("l6.1", 8),
+      Row("l6.2", 9),
+      Row("l6.3", 10))
+    assertResult(expected)(result)
+
+    // use multiple columns, should be the same result, semiOrd is monotonic to ord column.
+    val hierarchy2 = sqlContext.sql(s"""SELECT * FROM HIERARCHY
+                                       | (USING $abstractTbl AS v JOIN PARENT u ON v.pred = u.name
+                                       | SEARCH BY semiOrd ASC, ord ASC
+                                       | START WHERE pred IS NULL
+                                       | SET node) AS H""".stripMargin)
+    hierarchy2.registerTempTable("h2")
+    val result2 = sqlContext.sql("SELECT name, PRE_RANK(node) FROM h2").collect().toSet
+    assertResult(expected)(result2)
+
+    // user reverseOrd, should get different results, tree should be mirrored.
+    val hierarchy3 = sqlContext.sql(s"""SELECT * FROM HIERARCHY
+                                        | (USING $abstractTbl AS v JOIN PARENT u ON v.pred = u.name
+                                        | SEARCH BY reverseOrd ASC
+                                        | START WHERE pred IS NULL
+                                        | SET node) AS H""".stripMargin)
+    hierarchy3.registerTempTable("h3")
+    val result3 = sqlContext.sql("SELECT name, PRE_RANK(node) FROM h3").collect().toSet
+    val expected3 = Set(
+      Row("l1.1", 1),
+      Row("l2.1", 8),
+      Row("l2.2", 3),
+      Row("l2.3", 2),
+      Row("l3.1", 16),
+      Row("l3.2", 9),
+      Row("l3.3", 5),
+      Row("l3.4", 4),
+      Row("l4.1", 10),
+      Row("l4.2", 7),
+      Row("l4.3", 6),
+      Row("l5.1", 15),
+      Row("l5.2", 11),
+      Row("l6.1", 14),
+      Row("l6.2", 13),
+      Row("l6.3", 12))
+    assertResult(expected3)(result3)
+  }
+
   testBinaryUdfWithBuilders("IS_DESCENDANT", Set(
     Row("Animal", "Animal", false),
     Row("Animal", "Mammal", false),
