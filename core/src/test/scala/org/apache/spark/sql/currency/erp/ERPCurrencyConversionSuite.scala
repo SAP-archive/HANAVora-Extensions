@@ -3,13 +3,9 @@ package org.apache.spark.sql.currency.erp
 import org.apache.spark.sql.currency.{CurrencyConversionException, CurrencyConversionFunction, ERPDataRow}
 import org.apache.spark.sql.hive.SapHiveContext
 import org.apache.spark.sql.{GlobalSapSQLContext, Row}
-import org.scalatest.{BeforeAndAfterEach, FunSuite, ShouldMatchers, Tag}
+import org.scalatest.{BeforeAndAfterEach, FunSuite, ShouldMatchers}
 
 import scala.annotation.tailrec
-
-object UnexpectedConversionProvider
-
-object ExternalLibraryNeeded extends Tag("com.sap.tags.ExternalLibraryNeeded")
 
 /**
   * ERP currency conversion tests (rates table source agnostic).
@@ -140,7 +136,7 @@ class ERPCurrencyConversionSuite
     super.afterEach()
   }
 
-  test("smoke test of all queries with different error modes", ExternalLibraryNeeded) {
+  test("smoke test of all queries with different error modes") {
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_NULL)
     sqlContext.sql(QUERY_WITH_FIX_ARGS).collect().map(_ (2))
     sqlContext.sql(QUERY).collect().map(_ (2))
@@ -159,7 +155,7 @@ class ERPCurrencyConversionSuite
     }
   }
 
-  test("bad config fails", ExternalLibraryNeeded) {
+  test("bad config fails") {
     val optionName = "date_format"
     val default = "auto_detect"
 
@@ -174,7 +170,7 @@ class ERPCurrencyConversionSuite
     sqlContext.sql(QUERY_WITH_FIX_ARGS).collect().map(_ (2))
   }
 
-  test("error handling works", ExternalLibraryNeeded) {
+  test("error handling works") {
     // default should fail
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_FAIL)
     throwsNicely {
@@ -198,11 +194,11 @@ class ERPCurrencyConversionSuite
     sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().forall(_.isNullAt(2)) should be (true)
   }
 
-  test("conversion is distributed", ExternalLibraryNeeded) {
+  test("conversion is distributed") {
     sqlContext.sql(QUERY_WITH_FIX_ARGS).collect().map(_.getInt(1)).toSet.size should be(PARALLELISM)
   }
 
-  test("do_update", ExternalLibraryNeeded) {
+  test("do_update") {
     sqlContext.sql(QUERY).collect().map(_ (2))
 
     // should work after tables have been deleted
@@ -227,7 +223,7 @@ class ERPCurrencyConversionSuite
     sqlContext.getConf(CONF_PREFIX + PARAM_DO_UPDATE) should be (DO_UPDATE_FALSE)
   }
 
-  test("caching and switching by prefix works", ExternalLibraryNeeded) {
+  test("caching and switching by prefix works") {
     sqlContext.sql(QUERY).collect().map(_ (2))
     val erpDataRef = ERPCurrencyConversionFunction.conversionFunctionHolder.get
     sqlContext.sql(QUERY).collect().map(_ (2))
@@ -238,7 +234,7 @@ class ERPCurrencyConversionSuite
     ERPCurrencyConversionFunction.conversionFunctionHolder.get should not be erpDataRef
   }
 
-  test("fails meaningfully if erp library is missing", ExternalLibraryNeeded) {
+  test("fails meaningfully if erp library is missing") {
     val backup_modulename = ERPConversionLoader.MODULE_NAME
     setOption(PARAM_DO_UPDATE, DO_UPDATE_TRUE)
     ERPConversionLoader.MODULE_NAME = "invalid.BOGUS"
@@ -251,7 +247,7 @@ class ERPCurrencyConversionSuite
     }
   }
 
-  test("fails meaningfully if erp library has unexpected version", ExternalLibraryNeeded) {
+  test("fails meaningfully if erp library has unexpected version") {
     val backup_modulename = ERPConversionLoader.MODULE_NAME
     setOption(PARAM_DO_UPDATE, DO_UPDATE_TRUE)
     ERPConversionLoader.MODULE_NAME =

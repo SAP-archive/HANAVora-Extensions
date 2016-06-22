@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.expressions.{Expression, ImplicitCastInputTypes}
 import org.apache.spark.sql.currency.CurrencyConversionException
-import org.apache.spark.sql.currency.erp.ERPConversionLoader.ConversionFunction
+import org.apache.spark.sql.currency.erp.ERPConversionLoader.RConversionOptionsCurried
 import org.apache.spark.sql.types.{AbstractDataType, DataType, DoubleType, StringType}
 import org.apache.spark.unsafe.types.UTF8String
 
@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
  * @param children child expressions
  */
 case class ERPCurrencyConversionExpression(
-    conversionFunction: ConversionFunction,
+    conversionFunction: RConversionOptionsCurried,
     children: Seq[Expression])
   extends Expression
   with ImplicitCastInputTypes
