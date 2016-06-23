@@ -64,7 +64,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val IGNORING = Keyword("IGNORING")
   protected val CONFLICTS = Keyword("CONFLICTS")
   protected val DEEP = Keyword("DEEP")
-  protected val PARTITIONED = Keyword("PARTITIONED")
   protected val FUNCTIONS = Keyword("FUNCTIONS")
   protected val SPLITTERS = Keyword("SPLITTERS")
   protected val CLOSED = Keyword("CLOSED")
@@ -93,8 +92,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
 
   override protected lazy val createTable: Parser[LogicalPlan] =
     withConsumedInput((CREATE ~> TEMPORARY.? <~ TABLE) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~
-      tableCols.? ~ (PARTITIONED ~> BY ~> functionName ~ colsNames).? ~ (USING ~> className) ~
-      (OPTIONS ~> options).? ~ (AS ~> restInput).?) ^^ {
+      tableCols.? ~ ((PARTITIONED | PARTITION) ~> BY ~> functionName ~ colsNames).? ~
+      (USING ~> className) ~ (OPTIONS ~> options).? ~ (AS ~> restInput).?) ^^ {
       case (temp ~ allowExisting ~ tableId ~ columns ~ partitioningFunctionDef ~
         provider ~ opts ~ query, ddlStatement) =>
         if (temp.isDefined && allowExisting.isDefined) {
