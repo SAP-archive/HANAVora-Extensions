@@ -361,7 +361,7 @@ OPTIONS (
     assert(ctp1.provider == "com.sap.spark.vora")
 
     val testStatement2 = """CREATE TEMPORARY TABLE test1 (a integer, b string)
-                        PARTITIONED BY example (a, b)
+                        PARTITION BY example (a, b)
                         USING com.sap.spark.vora
                         OPTIONS (
                         tableName "test1",

@@ -16,6 +16,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
   protected val DROP = Keyword("DROP")
   protected val APPEND = Keyword("APPEND")
   protected val PARTITION = Keyword("PARTITION")
+  protected val PARTITIONED = Keyword("PARTITIONED")
   protected val PARTITIONS = Keyword("PARTITIONS")
   protected val FUNCTION = Keyword("FUNCTION")
   protected val RANGE = Keyword("RANGE")
@@ -391,7 +392,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val partitionClause: Parser[String] =
-    PARTITION ~> BY ~> ident ~ "(" ~ identifierNameList ~ ")" ^^ {
+    (PARTITION | PARTITIONED) ~> BY ~> ident ~ "(" ~ identifierNameList ~ ")" ^^ {
       case identifier ~ brace1 ~ names ~ brace2 =>
         s"partition by $identifier $brace1 $names $brace2"
     }

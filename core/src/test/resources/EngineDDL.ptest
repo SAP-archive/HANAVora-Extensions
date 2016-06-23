@@ -519,7 +519,7 @@ $expect:
 valid
 
 $query:
-create table if not exists t ( col1 INTEGER, col2 INTEGER ) series ( period for series col1 ) partition by ps1(c1)
+create table if not exists t ( col1 INTEGER, col2 INTEGER ) series ( period for series col1 ) partitioned by ps1(c1)
 $parsed:
 RawDDLCommand t, table, Create, Some(StructType(StructField(col1,IntegerType,true), StructField(col2,IntegerType,true))), create table if not exists t ( col1 int, col2 int ) series ( period for series col1 ) partition by ps1 ( c1 ), test.data.source, Map()
 $expect:
