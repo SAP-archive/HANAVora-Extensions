@@ -3,7 +3,7 @@ package org.apache.spark.sql.currency.erp
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.currency.{CurrencyConversionException, _}
-import org.apache.spark.sql.currency.erp.ERPConversionLoader.ConversionFunction
+import org.apache.spark.sql.currency.erp.ERPConversionLoader.RConversionOptionsCurried
 import org.apache.spark.sql.util.ValidatingPropertyMap._
 import org.apache.spark.{Logging, SparkContext}
 
@@ -81,7 +81,7 @@ object ERPCurrencyConversionFunction extends CurrencyConversionFunction with Log
                                          options: ERPCurrencyConversionOptions,
                                          doUpdate: Boolean)
 
-  private[erp] var conversionFunctionHolder: Option[ConversionFunction] = None
+  private[erp] var conversionFunctionHolder: Option[RConversionOptionsCurried] = None
   private var sourceConfig: Option[ERPCurrencyConversionSource] = None
   private var options: Option[ERPCurrencyConversionOptions] = None
 
@@ -169,17 +169,24 @@ protected[erp] object ERPConversionLoader {
   private val setupErrorMsg =
     "Currency conversion encountered an internal error during setup (see below)"
 
-  type Options = Map[String, String]
-  type Tables = Map[String, Iterator[Seq[String]]]
+  type RConversionAmount = Option[Double]
+  type RConversionResult = Try[RConversionAmount]
+  type RConversionOptions = Map[String, String]
+  type RConversionData = Map[String, Iterator[Seq[String]]]
 
-  type ConversionFunction = (Option[String], Option[String], Option[String], Option[String],
-                             Option[String]) => (Option[Double] => Try[Option[Double]])
+  type RConversionFixArgsCurried = RConversionAmount => RConversionResult
+  type RConversionOptionsCurried =
+  (Option[String], Option[String], Option[String], Option[String], Option[String])
+    => RConversionFixArgsCurried
+  type RConversionDataCurried = RConversionOptions => RConversionOptionsCurried
+  type RConversionBuilder = RConversionData => RConversionDataCurried
 
   // we need to switch this off, otherwise we will not be able to load duck-typed
   // scalastyle:off structural.type
   type DuckType = {
-    def getConversion(options: Options, conversionData: Tables): ConversionFunction
+    def getConversionBuilder: RConversionBuilder
   }
+  // scalastyle:on
 
   /**
     * Loads the ERP conversion function at runtime. If the 'com.sap.hl.currency' jar is not
@@ -192,25 +199,26 @@ protected[erp] object ERPConversionLoader {
     *               [[ERPCurrencyConversionFunction.DEFAULT_TABLES]]) to data iterators
     * @return the closure representing the readily configured ERP conversion
     */
-  def createInstance(options: Options, tables: Tables): Try[ConversionFunction] = {
+  def createInstance(options: RConversionOptions,
+                     tables: RConversionData): Try[RConversionOptionsCurried] = {
 
     val mirror = universe.runtimeMirror(getClass.getClassLoader)
 
-
-
     def fail(msg: String, cause: Throwable) = {
-      Failure(new CurrencyConversionException(msg))
+      Failure(new CurrencyConversionException(msg, cause))
     }
 
-    Try(mirror.staticModule(MODULE_NAME))
+    val backend = Try(mirror.staticModule(MODULE_NAME))
       .recoverWith { case NonFatal(ex) => fail(moduleNotFoundMsg, ex) }
       .map(mirror.reflectModule(_).instance.asInstanceOf[DuckType])
       .recoverWith { case NonFatal(ex) => fail(couldNotInvokeMsg, ex) }
-      .map(_.getConversion(options, tables))
+      .map(_.getConversionBuilder)
       .recoverWith {
         case ex: NoSuchMethodException => fail(couldNotInvokeMsg, ex)
         case NonFatal(ex) => fail(setupErrorMsg, ex)
       }
+    val function = backend.map(_(tables)(options))
+    function
   }
 
   /**
@@ -224,7 +232,7 @@ protected[erp] object ERPConversionLoader {
     * @param cause the underlying error (will be wrapped in a [[CurrencyConversionException]]
     * @return
     */
-  def getErrorCaseFallback(cause: Throwable): ConversionFunction = {
+  def getErrorCaseFallback(cause: Throwable): RConversionOptionsCurried = {
     {
       (a: Option[String],
             b: Option[String],

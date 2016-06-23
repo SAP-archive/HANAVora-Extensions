@@ -9,7 +9,7 @@ import org.apache.spark.sql.currency.erp.ERPCurrencyConversionFunction
   */
 object CurrencyConversionFunction {
   // maps SQL function names to implementations
-  val functions = Map("simple_cc" -> BasicCurrencyConversionFunction,
+  val functions = Map("cc" -> BasicCurrencyConversionFunction,
                       "convert_currency" -> ERPCurrencyConversionFunction)
 }
 
