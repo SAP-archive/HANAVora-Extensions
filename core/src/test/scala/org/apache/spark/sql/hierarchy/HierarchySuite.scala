@@ -69,8 +69,8 @@ class HierarchySuite
 
     val hierarchy = sqlContext.sql(s"""|SELECT name, node FROM HIERARCHY (
                                       |USING $partsTable AS v
-                                      |  JOIN PARENT u ON v.pred = u.succ
-                                      |  SEARCH BY ord ASC
+                                      |  JOIN PRIOR u ON v.pred = u.succ
+                                      |  ORDER SIBLINGS BY ord ASC
                                       |START WHERE pred = 0
                                       |SET node
                                       |) AS H""".stripMargin)
@@ -104,15 +104,15 @@ class HierarchySuite
   test("hierarchy without any roots results in empty results") {
     val result = sqlc.sql(s"""SELECT name, node FROM HIERARCHY (
                               USING $orgTbl AS v
-                                JOIN PARENT u ON v.pred = u.succ
-                                SEARCH BY ord ASC
+                                JOIN PRIOR u ON v.pred = u.succ
+                                ORDER SIBLINGS BY ord ASC
                               START WHERE pred = 10000
                               SET node
                               ) AS H""").collect()
     assert(result.isEmpty)
   }
 
-  test("create hierarchy without start where and search by clause") {
+  test("create hierarchy without 'START WHERE' nor 'ORDER SIBLINGS BY' clauses") {
     val result = sqlContext.sql(
       adjacencyListHierarchySQL(orgTbl, "name, LEVEL(node), IS_ROOT(node)")).collect().toSet
     val expected = Set(
@@ -252,8 +252,8 @@ class HierarchySuite
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
     val result = sqlContext.sql("""SELECT * FROM HIERARCHY(
-                                   USING h_src AS v JOIN PARENT u ON v.pred = u.succ
-                                   SEARCH BY ord ASC
+                                   USING h_src AS v JOIN PRIOR u ON v.pred = u.succ
+                                   ORDER SIBLINGS BY ord ASC
                                    START WHERE succ = 1
                                    SET node) AS H""").collect().toSet
 
@@ -465,8 +465,8 @@ class HierarchySuite
     createSensorsTable(sqlContext)
     val result = sqlContext.sql(s"""
         |SELECT name FROM HIERARCHY ( USING $sensorsTable AS v
-        |JOIN PARENT u ON v.par = u.sensor
-        |SEARCH BY sensor ASC
+        |JOIN PRIOR u ON v.par = u.sensor
+        |ORDER SIBLINGS BY sensor ASC
         |START WHERE sensor = "c"
         |SET node) AS H
         |WHERE IS_ROOT(node) = true""".stripMargin).collect().toSet

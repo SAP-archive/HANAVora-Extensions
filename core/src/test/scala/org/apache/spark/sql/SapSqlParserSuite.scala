@@ -42,8 +42,8 @@ class SapSqlParserSuite
       """
         |SELECT 1 FROM HIERARCHY (
         | USING T1 AS v
-        | JOIN PARENT u ON v.pred = u.succ
-        | SEARCH BY ord
+        | JOIN PRIOR u ON v.pred = u.succ
+        | ORDER SIBLINGS BY ord
         | START WHERE pred IS NULL
         | SET Node
         |) AS H
@@ -146,14 +146,14 @@ class SapSqlParserSuite
     }
   }
 
-  test("search by with multiple search by expressions") {
+  test("'order siblings by' with multiple expressions") {
     val parser = new SapParserDialect
     val result = parser.parse(
       """
         |SELECT 1 FROM HIERARCHY (
         | USING T1 AS v
-        | JOIN PARENT u ON v.pred = u.succ
-        | SEARCH BY myAttr ASC, otherAttr DESC, yetAnotherAttr
+        | JOIN PRIOR u ON v.pred = u.succ
+        | ORDER SIBLINGS BY myAttr ASC, otherAttr DESC, yetAnotherAttr
         | START WHERE pred IS NULL
         | SET Node
         |) AS H
@@ -176,13 +176,13 @@ class SapSqlParserSuite
     log.info(s"$analyzed")
   }
 
-    test("search by with no search by") {
+    test("no 'order siblings by' clause") {
       val parser = new SapParserDialect
       val result = parser.parse(
         """
           |SELECT 1 FROM HIERARCHY (
           | USING T1 AS v
-          | JOIN PARENT u ON v.pred = u.succ
+          | JOIN PRIOR u ON v.pred = u.succ
           | START WHERE pred IS NULL
           | SET Node
           |) AS H
@@ -227,7 +227,7 @@ class SapSqlParserSuite
     val result = parser.parse("""
                               CREATE TEMPORARY VIEW HV AS SELECT 1 FROM HIERARCHY (
                                  USING T1 AS v
-                                 JOIN PARENT u ON v.pred = u.succ
+                                 JOIN PRIOR u ON v.pred = u.succ
                                  START WHERE pred IS NULL
                                  SET Node
                                 ) AS H

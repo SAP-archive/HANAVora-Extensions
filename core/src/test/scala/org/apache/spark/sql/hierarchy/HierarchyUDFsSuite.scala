@@ -35,7 +35,7 @@ class HierarchyUDFsSuite
         | FROM HIERARCHY
         | (USING $leveledAnimalsTable WITH LEVELS (col1, col2, col3)
         | MATCH PATH
-        | SEARCH BY ord ASC
+        | ORDER SIBLINGS BY ord ASC
         | SET node) AS H)
       """.stripMargin)
     hierarchy.registerTempTable("h")
@@ -80,11 +80,11 @@ class HierarchyUDFsSuite
     }
   }
 
-  test("adjacency lisy hierarchy with multiple SEARCH BY columns works correctly") {
+  test("adjacency lisy hierarchy with multiple ORDER SIBLINGS BY columns works correctly") {
     createAbstractTable(sqlContext)
     val hierarchy = sqlContext.sql(s"""SELECT * FROM HIERARCHY
-                                       | (USING $abstractTbl AS v JOIN PARENT u ON v.pred = u.name
-                                       | SEARCH BY ord ASC
+                                       | (USING $abstractTbl AS v JOIN PRIOR u ON v.pred = u.name
+                                       | ORDER SIBLINGS BY ord ASC
                                        | START WHERE pred IS NULL
                                        | SET node) AS H""".stripMargin)
     hierarchy.registerTempTable("h")
@@ -110,8 +110,8 @@ class HierarchyUDFsSuite
 
     // use multiple columns, should be the same result, semiOrd is monotonic to ord column.
     val hierarchy2 = sqlContext.sql(s"""SELECT * FROM HIERARCHY
-                                       | (USING $abstractTbl AS v JOIN PARENT u ON v.pred = u.name
-                                       | SEARCH BY semiOrd ASC, ord ASC
+                                       | (USING $abstractTbl AS v JOIN PRIOR u ON v.pred = u.name
+                                       | ORDER SIBLINGS BY semiOrd ASC, ord ASC
                                        | START WHERE pred IS NULL
                                        | SET node) AS H""".stripMargin)
     hierarchy2.registerTempTable("h2")
@@ -120,8 +120,8 @@ class HierarchyUDFsSuite
 
     // user reverseOrd, should get different results, tree should be mirrored.
     val hierarchy3 = sqlContext.sql(s"""SELECT * FROM HIERARCHY
-                                        | (USING $abstractTbl AS v JOIN PARENT u ON v.pred = u.name
-                                        | SEARCH BY reverseOrd ASC
+                                        | (USING $abstractTbl AS v JOIN PRIOR u ON v.pred = u.name
+                                        | ORDER SIBLINGS BY reverseOrd ASC
                                         | START WHERE pred IS NULL
                                         | SET node) AS H""".stripMargin)
     hierarchy3.registerTempTable("h3")

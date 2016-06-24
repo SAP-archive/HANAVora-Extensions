@@ -110,7 +110,7 @@ case class AdjacencyListHierarchySpec(source:LogicalPlan,
     * Candidate attributes for resolution in parenthood expression:
     *   - Every attribute in the child relation.
     *   - Every attribute in the child alias with the child alias added as qualifier.
-    * For more info, check the JOIN PARENT syntax.
+    * For more info, check the JOIN PRIOR syntax.
     */
   override def candidateAttributesForResolution: Seq[Attribute] =
     source.output ++ source.output.map {

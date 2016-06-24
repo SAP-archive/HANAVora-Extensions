@@ -272,8 +272,8 @@ class ViewsSuite extends FunSuite
     createOrgTable(sqlContext)
     sqlContext.sql(s"""CREATE VIEW v1 AS SELECT *
                        FROM HIERARCHY
-                       (USING $orgTbl AS v JOIN PARENT u ON v.pred = u.succ
-                       SEARCH BY ord ASC
+                       (USING $orgTbl AS v JOIN PRIOR u ON v.pred = u.succ
+                       ORDER SIBLINGS BY ord ASC
                        START WHERE pred IS NULL
                        SET node) AS H
                        USING com.sap.spark.dstest""")

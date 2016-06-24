@@ -80,8 +80,8 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")
-  protected val PARENT = Keyword("PARENT")
-  protected val SEARCH = Keyword("SEARCH")
+  protected val PRIOR = Keyword("PRIOR")
+  protected val SIBLINGS = Keyword("SIBLINGS")
   protected val START = Keyword("START")
   protected val SET = Keyword("SET")
   protected val MATCH = Keyword("MATCH")
@@ -176,7 +176,7 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
 
   protected lazy val adjacencyListHierarchy: Parser[(LogicalPlan, String, Expression,
     Option[Expression], Seq[SortOrder])] = {
-    (USING ~> relationFactor) ~ (JOIN ~> PARENT ~> ident) ~ (ON ~> expression) ~
+    (USING ~> relationFactor) ~ (JOIN ~> PRIOR ~> ident) ~ (ON ~> expression) ~
       hierarchySpecOptions ^^ {
       case source ~ child ~ expr ~ ((searchBy, startWhere)) =>
         (source, child, expr, searchBy, startWhere)
@@ -211,7 +211,7 @@ class BackportedSapSqlParser (parseQuery: String => LogicalPlan)
     }
 
   protected lazy val hierarchySpecOptions: Parser[(Option[Expression], Seq[SortOrder])] =
-    (SEARCH ~> BY ~> ordering).? ~ (START ~> WHERE ~> expression).? ^^ {
+    (ORDER ~> SIBLINGS ~> BY ~> ordering).? ~ (START ~> WHERE ~> expression).? ^^ {
       case orderBy ~ startWhere => (startWhere, orderBy.getOrElse(Seq()))
     }
 

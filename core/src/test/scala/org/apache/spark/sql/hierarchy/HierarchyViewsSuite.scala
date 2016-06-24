@@ -91,7 +91,7 @@ class HierarchyViewsSuite
     sqlContext.sql(
       s"""CREATE TEMPORARY VIEW HV AS SELECT * FROM HIERARCHY (
          | USING AnimalsView AS v
-         | JOIN PARENT u ON v.pred = u.succ
+         | JOIN PRIOR u ON v.pred = u.succ
          | START WHERE pred IS NULL
          | SET node
          | ) AS H""".stripMargin)
@@ -149,8 +149,8 @@ class HierarchyViewsSuite
 
     sqlContext.sql(s"""CREATE TEMPORARY VIEW AnimalsView AS (SELECT *
                      | FROM HIERARCHY
-                     | (USING $animalsTable AS v JOIN PARENT u ON v.pred < u.succ
-                     | SEARCH BY ord ASC
+                     | (USING $animalsTable AS v JOIN PRIOR u ON v.pred < u.succ
+                     | ORDER SIBLINGS BY ord ASC
                      | START WHERE pred IS NULL
                      | SET node) AS H)""".stripMargin)
 

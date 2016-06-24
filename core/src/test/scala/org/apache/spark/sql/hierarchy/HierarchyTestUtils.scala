@@ -208,8 +208,8 @@ trait HierarchyTestUtils {
   def adjacencyListHierarchySQL(table: String, projectionColumns: String = "*"): String = {
     s"""|(SELECT $projectionColumns
         | FROM HIERARCHY
-        | (USING $table AS v JOIN PARENT u ON v.pred = u.succ
-        | SEARCH BY ord ASC
+        | (USING $table AS v JOIN PRIOR u ON v.pred = u.succ
+        | ORDER SIBLINGS BY ord ASC
         | START WHERE pred IS NULL
         | SET node) AS H)""".stripMargin
   }
