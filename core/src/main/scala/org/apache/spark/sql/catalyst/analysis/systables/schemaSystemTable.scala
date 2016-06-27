@@ -56,7 +56,8 @@ case object SparkLocalSchemaSystemTable extends SchemaSystemTable {
               column.numericPrecision.orNull,
               column.numericPrecisionRadix.orNull,
               column.numericScale.orNull,
-              nonEmptyAnnotations)
+              nonEmptyAnnotations,
+              "" /* columns have empty comment in Spark */)
           formatter.format().map(Row.fromSeq)
         }
       }
@@ -81,7 +82,7 @@ case class ProviderBoundSchemaSystemTable(
       case (RelationKey(tableName, schemaOpt), SchemaDescription(kind, fields)) =>
         val checkStar = kind == Table
         fields.zipWithIndex.flatMap {
-          case (SchemaField(name, typ, nullable, sparkTypeOpt, metadata), index) =>
+          case (SchemaField(name, typ, nullable, sparkTypeOpt, metadata, comment), index) =>
             val annotationsExtractor = new AnnotationsExtractor(metadata, checkStar)
             val nonEmptyAnnotations =
               OutputFormatter.toNonEmptyMap(annotationsExtractor.annotations)
@@ -98,7 +99,8 @@ case class ProviderBoundSchemaSystemTable(
                 dataTypeExtractor.map(_.numericPrecision).orNull,
                 dataTypeExtractor.map(_.numericPrecisionRadix).orNull,
                 dataTypeExtractor.map(_.numericScale).orNull,
-                nonEmptyAnnotations)
+                nonEmptyAnnotations,
+                comment)
             formatter.format().map(Row.fromSeq)
         }
     }.toSeq
@@ -123,6 +125,7 @@ sealed trait SchemaSystemTable extends SystemTable {
     StructField("NUMERIC_PRECISION_RADIX", IntegerType, nullable = true) ::
     StructField("NUMERIC_SCALE", IntegerType, nullable = true) ::
     StructField("ANNOTATION_KEY", StringType, nullable = true) ::
-    StructField("ANNOTATION_VALUE", StringType, nullable = true) :: Nil
+    StructField("ANNOTATION_VALUE", StringType, nullable = true) ::
+    StructField("COMMENT", StringType, nullable = true) :: Nil
   ).toAttributes
 }

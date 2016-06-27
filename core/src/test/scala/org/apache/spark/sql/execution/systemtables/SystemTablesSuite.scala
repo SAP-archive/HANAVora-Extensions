@@ -41,18 +41,21 @@ class SystemTablesSuite
       nullable = true) :: Nil
   )
 
-  private def toSchemaField(structField: StructField, customType: String): SchemaField =
+  private def toSchemaField(structField: StructField,
+                            customType: String,
+                            customComment: String): SchemaField =
     SchemaField(
       structField.name,
       customType,
       structField.nullable,
       Some(structField.dataType),
-      MetadataAccessor.metadataToMap(structField.metadata))
+      MetadataAccessor.metadataToMap(structField.metadata),
+      Some(customComment))
 
   val schemaFields = schema.map { field =>
     field.dataType match {
-      case StringType => toSchemaField(field, "CUSTOM-String")
-      case IntegerType => toSchemaField(field, "CUSTOM-Integer")
+      case StringType => toSchemaField(field, "CUSTOM-String", "CUSTOM-COMMENT1")
+      case IntegerType => toSchemaField(field, "CUSTOM-Integer", "CUSTOM-COMMENT2")
     }
   }
 
@@ -68,10 +71,10 @@ class SystemTablesSuite
     val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS").collect()
     // scalastyle:off magic.number
     assertResult(Set(
-      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data"),
-      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null),
-      Row(null, "tab", "vFoo", 1, false, "string", "string", null, null, null, "meta", "morph"),
-      Row(null, "tab", "vBar", 2, true, "int", "int", 32, 2, 0, "meta", "data")
+      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data", ""),
+      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null, ""),
+      Row(null, "tab", "vFoo", 1, false, "string", "string", null, null, null, "meta", "morph", ""),
+      Row(null, "tab", "vBar", 2, true, "int", "int", 32, 2, 0, "meta", "data", "")
     ))(values.toSet)
     // scalastyle:on magic.number
   }
@@ -83,8 +86,8 @@ class SystemTablesSuite
     val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS").collect()
     // scalastyle:off magic.number
     assertResult(Set(
-      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data"),
-      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null)
+      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data", ""),
+      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null, "")
     ))(values.toSet)
     // scalastyle:on magic.number
   }
@@ -98,8 +101,9 @@ class SystemTablesSuite
       // scalastyle:off magic.number
       assertResult(Set(
         Row(null, "tab", "foo", 1, false, "CUSTOM-String", "string", null, null, null,
-          "meta", "data"),
-        Row(null, "tab", "bar", 2, true, "CUSTOM-Integer", "int", 32, 2, 0, null, null)
+          "meta", "data", "CUSTOM-COMMENT1"),
+        Row(null, "tab", "bar", 2, true, "CUSTOM-Integer", "int", 32, 2, 0, null, null,
+          "CUSTOM-COMMENT2")
       ))(values.toSet)
       // scalastyle:on magic.number
     }

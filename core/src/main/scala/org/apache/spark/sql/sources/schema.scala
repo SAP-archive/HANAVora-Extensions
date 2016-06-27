@@ -29,10 +29,12 @@ case class SchemaDescription(kind: RelationKind, relationSchema: Seq[SchemaField
   *                      [[DataType]] mapping for the type of this field,
   *                      [[None]] otherwise.
   * @param metadata The field metadata.
+  * @param comment The field comment. This field is optional.
   */
 case class SchemaField(
     name: String,
     typ: String,
     nullable: Boolean,
     sparkDataType: Option[DataType],
-    metadata: Map[String, Any])
+    metadata: Map[String, Any],
+    comment: Option[String])

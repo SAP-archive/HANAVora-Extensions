@@ -1,11 +1,25 @@
 package org.apache.spark.sql.execution.tablefunctions
 
+/**
+  * Transforms input to a table-like result.
+  *
+  * @param inputValues The input.
+  *
+  * TODO (YH, AC) rethink the complexity and how easy it is to extend this class. The input and
+  * output of this class is vague.
+  */
 class OutputFormatter(val inputValues: Any*) {
 
   def prepend(values: Any*): OutputFormatter = new OutputFormatter(values ++ inputValues)
 
   def append(values: Any*): OutputFormatter = new OutputFormatter(inputValues ++ values)
 
+  /**
+    * Iterates of `inputValues` and returns a sequence of sequences. The `InputValues` can
+    * contain primitive elements, sequences, and map.
+    *
+    * @return Sequence of Sequence of a value.
+    */
   def format(): Seq[Seq[Any]] = {
     inputValues.foldLeft(Seq.empty[Seq[Any]]) {
       case (acc, seq: Seq[_]) =>
