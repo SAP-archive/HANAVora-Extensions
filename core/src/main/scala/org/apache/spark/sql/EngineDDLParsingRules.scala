@@ -447,7 +447,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
           Some(s"$series1 $brace1 $period $foor $series2 $identifier"),
           range,
           equidistant,
-          compression,
+          compression.flatten,
           Some(s"$brace2")
         ).flatten.mkString(" ")
     }
@@ -546,13 +546,17 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
         s"$rounding $on $load $allowed"
     }
 
-  protected lazy val compressionClause: Parser[String] =
-    defaultCompression.? ~ compressionDefinitionList ^^ {
+  protected lazy val compressionClause: Parser[Option[String]] =
+    defaultCompression.? ~ compressionDefinitionList.? ^^ {
+      case None ~ None =>
+        None
       case default ~ compression =>
-        Seq(
-          default,
-          Some(compression)
-        ).flatten.mkString(" ")
+        Some(
+          Seq(
+            default,
+            compression
+          ).flatten.mkString(" ")
+        )
     }
 
   protected lazy val defaultCompression: Parser[String] =

@@ -1,4 +1,11 @@
 $query:
+CREATE TABLE national_grid_demand ( ts TIMESTAMP, ND double, I014_ND double, TSD double, I014_TSD double, England_Wales_Demand double, Embedded_Wind_Generation double, Embedded_Wind_Capacity integer, Embedded_Solar_Generation double, Embedded_Solar_Capacity integer ) SERIES ( PERIOD FOR SERIES ts START TIMESTAMP '2015-01-01 00:00:00' END TIMESTAMP '2016-01-01 00:00:00' EQUIDISTANT INCREMENT BY 30 MINUTE DEFAULT COMPRESSION use (APCA error 3.0 percent)) PARTITION BY PS1( ts )
+$parsed:
+RawDDLCommand national_grid_demand, table, Create, Some(StructType(StructField(ts,TimestampType,true), StructField(ND,DoubleType,true), StructField(I014_ND,DoubleType,true), StructField(TSD,DoubleType,true), StructField(I014_TSD,DoubleType,true), StructField(England_Wales_Demand,DoubleType,true), StructField(Embedded_Wind_Generation,DoubleType,true), StructField(Embedded_Wind_Capacity,IntegerType,true), StructField(Embedded_Solar_Generation,DoubleType,true), StructField(Embedded_Solar_Capacity,IntegerType,true))), create table national_grid_demand ( ts timestamp, ND double, I014_ND double, TSD double, I014_TSD double, England_Wales_Demand double, Embedded_Wind_Generation double, Embedded_Wind_Capacity int, Embedded_Solar_Generation double, Embedded_Solar_Capacity int ) series ( period for series ts start timestamp '2015-01-01 00:00:00' end timestamp '2016-01-01 00:00:00' equidistant increment by 30 minute default compression use ( apca error 3.0 percent ) ) partition by PS1 ( ts ), test.data.source, Map()
+$expect:
+valid
+
+$query:
 create collection my_collection
 $parsed:
 RawDDLCommand my_collection, collection, Create, None, create collection my_collection, test.data.source, Map()
