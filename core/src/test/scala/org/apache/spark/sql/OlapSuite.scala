@@ -2,6 +2,11 @@ package org.apache.spark.sql
 
 import com.sap.spark.dstest.DefaultSource
 import org.apache.spark.Logging
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.sources.sql.SqlLikeRelation
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.scalatest.FunSuite
 
 // TODO (AC, YH) Refactor this once table-valued function are rebased on top.
@@ -254,5 +259,19 @@ class OlapSuite
                       |USING com.sap.spark.dstest""".stripMargin)
 
     verifyDescribe("SELECT * FROM V", Row("z", 0, "INTEGER", "Something", "new") :: Nil)
+  }
+
+  test("keep spark table name in case of describe without using (bug 115336)") {
+    val myRelation = LogicalRelation(new BaseRelation with SqlLikeRelation {
+      override def sqlContext: SQLContext = sqlContext
+
+      override def schema: StructType = StructType(Seq(StructField("foo", StringType)))
+
+      override def tableName: String = "bar"
+    })
+
+    sqlContext.catalog.registerTable(TableIdentifier("t"), myRelation)
+    val result = sqlContext.sql("SELECT TABLE_NAME FROM DESCRIBE_TABLE(SELECT * FROM t)").collect
+    assertResult(Seq(Row("t")))(result.toSeq)
   }
 }
