@@ -100,7 +100,6 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
 
   def extractName(plan: LogicalPlan): Option[String] = plan match {
     case Subquery(alias, _) => Some(alias)
-    case LogicalRelation(r: SqlLikeRelation, _) => Some(r.tableName)
     case _ => None
   }
 
