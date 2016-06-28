@@ -296,6 +296,7 @@ class SqlBuilder {
       case expr.Minute(date) => s"EXTRACT(MINUTE FROM ${expressionToSql(date)})"
       case expr.Second(date) => s"EXTRACT(SECOND FROM ${expressionToSql(date)})"
       case expr.CurrentDate() => s"CURRENT_DATE()"
+      case expr.Pow(left, right) => s"POWER(${expressionToSql(left)}, ${expressionToSql(right)})"
       case expr.Substring(str, pos, len) =>
         s"SUBSTRING(${expressionToSql(str)}, $pos, $len)"
       // TODO work on that, for SPark 1.6

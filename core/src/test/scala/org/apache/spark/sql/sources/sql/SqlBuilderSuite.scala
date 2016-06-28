@@ -98,6 +98,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   testExpressionToSql("ltrim('s')")(StringTrimLeft("s"))
   testExpressionToSql("rtrim('s')")(StringTrimRight("s"))
   testExpressionToSql("\"a\" LIKE '%b'")(Like('a, "%b"))
+  testExpressionToSql("POWER(1, 3)")(Pow(1, 3))
 
   val _sqlContext = Mockito.mock(classOf[SQLContext])
   val t1 = CreateLogicalRelation(new BaseRelation with SqlLikeRelation {
