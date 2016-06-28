@@ -147,7 +147,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
       }
 
   protected lazy val engineDropGraph: Parser[LogicalPlan] =
-    DROP ~ GRAPH ~ ident ~ (USING ~> className) ^^ {
+    DROP ~ GRAPH ~ identOptQuotes ~ (USING ~> className) ^^ {
       case drop ~ graph ~ identifier ~ clazz =>
         RawDDLCommand(
           identifier,
@@ -160,7 +160,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val engineDropCollection: Parser[LogicalPlan] =
-    DROP ~ COLLECTION ~ ident ~ (USING ~> className) ^^ {
+    DROP ~ COLLECTION ~ identOptQuotes ~ (USING ~> className) ^^ {
       case drop ~ graph ~ identifier ~ clazz =>
         RawDDLCommand(
           identifier,
@@ -173,7 +173,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val engineDropSeries: Parser[LogicalPlan] =
-    DROP ~ (SERIES ~> TABLE) ~ ident ~ (USING ~> className) ^^ {
+    DROP ~ (SERIES ~> TABLE) ~ identOptQuotes ~ (USING ~> className) ^^ {
       case drop ~ table ~ identifier ~ clazz =>
         RawDDLCommand(
           identifier,
@@ -186,7 +186,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val engineAppendGraph: Parser[LogicalPlan] =
-    (APPEND ~> GRAPH ~> ident) ~ (USING ~> className) ~ (OPTIONS ~> options) ^^ {
+    (APPEND ~> GRAPH ~> identOptQuotes) ~ (USING ~> className) ~ (OPTIONS ~> options) ^^ {
       case identifier ~ clazz ~ opts =>
         RawDDLCommand(
           identifier,
@@ -199,7 +199,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val engineAppendCollection: Parser[LogicalPlan] =
-    (APPEND ~> COLLECTION ~> ident) ~ (USING ~> className) ~ (OPTIONS ~> options) ^^ {
+    (APPEND ~> COLLECTION ~> identOptQuotes) ~ (USING ~> className) ~ (OPTIONS ~> options) ^^ {
       case identifier ~ clazz ~ opts =>
         RawDDLCommand(
           identifier,
@@ -212,7 +212,8 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val engineAppendSeries: Parser[LogicalPlan] =
-    (APPEND ~> SERIES ~> TABLE ~> ident) ~ (USING ~> className) ~ (OPTIONS ~> options) ^^ {
+    (APPEND ~> SERIES ~> TABLE ~> identOptQuotes) ~
+      (USING ~> className) ~ (OPTIONS ~> options) ^^ {
       case identifier ~ classname ~ opts =>
         RawDDLCommand(
           identifier,
@@ -226,7 +227,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
 
   // note(mathis): following grammar rules adapted to hanalite-parser/src/v2/parser
   protected lazy val partitionFunctionDefinition: Parser[(String, String)] =
-    (CREATE ~ PARTITION ~ FUNCTION ~ ident ~ "(" ~ partitionFunctionParameterList ~ ")" ~
+    (CREATE ~ PARTITION ~ FUNCTION ~ identOptQuotes ~ "(" ~ partitionFunctionParameterList ~ ")" ~
       AS ~ partitionFunctionFunctionDefinitionList ~ ("," ~> partitionFunctionAuto).? ^^ {
       case create ~ partition ~ function ~ ident ~
         brace1 ~ parameters ~ brace2 ~ as ~ definitions ~ auto =>
@@ -238,7 +239,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
             auto
           ).flatten.mkString(", ")
       }
-    |CREATE ~ PARTITION ~ FUNCTION ~ ident ~ "(" ~ partitionFunctionParameterList ~ ")" ~
+    |CREATE ~ PARTITION ~ FUNCTION ~ identOptQuotes ~ "(" ~ partitionFunctionParameterList ~ ")" ~
       AS ~ partitionFunctionAuto ^^ {
       case create ~ partition ~ function ~ ident ~ brace1 ~ parametersr ~ brace2 ~ as ~ auto =>
         (ident,
@@ -255,7 +256,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val partitionFunctionColumnDefinition: Parser[String] =
-    ident ~ dataTypeExt ^^ {
+    identOptQuotes ~ dataTypeExt ^^ {
       case columnName ~ typ =>
         val (typeString, dataType) = typ
         s"$columnName $typeString"
@@ -346,7 +347,8 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     AUTO
 
   protected lazy val partitionSchemeDefinition: Parser[(String, String)] =
-    CREATE ~ PARTITION ~ SCHEME ~ ident ~ USING ~ ident ~ (WITH ~> COLOCATION).? ^^ {
+    CREATE ~ PARTITION ~ SCHEME ~ identOptQuotes ~
+      USING ~ identOptQuotes ~ (WITH ~> COLOCATION).? ^^ {
       case create ~ partition ~ scheme ~ ident1 ~ using ~ ident2 ~ colocation =>
         ident1 ->
           Seq(
@@ -392,7 +394,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val partitionClause: Parser[String] =
-    (PARTITION | PARTITIONED) ~> BY ~> ident ~ "(" ~ identifierNameList ~ ")" ^^ {
+    (PARTITION | PARTITIONED) ~> BY ~> identOptQuotes ~ "(" ~ identifierNameList ~ ")" ^^ {
       case identifier ~ brace1 ~ names ~ brace2 =>
         s"partition by $identifier $brace1 $names $brace2"
     }
@@ -407,7 +409,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val columnDataTypeExt: Parser[(String, StructField)] =
-    ident ~ dataTypeExt ~ (COMMENT ~> stringLit).? ^^ {
+    identOptQuotes ~ dataTypeExt ~ (COMMENT ~> stringLit).? ^^ {
       case identifier ~ datatype ~ comment =>
         val (datatypeString, datatypeType) = datatype
         val stringResult =
@@ -439,7 +441,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     )
 
   protected lazy val seriesClause: Parser[String] =
-    SERIES ~ "(" ~ PERIOD ~ FOR ~ SERIES ~ ident ~ rangeExpression.? ~
+    SERIES ~ "(" ~ PERIOD ~ FOR ~ SERIES ~ identOptQuotes ~ rangeExpression.? ~
       equidistantDefinition.? ~ compressionClause.? ~ ")" ^^ {
       case series1 ~ brace1 ~ period ~ foor ~
         series2 ~ identifier ~ range ~ equidistant ~ compression ~ brace2 =>
@@ -599,7 +601,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
 
   protected lazy val columnDef: Parser[String] =
     (
-      ident
+      identOptQuotes
       | "(" ~ columnNameListWithEllipsis ~ ")" ^^ {
         case brace1 ~ columnName ~ brace2 =>
           s"$brace1 $columnName $brace2"
@@ -613,7 +615,7 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
     }
 
   protected lazy val columnNameWithEllipsis: Parser[String] =
-    repsep(ident, "..") ^^ {
+    repsep(identOptQuotes, "..") ^^ {
       case identifier =>
         identifier.mkString("..")
     }
@@ -647,26 +649,44 @@ private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
 
   protected lazy val identifierChain: Parser[String] =
     (ANY
-    | rep1sep(ident, ".") ~ "." ~ "(" ~ nestedProjectionList ~ ")" ^^ {
+    | rep1sep(identOptQuotes, ".") ~ "." ~ "(" ~ nestedProjectionList ~ ")" ^^ {
       case identifier ~ dot ~ brace1 ~ nested ~ brace2 =>
         s"${identifier.mkString(".")}$dot$brace1$nested$brace2"
       }
-    | rep1sep(ident, ".") ~ "[" ~ integral ~ "]" ^^ {
+    | rep1sep(identOptQuotes, ".") ~ "[" ~ integral ~ "]" ^^ {
       case identifier ~ brace1 ~ number ~ brace2 =>
         val literal = Literal(toNarrowestIntegerType(number))
         s"${identifier.mkString(".")}$brace1$literal$brace2"
       }
-    | rep1sep(ident, ".") ~ "." ~ ANY ^^ {
+    | rep1sep(identOptQuotes, ".") ~ "." ~ ANY ^^ {
       case identifier ~ dot ~ any =>
         s"${identifier.mkString(".")}$dot$any"
       }
-    | rep1sep(ident, ".") ^^ {
+    | rep1sep(identOptQuotes, ".") ^^ {
       case identifiers =>
         identifiers.mkString(".")
       }
-    | ident ^^ {
+    | identOptQuotes ^^ {
       case identifier =>
         identifier.toString
+      }
+    )
+
+  // todo(mathis): remove the ability to add quotes around identifiers
+  //               once we have a deep integration of the new engine types
+  //               Although the rule below is not compliant with SparkSQL, we keep it, as
+  //               we want to allow users to make use of case sensitive identifiers across
+  //               the new engine types for now.
+  protected lazy val identOptQuotes: Parser[String] =
+    (
+      ident ^^ {
+        case identifier =>
+          identifier
+      }
+    |
+      stringLit ^^ {
+        stringLiteral =>
+          s""""$stringLiteral""""
       }
     )
 
