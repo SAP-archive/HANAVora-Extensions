@@ -20,6 +20,7 @@ class SapThriftServer2Test(val master: String = "local",
                             val classPath: String = sys.props("java.class.path"),
                             val mode: ServerMode.Value = ServerMode.binary,
                             val bindHost: String = "localhost",
+                            val deployMode: DeployMode.Value = DeployMode.client,
                             val applicationJar: Option[String] = None,
                             val additionalJars: Option[String] = None,
                             val additionalConfOptions: Option[Seq[String]] = None
@@ -65,6 +66,11 @@ class SapThriftServer2Test(val master: String = "local",
       case Some(s) => s.map(opt => s"--conf ${opt}").mkString(" ")
     }
 
+    val deployModeString = deployMode match {
+      case DeployMode.client => "client"
+      case DeployMode.cluster => "cluster"
+    }
+
     /*
 
     This test should only start a local thriftserver during unit
@@ -74,7 +80,7 @@ class SapThriftServer2Test(val master: String = "local",
     s"""java -cp "$classPath"
         |  -Dlog4j.configuration="$log4jpropFile"
         |  -Xms512m -Xmx512m -XX:MaxPermSize=128m org.apache.spark.deploy.SparkSubmit
-        |  --deploy-mode client
+        |  --deploy-mode $deployModeString
         |  --master $master
         |   $additionalJarsParam
         |   $additionalConfParam
@@ -187,4 +193,8 @@ class SapThriftServer2Test(val master: String = "local",
 
 object ServerMode extends Enumeration {
   val binary, http = Value
+}
+
+object DeployMode extends Enumeration {
+  val cluster, client = Value
 }
