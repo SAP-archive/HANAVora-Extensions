@@ -3,7 +3,6 @@ package org.apache.spark.sql.execution.systemtables
 import com.sap.spark.dsmock.DefaultSource._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.analysis.systables.DependenciesSystemTable.ReferenceDependency
 import org.apache.spark.sql.catalyst.analysis.systables._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical._
@@ -155,7 +154,7 @@ class SystemTablesSuite
     val registry = new SimpleSystemTableRegistry
 
     intercept[SystemTableException.NotFoundException] {
-      registry.resolve(UnresolvedSparkLocalSystemTable("foo"))
+      registry.resolve(UnresolvedSparkLocalSystemTable("foo"), sqlContext)
     }
   }
 
@@ -171,8 +170,8 @@ class SystemTablesSuite
     val registry = new SimpleSystemTableRegistry
     registry.register("foo", DummySystemTableProvider)
 
-    val resolved = registry.resolve(UnresolvedSparkLocalSystemTable("foo"))
-    assertResult(SparkSystemTable)(resolved)
+    val resolved = registry.resolve(UnresolvedSparkLocalSystemTable("foo"), sqlContext)
+    assertResult(SparkSystemTable(sqlContext))(resolved)
   }
 
   test("Resolution of provider bound system table works") {
@@ -181,7 +180,8 @@ class SystemTablesSuite
 
     val provider = "bar"
     val options = Map("a" -> "b", "c" -> "d")
-    val resolved = registry.resolve(UnresolvedProviderBoundSystemTable("foo", provider, options))
+    val resolved =
+      registry.resolve(UnresolvedProviderBoundSystemTable("foo", provider, options), sqlContext)
     assert(resolved.isInstanceOf[ProviderSystemTable])
     val sysTable = resolved.asInstanceOf[ProviderSystemTable]
     assertResult(options)(sysTable.options)
@@ -191,23 +191,25 @@ class SystemTablesSuite
   test("Resolution fails if the provider does not support the given spark local table") {
     val registry = new SimpleSystemTableRegistry
     registry.register("foo", new SystemTableProvider with ProviderBound {
-      override def create(provider: String, options: Map[String, String]): SystemTable =
+      override def create(sqlContext: SQLContext,
+                          provider: String,
+                          options: Map[String, String]): SystemTable =
         throw new Exception
     })
 
     intercept[SystemTableException.InvalidProviderException] {
-      registry.resolve(UnresolvedSparkLocalSystemTable("foo"))
+      registry.resolve(UnresolvedSparkLocalSystemTable("foo"), sqlContext)
     }
   }
 
   test("Resolution fails if the provider does not support the given provider bound table") {
     val registry = new SimpleSystemTableRegistry
     registry.register("foo", new SystemTableProvider with LocalSpark {
-      override def create(): SystemTable = throw new Exception
+      override def create(sqlContext: SQLContext): SystemTable = throw new Exception
     })
 
     intercept[SystemTableException.InvalidProviderException] {
-      registry.resolve(UnresolvedProviderBoundSystemTable("foo", "bar", Map.empty))
+      registry.resolve(UnresolvedProviderBoundSystemTable("foo", "bar", Map.empty), sqlContext)
     }
   }
 
@@ -257,6 +259,27 @@ class SystemTablesSuite
     }
   }
 
+  test("Column scans and filters work on system tables") {
+    withMock { dataSource =>
+      when(dataSource.getRelations(any[SQLContext], any[Map[String, String]]))
+        .thenReturn(
+          new dataSource.RelationInfo("t1", false, "TABLE", None) ::
+            new dataSource.RelationInfo("t2", true, "TABLE", None) ::
+            new dataSource.RelationInfo("v1", true, "VIEW", None) ::
+            new dataSource.RelationInfo("v2", true, "VIEW", None) :: Nil)
+
+      val results = sqlc.sql(
+        """SELECT TABLE_NAME FROM SYS.TABLES
+          |USING com.sap.spark.dsmock
+          |WHERE TABLE_NAME LIKE '%1'
+          |AND TABLE_NAME LIKE 't%'
+          |AND KIND = 'TABLE'
+        """.stripMargin).collect().toList
+
+      assertResult(List(Row("t1")))(results)
+    }
+  }
+
 }
 
 object SystemTablesSuite {
@@ -268,21 +291,18 @@ object SystemTablesSuite {
     override def output: Seq[Attribute] = Seq.empty
   }
 
-  trait DummySystemTable extends SystemTable {
-    override def execute(sqlContext: SQLContext): Seq[Row] = Seq.empty
+  trait DummySystemTable extends SystemTable with AutoScan {
+    override def execute(): Seq[Row] = Seq.empty
 
-    override def output: Seq[Attribute] = Seq.empty
-
-    override def productElement(n: Int): Any = ()
-
-    override def productArity: Int = 0
-
-    override def canEqual(that: Any): Boolean = false
+    override def schema: StructType = StructType(Seq.empty)
   }
 
-  object SparkSystemTable extends SystemTable with DummySystemTable
+  case class SparkSystemTable(sqlContext: SQLContext) extends SystemTable with DummySystemTable
 
-  case class ProviderSystemTable(provider: String, options: Map[String, String])
+  case class ProviderSystemTable(
+      sqlContext: SQLContext,
+      provider: String,
+      options: Map[String, String])
     extends SystemTable with DummySystemTable
 
   object DummySystemTableProvider
@@ -290,9 +310,11 @@ object SystemTablesSuite {
     with LocalSpark
     with ProviderBound {
 
-    override def create(): SystemTable = SparkSystemTable
+    override def create(sqlContext: SQLContext): SystemTable = SparkSystemTable(sqlContext)
 
-    override def create(provider: String, options: Map[String, String]): SystemTable =
-      ProviderSystemTable(provider, options)
+    override def create(sqlContext: SQLContext,
+                        provider: String,
+                        options: Map[String, String]): SystemTable =
+      ProviderSystemTable(sqlContext, provider, options)
   }
 }

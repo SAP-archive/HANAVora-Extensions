@@ -1,12 +1,11 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.tablefunctions._
 import org.apache.spark.sql.sources.commands.Table
 import org.apache.spark.sql.sources.{DatasourceCatalog, RelationKey, SchemaDescription, SchemaField}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
 /**
   * [[SystemTableProvider]] for the [[SchemaSystemTable]].
@@ -20,21 +19,27 @@ object SchemaSystemTableProvider
   with ProviderBound {
 
   /** @inheritdoc */
-  override def create(): SystemTable = SparkLocalSchemaSystemTable
+  override def create(sqlContext: SQLContext): SystemTable = SparkLocalSchemaSystemTable(sqlContext)
 
   /** @inheritdoc */
-  override def create(provider: String, options: Map[String, String]): SystemTable =
-    ProviderBoundSchemaSystemTable(provider, options)
+  override def create(sqlContext: SQLContext,
+                      provider: String,
+                      options: Map[String, String]): SystemTable =
+    ProviderBoundSchemaSystemTable(sqlContext, provider, options)
 
 }
 
 /**
   * System table that extracts schemas from local spark.
+  *
+  * @param sqlContext The Spark [[SQLContext]].
   */
-case object SparkLocalSchemaSystemTable extends SchemaSystemTable {
+case class SparkLocalSchemaSystemTable(sqlContext: SQLContext)
+  extends SchemaSystemTable
+  with AutoScan {
 
   /** @inheritdoc */
-  override def execute(sqlContext: SQLContext): Seq[Row] = {
+  override def execute(): Seq[Row] = {
     sqlContext
       .tableNames()
       .flatMap { name =>
@@ -58,7 +63,9 @@ case object SparkLocalSchemaSystemTable extends SchemaSystemTable {
               column.numericScale.orNull,
               nonEmptyAnnotations,
               "" /* columns have empty comment in Spark */)
-          formatter.format().map(Row.fromSeq)
+          formatter
+            .format()
+            .map(Row.fromSeq)
         }
       }
   }
@@ -67,16 +74,19 @@ case object SparkLocalSchemaSystemTable extends SchemaSystemTable {
 /**
   * A provider bound [[SchemaSystemTable]].
   *
+  * @param sqlContext The Spark [[SQLContext]]
   * @param provider The provider implementing [[org.apache.spark.sql.sources.MetadataCatalog]]
   * @param options The options
   */
 case class ProviderBoundSchemaSystemTable(
+    sqlContext: SQLContext,
     provider: String,
     options: Map[String, String])
-  extends SchemaSystemTable {
+  extends SchemaSystemTable
+  with AutoScan {
 
   /** @inheritdoc */
-  override def execute(sqlContext: SQLContext): Seq[Row] = {
+  override def execute(): Seq[Row] = {
     val catalog =
       DatasourceResolver
         .resolverFor(sqlContext)
@@ -105,7 +115,9 @@ case class ProviderBoundSchemaSystemTable(
                 dataTypeExtractor.map(_.numericScale).orNull,
                 nonEmptyAnnotations,
                 comment)
-            formatter.format().map(Row.fromSeq)
+            formatter
+              .format()
+              .map(Row.fromSeq)
         }
     }.toSeq
   }
@@ -117,7 +129,7 @@ case class ProviderBoundSchemaSystemTable(
 sealed trait SchemaSystemTable extends SystemTable {
   protected type TypeHint = Option[String]
 
-  override val output: Seq[Attribute] = StructType(
+  override val schema: StructType = StructType(
     StructField("TABLE_SCHEMA", StringType, nullable = true) ::
     StructField("TABLE_NAME", StringType, nullable = false) ::
     StructField("COLUMN_NAME", StringType, nullable = false) ::
@@ -130,6 +142,5 @@ sealed trait SchemaSystemTable extends SystemTable {
     StructField("NUMERIC_SCALE", IntegerType, nullable = true) ::
     StructField("ANNOTATION_KEY", StringType, nullable = true) ::
     StructField("ANNOTATION_VALUE", StringType, nullable = true) ::
-    StructField("COMMENT", StringType, nullable = true) :: Nil
-  ).toAttributes
+    StructField("COMMENT", StringType, nullable = true) :: Nil)
 }

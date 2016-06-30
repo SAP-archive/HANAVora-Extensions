@@ -1,5 +1,7 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
+import org.apache.spark.sql.SQLContext
+
 /**
   * A provider of system tables. The provider has to be of one or more [[ProviderKind]]s.
   */
@@ -22,9 +24,11 @@ trait LocalSpark extends ProviderKind {
 
   /**
     * Create the [[SystemTable]] for local spark.
+    *
+    * @param sqlContext The [[SQLContext]]
     * @return The [[SystemTable]] for local spark.
     */
-  def create(): SystemTable
+  def create(sqlContext: SQLContext): SystemTable
 }
 
 /**
@@ -35,9 +39,11 @@ trait ProviderBound extends ProviderKind {
 
   /**
     * Create the [[SystemTable]] for the targeted provider.
+    *
+    * @param sqlContext The [[SQLContext]]
     * @param provider The provider that shall be targeted
     * @param options The options for the provider
     * @return The [[SystemTable]] for the targeted provider.
     */
-  def create(provider: String, options: Map[String, String]): SystemTable
+  def create(sqlContext: SQLContext, provider: String, options: Map[String, String]): SystemTable
 }

@@ -7,21 +7,30 @@ import org.apache.spark.sql.{Row, SQLContext}
 
 object DependenciesSystemTableProvider extends SystemTableProvider with LocalSpark {
   /** @inheritdoc */
-  override def create(): SystemTable = DependenciesSystemTable
+  override def create(sqlContext: SQLContext): SystemTable = DependenciesSystemTable(sqlContext)
 }
 
-case object DependenciesSystemTable extends SystemTable with TableDependencyCalculator {
-  sealed trait DependencyType extends Product {
-    /** ID of this [[DependencyType]] */
-    val id: Int
-  }
+sealed trait DependencyType extends Product {
+  /** ID of this [[DependencyType]] */
+  val id: Int
+}
 
-  sealed abstract class BaseDependencyType(val id: Int) extends DependencyType
+sealed abstract class BaseDependencyType(val id: Int) extends DependencyType
 
-  case object ReferenceDependency extends BaseDependencyType(0)
+case object ReferenceDependency extends BaseDependencyType(0)
+
+/**
+  * A [[SystemTable]] that calculates the dependencies between Spark catalog items.
+  *
+  * @param sqlContext The Spark [[SQLContext]].
+  */
+case class DependenciesSystemTable(sqlContext: SQLContext)
+  extends SystemTable
+  with TableDependencyCalculator
+  with AutoScan {
 
   /** @inheritdoc */
-  override def execute(sqlContext: SQLContext): Seq[Row] = {
+  override def execute(): Seq[Row] = {
     val tables = getTables(sqlContext.catalog)
     val dependentsMap = buildDependentsMap(tables)
 
@@ -44,7 +53,7 @@ case object DependenciesSystemTable extends SystemTable with TableDependencyCalc
     }.toSeq
   }
 
-  override val output: Seq[Attribute] =
+  override val schema: StructType =
     StructType(
       Seq(
         StructField("BASE_SCHEMA_NAME", StringType, nullable = true),
@@ -53,5 +62,5 @@ case object DependenciesSystemTable extends SystemTable with TableDependencyCalc
         StructField("DEPENDENT_SCHEMA_NAME", StringType, nullable = true),
         StructField("DEPENDENT_OBJECT_NAME", StringType, nullable = false),
         StructField("DEPENDENT_OBJECT_TYPE", StringType, nullable = false),
-        StructField("DEPENDENCY_TYPE", IntegerType, nullable = false))).toAttributes
+        StructField("DEPENDENCY_TYPE", IntegerType, nullable = false)))
 }

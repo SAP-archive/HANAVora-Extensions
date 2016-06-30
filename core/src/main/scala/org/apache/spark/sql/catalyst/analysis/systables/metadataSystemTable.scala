@@ -1,27 +1,38 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
-import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
 import org.apache.spark.sql.execution.tablefunctions.OutputFormatter
 import org.apache.spark.sql.sources.MetadataCatalog
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
-import org.apache.spark.sql.execution.datasources.{ProviderException, alterByCatalystSettings}
+import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
 object MetadataSystemTableProvider
   extends SystemTableProvider
   with ProviderBound {
 
   /** @inheritdoc */
-  override def create(provider: String, options: Map[String, String]): SystemTable =
-    MetadataSystemTable(provider, options)
+  override def create(sqlContext: SQLContext,
+                      provider: String,
+                      options: Map[String, String]): SystemTable =
+    MetadataSystemTable(sqlContext, provider, options)
 }
 
+/**
+  * A [[SystemTable]] to retrieve technical metadata from a provider related to its tables.
+  *
+  * @param sqlContext The Spark [[SQLContext]].
+  * @param provider The provider that should implement the [[MetadataCatalog]] interface.
+  * @param options The provider options.
+  */
 case class MetadataSystemTable(
+    sqlContext: SQLContext,
     provider: String,
-    options: Map[String, String]) extends SystemTable {
+    options: Map[String, String])
+  extends SystemTable
+  with AutoScan {
 
   /** @inheritdoc */
-  override def execute(sqlContext: SQLContext): Seq[Row] = {
+  override def execute(): Seq[Row] = {
     val catalog =
       DatasourceResolver
         .resolverFor(sqlContext)
@@ -38,10 +49,8 @@ case class MetadataSystemTable(
     }
   }
 
-  override val output: Seq[Attribute] = StructType(
+  override val schema: StructType = StructType(
     StructField("TABLE_NAME", StringType, nullable = false) ::
-      StructField("METADATA_KEY", StringType, nullable = true) ::
-      StructField("METADATA_VALUE", StringType, nullable = true) ::
-      Nil
-  ).toAttributes
+    StructField("METADATA_KEY", StringType, nullable = true) ::
+    StructField("METADATA_VALUE", StringType, nullable = true) :: Nil)
 }

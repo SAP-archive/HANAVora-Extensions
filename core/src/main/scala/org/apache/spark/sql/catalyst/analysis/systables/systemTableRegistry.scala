@@ -1,5 +1,6 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.analysis.ResolveSystemTables
 import org.apache.spark.sql.catalyst.plans.logical.{UnresolvedProviderBoundSystemTable, UnresolvedSparkLocalSystemTable, UnresolvedSystemTable}
 
@@ -38,15 +39,17 @@ trait SystemTableRegistry {
     * (local or provider bound), a [[SystemTableException.InvalidProviderException]] is thrown.
     *
     * @param table The [[UnresolvedSystemTable]] to resolve.
+    * @param sqlContext The Spark [[SQLContext]].
     * @return A resolved [[SystemTable]]
     */
-  def resolve(table: UnresolvedSystemTable): SystemTable = (table, lookup(table.name)) match {
+  def resolve(table: UnresolvedSystemTable,
+              sqlContext: SQLContext): SystemTable = (table, lookup(table.name)) match {
     case (_: UnresolvedSparkLocalSystemTable,
           Some(p: SystemTableProvider with LocalSpark)) =>
-      p.create()
+      p.create(sqlContext)
     case (u: UnresolvedProviderBoundSystemTable,
           Some(p: SystemTableProvider with ProviderBound)) =>
-      p.create(u.provider, u.options)
+      p.create(sqlContext, u.provider, u.options)
     case (u: UnresolvedSystemTable, Some(provider)) =>
       throw new SystemTableException.InvalidProviderException(provider, u)
     case (_, None) =>

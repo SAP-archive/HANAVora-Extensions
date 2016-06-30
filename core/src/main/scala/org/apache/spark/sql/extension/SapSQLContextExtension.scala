@@ -6,9 +6,9 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.{SelfJoinStrategy, SapDDLStrategy, SystemTablesStrategy}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.tablefunctions.TableFunctionsStrategy
+import org.apache.spark.sql.execution.{SapDDLStrategy, SelfJoinStrategy}
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
 
 /**
@@ -18,12 +18,13 @@ import org.apache.spark.sql.hierarchy.HierarchyStrategy
   * @see [[SQLContextExtension]]
   */
 private[sql] trait SapSQLContextExtension extends SQLContextExtension {
+  this: SQLContext =>
 
   protected def catalog: Catalog
 
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
     ResolveViews(analyzer) ::
-    ResolveSystemTables(analyzer) ::
+    ResolveSystemTables(analyzer, this) ::
     ResolveReferencesWithHierarchies(analyzer) ::
     ResolveHierarchy(analyzer) ::
     ResolveStarAnnotations(analyzer) ::
@@ -60,7 +61,6 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     HierarchyStrategy(planner) ::
     TableFunctionsStrategy(planner) ::
     RawSqlSourceStrategy ::
-    SystemTablesStrategy(planner) ::
     SelfJoinStrategy(planner) :: Nil
 
   override protected def extendedParserDialect: ParserDialect = new SapParserDialect

@@ -1,26 +1,36 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.commands.{WithExplicitRelationKind, WithOrigin}
 import org.apache.spark.sql.sources.{DatasourceCatalog, TemporaryFlagRelation}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
-import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
 object TablesSystemTableProvider extends SystemTableProvider with LocalSpark with ProviderBound {
-  override def create(): SystemTable =
-    SparkLocalTablesSystemTable
-
-  override def create(provider: String, options: Map[String, String]): SystemTable =
-    ProviderBoundTablesSystemTable(provider, options)
-}
-
-case object SparkLocalTablesSystemTable extends TablesSystemTable {
+  /** @inheritdoc */
+  override def create(sqlContext: SQLContext): SystemTable =
+    SparkLocalTablesSystemTable(sqlContext)
 
   /** @inheritdoc */
-  override def execute(sqlContext: SQLContext): Seq[Row] = {
+  override def create(sqlContext: SQLContext,
+                      provider: String,
+                      options: Map[String, String]): SystemTable =
+    ProviderBoundTablesSystemTable(sqlContext, provider, options)
+}
+
+/**
+  * A [[SystemTable]] that lists the spark local catalog items.
+  *
+  * @param sqlContext The Spark [[SQLContext]].
+  */
+case class SparkLocalTablesSystemTable(sqlContext: SQLContext)
+  extends TablesSystemTable
+  with AutoScan {
+
+  /** @inheritdoc */
+  override def execute(): Seq[Row] = {
     sqlContext
       .tableNames()
       .map { table =>
@@ -44,16 +54,19 @@ case object SparkLocalTablesSystemTable extends TablesSystemTable {
 /**
   * A system table that lists all the tables in the targeted data source.
   *
+  * @param sqlContext The Spark [[SQLContext]].
   * @param provider The target provider.
   * @param options The options.
   */
 case class ProviderBoundTablesSystemTable(
-                              provider: String,
-                              options: Map[String, String])
-  extends TablesSystemTable {
+    sqlContext: SQLContext,
+    provider: String,
+    options: Map[String, String])
+  extends TablesSystemTable
+  with AutoScan {
 
   /** @inheritdoc */
-  override def execute(sqlContext: SQLContext): Seq[Row] = {
+  override def execute(): Seq[Row] = {
     val catalog =
       DatasourceResolver
         .resolverFor(sqlContext)
@@ -70,12 +83,10 @@ case class ProviderBoundTablesSystemTable(
 }
 
 sealed trait TablesSystemTable extends SystemTable {
-  override val output: Seq[Attribute] = StructType(
+  override val schema: StructType = StructType(
     StructField("TABLE_NAME", StringType, nullable = false) ::
       StructField("IS_TEMPORARY", StringType, nullable = false) ::
       StructField("KIND", StringType, nullable = false) ::
-      StructField("PROVIDER", StringType, nullable = true) ::
-      Nil
-  ).toAttributes
+      StructField("PROVIDER", StringType, nullable = true) :: Nil)
 }
 
