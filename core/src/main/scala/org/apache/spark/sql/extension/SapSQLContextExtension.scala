@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.{SapDDLStrategy, SystemTablesStrategy}
+import org.apache.spark.sql.execution.{SelfJoinStrategy, SapDDLStrategy, SystemTablesStrategy}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.tablefunctions.TableFunctionsStrategy
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
@@ -45,6 +45,14 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
   override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] =
     FiltersReduction :: AssureRelationsColocality :: Nil
 
+  override protected def optimizerPostBatches: List[ExtendableOptimizerBatch] =
+    ExtendableOptimizerBatch(
+      name = "Self joins optimizer",
+      iterations = 1,
+      rules = SelfJoinsOptimizer :: Nil
+    ) :: Nil
+
+
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] =
     SapDDLStrategy(planner) ::
     CreateTableStrategy ::
@@ -52,7 +60,8 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     HierarchyStrategy(planner) ::
     TableFunctionsStrategy(planner) ::
     RawSqlSourceStrategy ::
-    SystemTablesStrategy(planner) :: Nil
+    SystemTablesStrategy(planner) ::
+    SelfJoinStrategy(planner) :: Nil
 
   override protected def extendedParserDialect: ParserDialect = new SapParserDialect
 
