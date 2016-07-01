@@ -27,29 +27,16 @@ trait ProviderBound {
   /** The options for this command. */
   val options: Map[String, String]
 
-  override def run(sqlContext: SQLContext): Seq[Row] =
-    execute(sqlContext)(DefaultDatasourceResolver)
-
-  /**
-    * Executes this command with the given sqlContext and resolver.
-    * By default, the [[DefaultDatasourceResolver]] is used if none is implicitly
-    * specified.
-    * @param sqlContext The sqlContext to execute with.
-    * @param resolver The resolver of the provider.
-    * @return A sequence of rows.
-    */
-  def execute(sqlContext: SQLContext)(implicit resolver: DatasourceResolver): Seq[Row]
-
   /**
     * Executes the given operation with a valid provider.
     * Throws a [[ProviderException]] if a valid provider cannot be instantiated.
+    * @param sqlContext The Spark [[SQLContext]]
     * @param b The operation to execute if a valid provider can be instantiated.
-    * @param resolver The resolver to get the provider.
     * @tparam B The result type of the operation to execute.
     * @return The result of the operation.
     */
-  def withValidProvider[B](b: AbstractViewProvider[_] => B)
-                          (implicit resolver: DatasourceResolver): B = {
+  def withValidProvider[B](sqlContext: SQLContext)(b: AbstractViewProvider[_] => B): B = {
+    val resolver = DatasourceResolver.resolverFor(sqlContext)
     AbstractViewProvider.matcherFor(kind)(resolver.newInstanceOf(provider)) match {
       case Some(viewProvider) =>
         b(viewProvider)
@@ -58,10 +45,6 @@ trait ProviderBound {
           s"execution of ${this.getClass.getSimpleName}")
     }
   }
-}
-
-object ProviderBound {
-  implicit val defaultProvider = DefaultDatasourceResolver
 }
 
 class ProviderException(val provider: String, val reason: String)

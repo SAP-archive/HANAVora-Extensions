@@ -10,12 +10,10 @@ case class ShowPartitionFunctionsUsingCommand(
     provider: String,
     options: Map[String, String])
   extends RunnableCommand {
-  override def run(sqlContext: SQLContext): Seq[Row] = {
-    execute(sqlContext)(DefaultDatasourceResolver)
-  }
 
-  def execute(sqlContext: SQLContext)(implicit resolver: DatasourceResolver): Seq[Row] = {
-    val pFunProvider = resolver.create[PartitioningFunctionProvider](provider)
+  def run(sqlContext: SQLContext): Seq[Row] = {
+    val resolver = DatasourceResolver.resolverFor(sqlContext)
+    val pFunProvider = resolver.newInstanceOfTyped[PartitioningFunctionProvider](provider)
     val pFuns = pFunProvider.getAllPartitioningFunctions(sqlContext, options)
 
     pFuns.map { fun =>

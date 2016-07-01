@@ -7,7 +7,7 @@ import org.apache.spark.sql.sources.commands.{WithExplicitRelationKind, WithOrig
 import org.apache.spark.sql.sources.{DatasourceCatalog, TemporaryFlagRelation}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
-import org.apache.spark.sql.{DefaultDatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
 
 object TablesSystemTableProvider extends SystemTableProvider with LocalSpark with ProviderBound {
   override def create(): SystemTable =
@@ -54,7 +54,10 @@ case class ProviderBoundTablesSystemTable(
 
   /** @inheritdoc */
   override def execute(sqlContext: SQLContext): Seq[Row] = {
-    val catalog = DefaultDatasourceResolver.newInstanceOf[DatasourceCatalog](provider)
+    val catalog =
+      DatasourceResolver
+        .resolverFor(sqlContext)
+        .newInstanceOfTyped[DatasourceCatalog](provider)
 
     catalog
       .getRelations(sqlContext, new CaseInsensitiveMap(options))

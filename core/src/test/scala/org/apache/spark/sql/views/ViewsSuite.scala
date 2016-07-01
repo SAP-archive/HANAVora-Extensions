@@ -16,6 +16,8 @@ import org.apache.spark.sql.sources.sql.{Dimension, Plain}
 import org.mockito.Mockito._
 import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.mock.MockitoSugar
+import DatasourceResolver._
+import org.mockito.internal.stubbing.answers.Returns
 
 import scala.util.Random
 
@@ -201,32 +203,35 @@ class ViewsSuite extends FunSuite
   test("Valid view provider is issued to create view") {
     val provider = spy(new DummyViewProvider)
 
-    implicit val resolver = mock[DatasourceResolver]
-    when(resolver.newInstanceOf("qux")).thenReturn(provider)
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOf("qux")).thenAnswer(new Returns(provider))
 
-    val viewCommand =
-      CreatePersistentViewCommand(Plain, TableIdentifier("foo"), Dummy,
-        "view_sql", "qux", Map.empty, allowExisting = true)
+    withResolver(sqlContext, resolver) {
+      val viewCommand =
+        CreatePersistentViewCommand(Plain, TableIdentifier("foo"), Dummy,
+          "view_sql", "qux", Map.empty, allowExisting = true)
 
-    viewCommand.execute(sqlContext)
-    verify(provider, times(1)).toSingleViewProvider
-    verify(provider, times(1))
-      .createView(CreateViewInput(sqlContext, Dummy, "view_sql", Map.empty,
-        TableIdentifier("foo"), allowExisting = true))
+      viewCommand.run(sqlContext)
+      verify(provider, times(1)).toSingleViewProvider
+      verify(provider, times(1))
+        .createView(CreateViewInput(sqlContext, Dummy, "view_sql", Map.empty,
+          TableIdentifier("foo"), allowExisting = true))
+    }
   }
 
   test("Upon invalid providers, an exception is thrown") {
     val provider = spy(new DummyViewProvider)
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOf("qux")).thenAnswer(new Returns(provider))
 
-    implicit val resolver = mock[DatasourceResolver]
-    when(resolver.newInstanceOf("qux")).thenReturn(provider)
+    withResolver(sqlContext, resolver) {
+      val viewCommand =
+        CreatePersistentViewCommand(Dimension, TableIdentifier("foo"), Dummy,
+          "view_sql", "qux", Map.empty, allowExisting = true)
 
-    val viewCommand =
-      CreatePersistentViewCommand(Dimension, TableIdentifier("foo"), Dummy,
-        "view_sql", "qux", Map.empty, allowExisting = true)
-
-    intercept[ProviderException] {
-      viewCommand.execute(sqlContext)
+      intercept[ProviderException] {
+        viewCommand.run(sqlContext)
+      }
     }
   }
 

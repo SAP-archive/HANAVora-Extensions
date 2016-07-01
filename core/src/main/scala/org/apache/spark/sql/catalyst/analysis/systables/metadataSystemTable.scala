@@ -4,8 +4,8 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.tablefunctions.OutputFormatter
 import org.apache.spark.sql.sources.MetadataCatalog
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DefaultDatasourceResolver, Row, SQLContext}
-import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
+import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.execution.datasources.{ProviderException, alterByCatalystSettings}
 
 object MetadataSystemTableProvider
   extends SystemTableProvider
@@ -22,7 +22,10 @@ case class MetadataSystemTable(
 
   /** @inheritdoc */
   override def execute(sqlContext: SQLContext): Seq[Row] = {
-    val catalog = DefaultDatasourceResolver.newInstanceOf[MetadataCatalog](provider)
+    val catalog =
+      DatasourceResolver
+        .resolverFor(sqlContext)
+        .newInstanceOfTyped[MetadataCatalog](provider)
 
     catalog.getTableMetadata(sqlContext, options).flatMap { tableMetadata =>
       val formatter =

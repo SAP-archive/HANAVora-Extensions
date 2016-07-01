@@ -28,17 +28,14 @@ case class CreatePersistentViewCommand(
   extends AbstractCreateViewCommand
   with Persisting {
 
-  def execute(sqlContext: SQLContext)(implicit resolver: DatasourceResolver): Seq[Row] =
-    withValidProvider { provider =>
+  override def run(sqlContext: SQLContext): Seq[Row] =
+    withValidProvider(sqlContext) { provider =>
       ensureAllowedToWrite(sqlContext)
       val handle = registerInProvider(sqlContext, provider)
       val view = kind.createPersisted(plan, handle, this.provider)
       registerInCatalog(view, sqlContext)
       Seq.empty
     }
-
-  override def run(sqlContext: SQLContext): Seq[Row] =
-    execute(sqlContext)(DefaultDatasourceResolver)
 }
 
 /**

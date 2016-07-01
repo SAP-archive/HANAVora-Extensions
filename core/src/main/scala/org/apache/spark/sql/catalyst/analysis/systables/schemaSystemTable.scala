@@ -6,7 +6,7 @@ import org.apache.spark.sql.sources.commands.Table
 import org.apache.spark.sql.sources.{DatasourceCatalog, RelationKey, SchemaDescription, SchemaField}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.{DefaultDatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
 
 /**
   * [[SystemTableProvider]] for the [[SchemaSystemTable]].
@@ -77,7 +77,11 @@ case class ProviderBoundSchemaSystemTable(
 
   /** @inheritdoc */
   override def execute(sqlContext: SQLContext): Seq[Row] = {
-    val catalog = DefaultDatasourceResolver.newInstanceOf[DatasourceCatalog](provider)
+    val catalog =
+      DatasourceResolver
+        .resolverFor(sqlContext)
+        .newInstanceOfTyped[DatasourceCatalog](provider)
+
     catalog.getSchemas(sqlContext, options).flatMap {
       case (RelationKey(tableName, schemaOpt), SchemaDescription(kind, fields)) =>
         val checkStar = kind == Table

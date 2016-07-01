@@ -63,14 +63,10 @@ case class DropPersistentViewCommand(
   extends AbstractDropViewCommand
   with UnPersisting {
 
-  def execute(sqlContext: SQLContext)
-             (implicit resolver: DatasourceResolver): Seq[Row] =
-    withValidProvider { provider =>
+  override def run(sqlContext: SQLContext): Seq[Row] =
+    withValidProvider(sqlContext) { provider =>
       dropFromSpark(sqlContext)
       dropFromProvider(sqlContext, provider)
       Seq.empty
     }
-
-  override def run(sqlContext: SQLContext): Seq[Row] =
-    execute(sqlContext)(DefaultDatasourceResolver)
 }
