@@ -48,6 +48,6 @@ jars="$spark_ext_lib,$user_jars"
 
 
 
-exec $SPARK_HOME/bin/spark-shell --jars "$jars" $user_args
+exec $SPARK_HOME/bin/spark-shell --jars "$jars" "${user_args[@]}"
 
 

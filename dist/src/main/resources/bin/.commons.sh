@@ -45,7 +45,7 @@ function set_spark_libs {
 function parse_user_jars {
     # parse user-provided options
     user_jars=""
-    user_args=""
+    user_args=()
     while [[ $# > 0 ]]
     do
         key="$1"
@@ -56,7 +56,7 @@ function parse_user_jars {
         shift # skip the value part
         ;;
         *)
-        user_args+=" \"$1\""
+        user_args+=($key)
         ;;
         esac
         shift
