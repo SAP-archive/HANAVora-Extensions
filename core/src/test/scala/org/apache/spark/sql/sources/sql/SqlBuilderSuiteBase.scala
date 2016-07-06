@@ -5,6 +5,8 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.Filter
 import org.scalatest.FunSuite
 
+import scala.util.matching.Regex
+
 trait SqlBuilderSuiteBase {
   self: FunSuite =>
 

@@ -100,6 +100,7 @@ class SqlBuilder {
     * @return
    */
   protected def preparePlanRules: Seq[Rule[logical.LogicalPlan]] = Seq(
+    CollapseExpand,
     AddSubqueries,
     ChangeQualifiersToTableNames,
     RemoveNestedAliases

@@ -123,6 +123,26 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   })
   val t2c1 = t2.output.find(_.name == "c1").get
   val t2c2 = t2.output.find(_.name == "c2").get
+  val t1c1Ref = AttributeReference(t1c1.name, t1c1.dataType, t1c1.nullable, t1c1.metadata)()
+  val t1c2Ref = AttributeReference(t1c2.name, t1c2.dataType, t1c2.nullable, t1c2.metadata)()
+
+  testLogicalPlan(
+    """SELECT "__subquery1"."c1", 1 AS "gid" FROM (SELECT "c1" FROM "t1") AS "__subquery1"""")(
+    Expand(
+      Seq(Seq(t1c1Ref, Literal(1))),
+      Seq(t1c1Ref, AttributeReference("gid", IntegerType)()),
+      Project(Seq(t1c1Ref), t1)))
+
+  testLogicalPlan(
+    """SELECT "c1", 1 AS "gid1", "c2", 2 AS "gid2" FROM "t1"""")(
+    Expand(
+      Seq(Seq(t1c1Ref, Literal(1)), Seq(t1c2Ref, Literal(2))),
+      Seq(
+        t1c1Ref,
+        AttributeReference("gid1", IntegerType)(),
+        t1c2Ref,
+        AttributeReference("gid2", IntegerType)()),
+      t1))
 
   testLogicalPlanInternal("""SELECT "c1", "c2" FROM "t1"""")(t1)
   testLogicalPlan("""SELECT "c1", "c2" FROM "t1"""")(t1)
