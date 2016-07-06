@@ -446,6 +446,11 @@
             <plugin>
               <groupId>org.scalatest</groupId>
               <artifactId>scalatest-maven-plugin</artifactId>
+              <configuration>
+                <tagsToExclude>
+                  org.scalatest.tags.SporadicFailure
+                </tagsToExclude>
+              </configuration>
             </plugin>
           </plugins>
         </pluginManagement>
@@ -464,7 +469,7 @@
               <artifactId>scalatest-maven-plugin</artifactId>
               <configuration>
                 <tagsToExclude>
-                  org.scalatest.tags.Slow
+                  org.scalatest.tags.Slow,org.scalatest.tags.SporadicFailure
                 </tagsToExclude>
               </configuration>
             </plugin>
@@ -482,7 +487,7 @@
               <artifactId>scalatest-maven-plugin</artifactId>
               <configuration>
                 <tagsToExclude>
-                  org.scalatest.tags.Slow
+                  org.scalatest.tags.Slow,org.scalatest.tags.SporadicFailure
                 </tagsToExclude>
               </configuration>
             </plugin>
