@@ -10,8 +10,9 @@ import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{AdjacencyListHierarchySpec, Hierarchy, LogicalPlan, PartialAggregation}
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.execution.datasources.{CatalystSourceStrategy, CreateLogicalRelation}
+import org.apache.spark.sql.execution.datasources.{CatalystSourceStrategy, LogicalRelation}
 import org.apache.spark.sql.types._
+import org.apache.spark.util.DummyRelationUtils._
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class CatalystSourceStrategySuite
@@ -41,17 +42,15 @@ class CatalystSourceStrategySuite
   private def prepareExecution(plan: SparkPlan): SparkPlan =
     sqlc.prepareForExecution.execute(plan)
 
-  private var nonCatalystRelation: BaseRelation = _
-  private var lncr: LogicalPlan = _
-  private def lncrCInt: Attribute = lncr.output.find(_.name == "c_int").get
-  private def lncrCString: Attribute = lncr.output.find(_.name == "c_string").get
-  private var catalystRelation: DummyCatalystRelation = _
-  private var lcr: LogicalPlan = _
+  implicit class RichLogicalPlan(plan: LogicalPlan) {
+    def attribute(name: String): Attribute =
+      plan.output.find(_.name == name).get
+  }
+
   private val schema = StructType(Seq(
-    StructField("c_int", IntegerType), StructField("c_string", StringType)
+    'c_int.ofType.int,
+    'c_string.ofType.int
   ))
-  private def lcrCInt: Attribute = lcr.output.find(_.name == "c_int").get
-  private def lcrCString: Attribute = lcr.output.find(_.name == "c_string").get
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -62,17 +61,11 @@ class CatalystSourceStrategySuite
 
     // make sure the current sql context is this
     SQLContext.setActive(sqlc)
-
-    nonCatalystRelation = new DummyRelation(schema, sqlc)
-    lncr = CreateLogicalRelation(nonCatalystRelation)
-
-    catalystRelation = new DummyCatalystRelation(schema, sqlc)
-    lcr = CreateLogicalRelation(catalystRelation)
   }
 
   test("Group by with functions") {
-    catalystRelation.isMultiplePartitionExecutionFunc = x => true
-    catalystRelation.supportsLogicalPlanFunc = x => true
+    val catalystRelation = DummyCatalystSourceRelation(schema)(sqlc)
+    val lcr = new LogicalRelation(catalystRelation)
 
     /**
       * This tests check if the aliasing is correctly handled:
@@ -80,7 +73,8 @@ class CatalystSourceStrategySuite
       * The groupBy function adds an alias, and the Partial Aggregation matcher has to find that one
       * and use it correctly. Specifically, it has to re-use it instead of creating a new one.
       */
-    var plan: LogicalPlan = lcr.groupBy(Lower(lcrCString))(Lower(lcrCString))
+    val plan: LogicalPlan =
+      lcr.groupBy(Lower(lcr.attribute("c_string")))(Lower(lcr.attribute("c_string")))
     val correctAliased: Boolean = plan match {
       case partialAgg@PartialAggregation(
       finalGroupings,
@@ -90,8 +84,8 @@ class CatalystSourceStrategySuite
       aggregateFunctionToAttributeMap,
       resultExpressions,
       child) => {
-        partialGroupings.head.asInstanceOf[AttributeReference].name ==
-          partialAggregates.head.asInstanceOf[Alias].name
+        partialGroupings.head.name ==
+          partialAggregates.head.name
       }
       case _ => false
     }
@@ -101,8 +95,12 @@ class CatalystSourceStrategySuite
 
 
   test("Non-partitioned push down") {
-    catalystRelation.isMultiplePartitionExecutionFunc = x => false
-    catalystRelation.supportsLogicalPlanFunc = x => true
+    val catalystRelation =
+      DummyCatalystSourceRelation(
+        schema,
+        isMultiplePartitionExecutionFunc = Some(_ => false))(sqlc)
+    val lcr = LogicalRelation(catalystRelation)
+    val lcrCInt = lcr.attribute("c_int")
 
     var plan: LogicalPlan = lcr
     var physicals = CatalystSourceStrategy(plan)
@@ -116,8 +114,13 @@ class CatalystSourceStrategySuite
   }
 
   test("Non-partitioned unsupported reject") {
-    catalystRelation.isMultiplePartitionExecutionFunc = x => false
-    catalystRelation.supportsLogicalPlanFunc = x => false
+    val catalystRelation =
+      DummyCatalystSourceRelation(
+        schema,
+        isMultiplePartitionExecutionFunc = Some(_ => false),
+        supportsLogicalPlanFunc = Some(_ => false))(sqlc)
+    val lcr = LogicalRelation(catalystRelation)
+    val lcrCInt = lcr.attribute("c_int")
 
     var plan: LogicalPlan = lcr
     var physicals = CatalystSourceStrategy(plan)
@@ -129,6 +132,9 @@ class CatalystSourceStrategySuite
   }
 
   test("Non-catalyst relation reject") {
+    val lcr = LogicalRelation(DummyCatalystSourceRelation(schema)(sqlc))
+    val lncr = LogicalRelation(DummyRelation(schema)(sqlc))
+    val lncrCInt = lncr.attribute("c_int")
     var plan: LogicalPlan = lncr
     var physicals = CatalystSourceStrategy(plan)
     assert(physicals.isEmpty)
@@ -151,16 +157,24 @@ class CatalystSourceStrategySuite
   }
 
   test("Unsupported plan reject") {
-    catalystRelation.isMultiplePartitionExecutionFunc = x => true
-    catalystRelation.supportsLogicalPlanFunc = x => false
-    val plan: LogicalPlan = lcr
+    val catalystRelation =
+      DummyCatalystSourceRelation(
+        schema,
+        isMultiplePartitionExecutionFunc = Some(_ => true),
+        supportsLogicalPlanFunc = Some(_ => false))(sqlc)
+    val plan: LogicalPlan = LogicalRelation(catalystRelation)
     val physicals = CatalystSourceStrategy(plan)
     assert(physicals.isEmpty)
   }
 
   test("Partitioned push down") {
-    catalystRelation.isMultiplePartitionExecutionFunc = x => true
-    catalystRelation.supportsLogicalPlanFunc = x => true
+    val catalystRelation =
+      DummyCatalystSourceRelation(
+        schema,
+        isMultiplePartitionExecutionFunc = Some(_ => true),
+        supportsLogicalPlanFunc = Some(_ => true))(sqlc)
+    val lcr = LogicalRelation(catalystRelation)
+    val lcrCInt = lcr.attribute("c_int")
 
     var plan: LogicalPlan = lcr
     var physicals = CatalystSourceStrategy(plan)

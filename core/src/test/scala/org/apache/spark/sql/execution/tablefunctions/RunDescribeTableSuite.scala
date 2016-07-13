@@ -1,8 +1,8 @@
 package org.apache.spark.sql.execution.tablefunctions
 
-import org.apache.spark.sql.GlobalSapSQLContext
 import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
+import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class RunDescribeTableSuite
@@ -96,7 +96,7 @@ class RunDescribeTableSuite
     val expected =
       Set(
         List("", "sales", "YEAH", 1, true, "INTEGER", 32, 2, 0, "Semantics.type", "date"),
-        List("", "sales", "REVENUE", 2, true, "BIGINT", 64, 2, 0, null, null),
+        List("", "sales", "_c1", 2, true, "BIGINT", 64, 2, 0, null, null),
         List("", "sales", "CUSTOMER_ID", 3, true, "INTEGER", 32, 2, 0, null, null))
     // scalastyle:on magic.number
 
@@ -143,6 +143,49 @@ class RunDescribeTableSuite
     val values = result.map(_.toSeq.toList).toSet
 
     assert(values == expectedDescribePersonsOutput)
+  }
+
+  test("Column name is not correctly backtracked (Bug 116133)") {
+    val tpch = TPCHTables(sqlc)
+    Seq(
+      tpch.customerTable,
+      tpch.nationTable,
+      tpch.lineItemTable,
+      tpch.ordersTable).foreach { table =>
+      sqlc.baseRelationToDataFrame(table).registerTempTable(table.tableName)
+    }
+
+    sqlc.sql(
+      """CREATE VIEW RASH_REVENUE_1995_2005 AS
+       |SELECT C_NAME AS CustomerName@(EndUserText.heading = 'Customer Name'),
+       |N_NAME AS NationName@(EndUserText.heading = 'Nation Name'), SS.NewDate , SS.L_SHIPDATE
+       |FROM CUSTOMER
+       |INNER JOIN NATION
+       |ON CUSTOMER.C_NATIONKEY = NATION.N_NATIONKEY
+       |INNER JOIN (
+       |SELECT O_CUSTKEY, L_SHIPDATE, (LINEITEM.L_EXTENDEDPRICE * (1 - LINEITEM.L_DISCOUNT))
+       |AS VOLUME, (add_years(LINEITEM.L_SHIPDATE,10)) AS NewDate
+       |FROM ORDERS
+       |INNER JOIN LINEITEM
+       |ON ORDERS.O_ORDERKEY = LINEITEM.L_ORDERKEY) SS
+       |ON CUSTOMER.C_CUSTKEY = SS.O_CUSTKEY
+       |GROUP BY C_NAME, N_NAME, SS.NewDate, SS.L_SHIPDATE
+       |HAVING SS.NewDate >= '2002-01-08'
+       |ORDER BY SS.NewDate""".stripMargin)
+
+    val values =
+      sqlc.sql(
+        """SELECT TABLE_NAME, COLUMN_NAME
+          |FROM describe_table(SELECT * FROM RASH_REVENUE_1995_2005)""".stripMargin)
+        .collect()
+        .toSet
+
+    assertResult(
+      Set(
+        Row(alterByCatalystSettings(sqlc.catalog, "CUSTOMER"), "CustomerName"),
+        Row(alterByCatalystSettings(sqlc.catalog, "NATION"), "NationName"),
+        Row(alterByCatalystSettings(sqlc.catalog, "LINEITEM"), "NewDate"),
+        Row(alterByCatalystSettings(sqlc.catalog, "LINEITEM"), "L_SHIPDATE")))(values)
   }
 }
 

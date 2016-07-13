@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.execution.datasources.{LogicalRelation, CreateLogicalRelation}
+import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.BaseRelation
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SQLContext, sources}
@@ -101,7 +101,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   testExpressionToSql("POWER(1, 3)")(Pow(1, 3))
 
   val _sqlContext = Mockito.mock(classOf[SQLContext])
-  val t1 = CreateLogicalRelation(new BaseRelation with SqlLikeRelation {
+  val t1 = LogicalRelation(new BaseRelation with SqlLikeRelation {
     override def sqlContext: SQLContext = _sqlContext
     override def schema: StructType = StructType(Seq(
       StructField("c1", StringType),
@@ -112,7 +112,7 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   })
   val t1c1 = t1.output.find(_.name == "c1").get
   val t1c2 = t1.output.find(_.name == "c2").get
-  val t2 = CreateLogicalRelation(new BaseRelation with SqlLikeRelation {
+  val t2 = LogicalRelation(new BaseRelation with SqlLikeRelation {
     override def sqlContext: SQLContext = _sqlContext
     override def schema: StructType = StructType(Seq(
       StructField("c1", StringType),

@@ -1,6 +1,6 @@
 package org.apache.spark.sql.catalyst.analysis
 
-import org.apache.spark.sql.catalyst.analysis.CollapseExpandSuite.DummyRelation
+import org.apache.spark.sql.catalyst.analysis.CollapseExpandSuite.SqlLikeCatalystSourceRelation
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Literal}
 import org.apache.spark.sql.catalyst.plans.logical._
@@ -53,7 +53,7 @@ class CollapseExpandSuite extends FunSuite with MockitoSugar with GlobalSapSQLCo
   }
 
   test("Expand pushdown integration") {
-    val relation = mock[DummyRelation]
+    val relation = mock[SqlLikeCatalystSourceRelation]
     when(relation.supportsLogicalPlan(any[Expand]))
       .thenReturn(true)
     when(relation.isMultiplePartitionExecution(any[Seq[CatalystSource]]))
@@ -75,7 +75,7 @@ class CollapseExpandSuite extends FunSuite with MockitoSugar with GlobalSapSQLCo
 }
 
 object CollapseExpandSuite {
-  abstract class DummyRelation
+  abstract class SqlLikeCatalystSourceRelation
     extends BaseRelation
     with SqlLikeRelation
     with CatalystSource

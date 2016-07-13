@@ -6,11 +6,6 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.types._
 
-private class DummyRelation(
-                             override val schema: StructType,
-                             @transient override val sqlContext: SQLContext)
-  extends BaseRelation
-
 class DummyCatalystRelation(
                              override val schema: StructType,
                              @transient override val sqlContext: SQLContext)

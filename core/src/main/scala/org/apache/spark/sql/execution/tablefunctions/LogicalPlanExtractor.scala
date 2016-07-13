@@ -66,18 +66,7 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
           val column = ColumnMatcher(attr.exprId)
           val updated = expressions.collectFirst {
             case alias@column(matched) =>
-              /**
-                * If the direct child of the [[Alias]] is an [[Attribute]], this
-                * means that the [[Alias]] is a simple rename and we can take its
-                * name. Otherwise, we have something like SUM(...) and the name
-                * of this is auto-generated, which is why we will choose the attribute
-                * name here.
-                */
-              if (alias.child.isInstanceOf[Attribute]) {
-                alias.name -> matched
-              } else {
-                matched.name -> matched
-              }
+              alias.name -> matched
           }
           /** With this, only the top most alias (if any) is preserved) */
           updated.map(_._2).getOrElse(attr) -> nameAlias.orElse(updated.map(_._1))

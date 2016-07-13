@@ -14,6 +14,7 @@ import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.{BaseRelation, TableScan}
 import org.apache.spark.sql.catalyst.optimizer.dsls._
 import org.scalatest.FunSuite
+import org.apache.spark.util.DummyRelationUtils._
 
 // All tests in this suite refer to bug 114127
 class SelfJoinsSupportSuite
@@ -28,16 +29,13 @@ class SelfJoinsSupportSuite
       Batch("SelfJoinsSupport", FixedPoint(MAX_ITERATIONS), SelfJoinsOptimizer) :: Nil
   }
 
-  val t0 = new LogicalRelation(new BaseRelation {
-    override def sqlContext: SQLContext = sqlc
-    override def schema: StructType = StructType(Seq(StructField("id", IntegerType)))
-  })
+  val t0 = new LogicalRelation(DummyRelation('id.ofType.int))
 
-  val t1 = new LocalRelation(output = StructType(Seq(StructField("id", IntegerType))).toAttributes)
+  val t1 = new LocalRelation(output = 'id.ofType.int.toAttributes)
 
   val t2 = new LogicalRelation(new BaseRelation {
     override def sqlContext: SQLContext = sqlc
-    override def schema: StructType = StructType(Seq(StructField("id", IntegerType)))
+    override def schema: StructType = 'id.ofType.int
   })
 
   // Join attributes
@@ -98,8 +96,8 @@ class SelfJoinsSupportSuite
   test("Optimized self-joins for a plan with intermediate nodes " +
     "are correctly computed") {
     // Build an example plan with intermediate projections
-    val r1 = new DummyRelation1(sqlc)
-    val r2 = new DummyRelation2(sqlc)
+    val r1 = new DummyLogicalRelation(sqlc)
+    val r2 = new DummyLogicalRelation(sqlc)
     val id1 = AttributeReference("id", IntegerType)(r1.output.head.exprId)
     val id2 = AttributeReference("id", IntegerType)(r2.output.head.exprId)
     val rp = Project(Seq(id1), r1)
@@ -142,8 +140,8 @@ class SelfJoinsSupportSuite
   }
 
   test("Self-joins are properly detected and replaced with unequal subtrees") {
-    val r1 = new DummyRelation1(sqlc)
-    val r2 = new DummyRelation2(sqlc)
+    val r1 = new DummyLogicalRelation(sqlc)
+    val r2 = new DummyLogicalRelation(sqlc)
     val id1 = AttributeReference("id", IntegerType)(r1.output.head.exprId)
     val id2 = AttributeReference("id", IntegerType)(r2.output.head.exprId)
     val rp1 = Project(Seq(id1), r1)
@@ -159,38 +157,21 @@ class SelfJoinsSupportSuite
 
 }
 
+// scalastyle:off
+trait AlwaysEqual {
+  override def equals(obj: scala.Any): Boolean = true
+
+  override def hashCode(): Int = 0
+}
+// scalastyle:on
+
 // Test logical relations classes
-class DummyRelation1(sqlc: SQLContext)
-  extends LogicalRelation(new BaseRelation with TableScan with Serializable {
-
-    override def sqlContext: SQLContext = sqlc
-
-    override def schema: StructType = StructType(Seq(StructField("id", IntegerType)))
-
-    override def buildScan(): RDD[Row] =
-      sqlc.sparkContext.parallelize(Row(1) :: Row(2) :: Row(null) :: Nil)
-
-    override def equals(obj: scala.Any): Boolean = true
-
-    override def hashCode(): Int = 0
-
-  })
-
-class DummyRelation2(sqlc: SQLContext)
-  extends LogicalRelation(new BaseRelation with TableScan with Serializable {
-
-    override def sqlContext: SQLContext = sqlc
-
-    override def schema: StructType = StructType(Seq(StructField("id", IntegerType)))
-
-    override def buildScan(): RDD[Row] =
-      sqlc.sparkContext.parallelize(Row(1) :: Row(2) :: Row(null) :: Nil)
-
-    override def equals(obj: scala.Any): Boolean = true
-
-    override def hashCode(): Int = 0
-
-  })
+class DummyLogicalRelation(sqlc: SQLContext)
+  extends LogicalRelation(
+    new DummyRelationWithTableScan(
+      'id.ofType.int,
+      Row(1) :: Row(2) :: Row(null) :: Nil)(sqlc)
+      with AlwaysEqual)
 
 package object dsls {
 

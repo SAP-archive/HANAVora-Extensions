@@ -16,7 +16,7 @@ import scala.io.Source
 trait GlobalSapSQLContext extends GlobalSparkContext with WithSQLContext {
   self: Suite =>
 
-  override def sqlContext: SQLContext = GlobalSapSQLContext._sqlc
+  override implicit def sqlContext: SQLContext = GlobalSapSQLContext._sqlc
 
   override protected def setUpSQLContext(): Unit =
     GlobalSapSQLContext.init(sc)
