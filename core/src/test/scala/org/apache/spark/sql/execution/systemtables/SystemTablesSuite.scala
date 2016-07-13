@@ -9,19 +9,23 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
 import org.apache.spark.sql.sources.commands.Table
-import org.apache.spark.sql.sources.{RelationKey, SchemaDescription, SchemaField, TableMetadata}
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{GlobalSapSQLContext, Row, SQLContext}
+import org.apache.spark.sql._
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
+import org.apache.spark.sql.DatasourceResolver._
+import org.mockito.internal.stubbing.answers.Returns
+import org.scalatest.mock.MockitoSugar
 
 /**
   * Test suites for system tables.
   */
 class SystemTablesSuite
   extends FunSuite
-  with GlobalSapSQLContext {
+  with GlobalSapSQLContext
+  with MockitoSugar {
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -55,6 +59,26 @@ class SystemTablesSuite
     field.dataType match {
       case StringType => toSchemaField(field, "CUSTOM-String", "CUSTOM-COMMENT1")
       case IntegerType => toSchemaField(field, "CUSTOM-Integer", "CUSTOM-COMMENT2")
+    }
+  }
+
+  test("Pushdown enabled metadata catalog is preferred over normal one") {
+    abstract class PushDownMetadataCatalog extends MetadataCatalog with PushDown
+    val pushDownMetadataCatalog = mock[PushDownMetadataCatalog]
+    when(
+      pushDownMetadataCatalog.getTableMetadata(
+        any[SQLContext],
+        any[Map[String, String]],
+        any[Seq[String]],
+        any[Seq[sources.Filter]])).thenReturn(sc.parallelize(Seq(Row("t", "foo", "bar"))))
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[MetadataCatalog]("com.sap.provider"))
+      .thenAnswer(new Returns(pushDownMetadataCatalog))
+
+    withResolver(sqlContext, resolver) {
+      val values =
+        sqlc.sql("SELECT * FROM SYS.TABLE_METADATA USING com.sap.provider").collect().toList
+      assertResult(List(Row("t", "foo", "bar")))(values)
     }
   }
 

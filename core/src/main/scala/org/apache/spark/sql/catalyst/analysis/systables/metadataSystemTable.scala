@@ -1,8 +1,9 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
 import org.apache.spark.sql.execution.tablefunctions.OutputFormatter
-import org.apache.spark.sql.sources.MetadataCatalog
+import org.apache.spark.sql.sources.{Filter, MetadataCatalog, PushDown}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
@@ -29,23 +30,24 @@ case class MetadataSystemTable(
     provider: String,
     options: Map[String, String])
   extends SystemTable
-  with AutoScan {
+  with ScanAndFilterUtility {
 
   /** @inheritdoc */
-  override def execute(): Seq[Row] = {
+  override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] = {
     val catalog =
       DatasourceResolver
         .resolverFor(sqlContext)
         .newInstanceOfTyped[MetadataCatalog](provider)
 
-    catalog.getTableMetadata(sqlContext, options).flatMap { tableMetadata =>
-      val formatter =
-        new OutputFormatter(
-          alterByCatalystSettings(sqlContext.catalog, tableMetadata.tableName),
-          tableMetadata.metadata)
-      formatter
-        .format()
-        .map(Row.fromSeq)
+    catalog match {
+      case pushDownEnabled: MetadataCatalog with PushDown =>
+        pushDownEnabled.getTableMetadata(sqlContext, options, requiredColumns, filters)
+      case _ =>
+        val rows = catalog.getTableMetadata(sqlContext, options).flatMap { tableMetadata =>
+          val formatter = new OutputFormatter(tableMetadata.tableName, tableMetadata.metadata)
+          formatter.format().map(Row.fromSeq)
+        }
+        sparkContext.parallelize(scanAndValidate(requiredColumns, filters, rows))
     }
   }
 
