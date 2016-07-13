@@ -68,6 +68,7 @@
                   <exclude>jmock:*</exclude>
                   <exclude>*:xml-apis</exclude>
                   <exclude>org.apache.maven:lib:tests</exclude>
+                  <exclude>org.apache.spark:*</exclude>
                 </excludes>
               </artifactSet>
               <transformers>
