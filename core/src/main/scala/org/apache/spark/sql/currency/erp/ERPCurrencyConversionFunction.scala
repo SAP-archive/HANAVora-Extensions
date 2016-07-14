@@ -26,8 +26,10 @@ object ERPCurrencyConversionFunction extends CurrencyConversionFunction with Log
                                    "rates" -> "tcurr",
                                    "prefactors" -> "tcurf")
 
-  case class ERPCurrencyConversionSource(tablePrefix: String, tableNames: Map[String, String]) {
-
+  case class ERPCurrencyConversionSource(
+      tablePrefix: String,
+      tableNames: Map[String, String],
+      schema: String) {
     def tableMap: Map[String, String] =
       tableNames.map { case (tabKey, tabName) => (tabKey, tablePrefix + tabName) }
   }
@@ -61,7 +63,8 @@ object ERPCurrencyConversionFunction extends CurrencyConversionFunction with Log
 
       val sourceConfig = ERPCurrencyConversionSource(
           tablePrefix = props.getString(PARAM_TABLE_PREFIX),
-          tableNames = tableNames
+          tableNames = tableNames,
+          schema = props.getString(PARAM_SCHEMA)
       )
       val options = ERPCurrencyConversionOptions(
           accuracy = props.getString(PARAM_ACCURACY),

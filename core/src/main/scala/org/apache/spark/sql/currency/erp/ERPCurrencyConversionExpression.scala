@@ -69,4 +69,11 @@ case class ERPCurrencyConversionExpression(
 
   override def inputTypes: Seq[AbstractDataType] =
     Seq(StringType, StringType, DoubleType, StringType, StringType, StringType)
+
+  def inputNames: Seq[String] =
+    Seq("client", "conversion_type", "amount", "source", "target", "date")
+
+  def getChild(name: String): Option[Expression] = {
+    inputNames.zip(children).find { case (n, _) => name == n }.map(_._2)
+  }
 }

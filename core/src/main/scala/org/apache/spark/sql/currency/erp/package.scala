@@ -12,6 +12,7 @@ package object erp {
   val PARAM_ERROR_HANDLING = "error_handling"
   val PARAM_LOOKUP = "lookup"
   val PARAM_STEPS = "steps"
+  val PARAM_SCHEMA = "schema"
 
   // The name of each of the 5 conversion tables can be specified by:
   // "spark.sql.currency.erp.tcurX = NAME"
@@ -49,6 +50,7 @@ package object erp {
   val DEFAULT_ERROR_HANDLING = ERROR_HANDLING_FAIL
   val DEFAULT_LOOKUP = LOOKUP_REGULAR
   val DEFAULT_STEPS = STEPS_SHIFT_CONVERT
+  val DEFAULT_SCHEMA = ""
 
   val DEFAULT_OPTIONS_MAP =
     Map(CONF_PREFIX + PARAM_TABLE_PREFIX -> DEFAULT_TABLE_PREFIX,
@@ -57,6 +59,7 @@ package object erp {
         CONF_PREFIX + PARAM_ERROR_HANDLING -> DEFAULT_ERROR_HANDLING,
         CONF_PREFIX + PARAM_LOOKUP -> DEFAULT_LOOKUP,
         CONF_PREFIX + PARAM_STEPS -> DEFAULT_STEPS,
+        CONF_PREFIX + PARAM_SCHEMA -> DEFAULT_SCHEMA,
         CONF_PREFIX + PARAM_DO_UPDATE -> DO_UPDATE_FALSE) ++
       DEFAULT_TABLES_MAP.map {
         case (key, value) => (CONF_PREFIX + key, value)
