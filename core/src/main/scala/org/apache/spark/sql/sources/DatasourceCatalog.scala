@@ -1,22 +1,13 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{Row, SQLContext}
 
 /**
   * This trait indicates that the data source also has a catalog which could contain information
   * about already present relations. It offers methods to pull information about these relations.
  */
 trait DatasourceCatalog {
-
-  /**
-    * A class which represents information about a relation.
-    *
-    * @param name The name of the relation.
-    * @param isTemporary true if the relation is temporary, otherwise false.
-    * @param kind The kind of the relation (e.g. table, view, dimension, ...).
-    * @param ddl The original SQL statement issued by the user to create the relation.
-    */
-  case class RelationInfo(name: String, isTemporary: Boolean, kind: String, ddl: Option[String])
 
   /**
     * Returns all relations in the catalog of the data source.
@@ -58,4 +49,36 @@ trait DatasourceCatalog {
   def getSchemas(sqlContext: SQLContext,
                  options: Map[String, String]): Map[RelationKey, SchemaDescription] = Map.empty
 
+}
+
+/** A [[DatasourceCatalog]] that is capable of processing required filters and scans itself */
+trait DatasourceCatalogPushDown extends DatasourceCatalog {
+
+  /**
+    * Returns all relations in the catalog of the data source.
+    *
+    * @param sqlContext The SQL Context.
+    * @param options The options map.
+    * @param requiredColumns The required columns.
+    * @param filter An optional [[Filter]].
+    * @return The [[Row]]s with the required columns and passing the given [[Filter]]s.
+    */
+  def getRelations(sqlContext: SQLContext,
+                   options: Map[String, String],
+                   requiredColumns: Seq[String],
+                   filter: Option[Filter]): RDD[Row]
+
+  /**
+    * Retrieves the schemas of the tables of this provider.
+    *
+    * @param sqlContext The [[SQLContext]].
+    * @param options The options.
+    * @param requiredColumns The required columns.
+    * @param filter An optional [[Filter]].
+    * @return The [[Row]]s with the required columns and passing the given [[Filter]]s.
+    */
+  def getSchemas(sqlContext: SQLContext,
+                 options: Map[String, String],
+                 requiredColumns: Seq[String],
+                 filter: Option[Filter]): RDD[Row]
 }

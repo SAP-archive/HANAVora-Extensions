@@ -1,8 +1,9 @@
 package org.apache.spark.sql.catalyst.analysis.systables
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.tablefunctions._
 import org.apache.spark.sql.sources.commands.Table
-import org.apache.spark.sql.sources.{DatasourceCatalog, RelationKey, SchemaDescription, SchemaField}
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
@@ -83,64 +84,65 @@ case class ProviderBoundSchemaSystemTable(
     provider: String,
     options: Map[String, String])
   extends SchemaSystemTable
-  with AutoScan {
+  with ScanAndFilterImplicits {
 
   /** @inheritdoc */
-  override def execute(): Seq[Row] = {
-    val catalog =
-      DatasourceResolver
-        .resolverFor(sqlContext)
-        .newInstanceOfTyped[DatasourceCatalog](provider)
-
-    catalog.getSchemas(sqlContext, options).flatMap {
-      case (RelationKey(tableName, schemaOpt), SchemaDescription(kind, fields)) =>
-        val checkStar = kind == Table
-        fields.zipWithIndex.flatMap {
-          case (SchemaField(name, typ, nullable, sparkTypeOpt, metadata, comment), index) =>
-            val annotationsExtractor = new AnnotationsExtractor(metadata, checkStar)
-            val nonEmptyAnnotations =
-              OutputFormatter.toNonEmptyMap(annotationsExtractor.annotations)
-            val dataTypeExtractor = sparkTypeOpt.map(DataTypeExtractor)
-            val formatter =
-              new OutputFormatter(
-                schemaOpt.orNull,
-                tableName,
-                name,
-                index + 1, // Index should start at 1
-                nullable,
-                typ,
-                sparkTypeOpt.map(_.simpleString).orNull,
-                dataTypeExtractor.map(_.numericPrecision).orNull,
-                dataTypeExtractor.map(_.numericPrecisionRadix).orNull,
-                dataTypeExtractor.map(_.numericScale).orNull,
-                nonEmptyAnnotations,
-                comment)
-            formatter
-              .format()
-              .map(Row.fromSeq)
-        }
-    }.toSeq
-  }
+  override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] =
+    DatasourceResolver
+      .resolverFor(sqlContext)
+      .newInstanceOfTyped[DatasourceCatalog](provider) match {
+      case catalog: DatasourceCatalog with DatasourceCatalogPushDown =>
+        catalog.getSchemas(sqlContext, options, requiredColumns, filters.toSeq.merge)
+      case catalog =>
+        val values = catalog.getSchemas(sqlContext, options).flatMap {
+          case (RelationKey(tableName, schemaOpt), SchemaDescription(fields)) =>
+            fields.zipWithIndex.flatMap {
+              case (field, index) =>
+                val nonEmptyAnnotations =
+                  OutputFormatter.toNonEmptyMap(field.metadata)
+                val formatter =
+                  new OutputFormatter(
+                    schemaOpt.orNull,
+                    tableName,
+                    field.name,
+                    index + 1, // Index should start at 1
+                    field.nullable,
+                    field.typ,
+                    field.sparkDataType.map(_.simpleString).orNull,
+                    field.numericPrecision.orNull,
+                    field.numericPrecisionRadix.orNull,
+                    field.numericScale,
+                    nonEmptyAnnotations,
+                    field.comment)
+                formatter
+                  .format()
+                  .map(Row.fromSeq)
+            }
+        }.toSeq
+        val rows = schema.buildPrunedFilteredScan(requiredColumns, filters)(values)
+        sparkContext.parallelize(rows)
+    }
 }
 
 /**
   * A base implementation of the schema system table.
   */
 sealed trait SchemaSystemTable extends SystemTable {
-  protected type TypeHint = Option[String]
+  override def schema: StructType = SchemaSystemTable.schema
+}
 
-  override val schema: StructType = StructType(
-    StructField("TABLE_SCHEMA", StringType, nullable = true) ::
-    StructField("TABLE_NAME", StringType, nullable = false) ::
-    StructField("COLUMN_NAME", StringType, nullable = false) ::
-    StructField("ORDINAL_POSITION", IntegerType, nullable = false) ::
-    StructField("IS_NULLABLE", BooleanType, nullable = false) ::
-    StructField("DATA_TYPE", StringType, nullable = false) ::
-    StructField("SPARK_TYPE", StringType, nullable = true) ::
-    StructField("NUMERIC_PRECISION", IntegerType, nullable = true) ::
-    StructField("NUMERIC_PRECISION_RADIX", IntegerType, nullable = true) ::
-    StructField("NUMERIC_SCALE", IntegerType, nullable = true) ::
-    StructField("ANNOTATION_KEY", StringType, nullable = true) ::
-    StructField("ANNOTATION_VALUE", StringType, nullable = true) ::
-    StructField("COMMENT", StringType, nullable = true) :: Nil)
+object SchemaSystemTable extends SchemaEnumeration {
+  val tableSchema = Field("TABLE_SCHEMA", StringType, nullable = true)
+  val tableName = Field("TABLE_NAME", StringType, nullable = false)
+  val columnName = Field("COLUMN_NAME", StringType, nullable = false)
+  val ordinalPosition = Field("ORDINAL_POSITION", IntegerType, nullable = false)
+  val isNullable = Field("IS_NULLABLE", BooleanType, nullable = false)
+  val dataType = Field("DATA_TYPE", StringType, nullable = false)
+  val sparkType = Field("SPARK_TYPE", StringType, nullable = true)
+  val numericPrecision = Field("NUMERIC_PRECISION", IntegerType, nullable = true)
+  val numericPrecisionRadix = Field("NUMERIC_PRECISION_RADIX", IntegerType, nullable = true)
+  val numericScale = Field("NUMERIC_SCALE", IntegerType, nullable = true)
+  val annotationKey = Field("ANNOTATION_KEY", StringType, nullable = true)
+  val annotationValue = Field("ANNOTATION_VALUE", StringType, nullable = true)
+  val comment = Field("COMMENT", StringType, nullable = true)
 }

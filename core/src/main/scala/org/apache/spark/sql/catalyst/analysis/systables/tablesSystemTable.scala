@@ -1,9 +1,10 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.commands.{WithExplicitRelationKind, WithOrigin}
-import org.apache.spark.sql.sources.{DatasourceCatalog, TemporaryFlagRelation}
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
@@ -64,30 +65,37 @@ case class ProviderBoundTablesSystemTable(
     provider: String,
     options: Map[String, String])
   extends TablesSystemTable
-  with AutoScan {
+  with ScanAndFilterImplicits {
 
   /** @inheritdoc */
-  override def execute(): Seq[Row] = {
-    val catalog =
-      DatasourceResolver
-        .resolverFor(sqlContext)
-        .newInstanceOfTyped[DatasourceCatalog](provider)
-
-    catalog
-      .getRelations(sqlContext, new CaseInsensitiveMap(options))
-      .map(relationInfo => Row(
-        relationInfo.name,
-        relationInfo.isTemporary.toString.toUpperCase,
-        relationInfo.kind.toUpperCase,
-        provider))
-  }
+  override def buildScan(requiredColumns: Array[String],
+                         filters: Array[Filter]): RDD[Row] =
+    DatasourceResolver
+      .resolverFor(sqlContext)
+      .newInstanceOfTyped[DatasourceCatalog](provider) match {
+      case catalog: DatasourceCatalog with DatasourceCatalogPushDown =>
+        catalog.getRelations(sqlContext, options, requiredColumns, filters.toSeq.merge)
+      case catalog: DatasourceCatalog =>
+        val values =
+          catalog
+            .getRelations(sqlContext, new CaseInsensitiveMap(options))
+            .map(relationInfo => Row(
+              relationInfo.name,
+              relationInfo.isTemporary.toString.toUpperCase,
+              relationInfo.kind.toUpperCase,
+              relationInfo.provider))
+        val rows = schema.buildPrunedFilteredScan(requiredColumns, filters)(values)
+        sparkContext.parallelize(rows)
+    }
 }
 
 sealed trait TablesSystemTable extends SystemTable {
-  override val schema: StructType = StructType(
-    StructField("TABLE_NAME", StringType, nullable = false) ::
-      StructField("IS_TEMPORARY", StringType, nullable = false) ::
-      StructField("KIND", StringType, nullable = false) ::
-      StructField("PROVIDER", StringType, nullable = true) :: Nil)
+  override def schema: StructType = TablesSystemTable.schema
 }
 
+object TablesSystemTable extends SchemaEnumeration {
+  val tableName = Field("TABLE_NAME", StringType, nullable = false)
+  val isTemporary = Field("IS_TEMPORARY", StringType, nullable = false)
+  val kind = Field("KIND", StringType, nullable = false)
+  val provider = Field("PROVIDER", StringType, nullable = true)
+}

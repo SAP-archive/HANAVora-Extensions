@@ -1,7 +1,7 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.sources.DatasourceCatalog
+import org.apache.spark.sql.sources.{DatasourceCatalog, RelationInfo}
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -50,7 +50,7 @@ case class DescribeTableUsingRunnableCommand(name: TableIdentifier,
         Seq(describableRelation
           .getRelation(sqlContext, tableId, new CaseInsensitiveMap(options)) match {
             case None => Row("", "")
-            case Some(describableRelation.RelationInfo(relName, _, _, ddl)) => Row(
+            case Some(RelationInfo(relName, _, _, ddl, _)) => Row(
               relName, ddl.getOrElse(""))
         })
       case _ =>

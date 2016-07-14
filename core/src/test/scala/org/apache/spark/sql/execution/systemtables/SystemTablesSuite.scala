@@ -7,7 +7,6 @@ import org.apache.spark.sql.catalyst.analysis.systables._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
-import org.apache.spark.sql.sources.commands.Table
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql._
@@ -15,6 +14,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.apache.spark.sql.DatasourceResolver._
+import org.apache.spark.sql.execution.tablefunctions.DataTypeExtractor
 import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
 import org.mockito.internal.stubbing.answers.Returns
 import org.scalatest.mock.MockitoSugar
@@ -47,14 +47,19 @@ class SystemTablesSuite
 
   private def toSchemaField(structField: StructField,
                             customType: String,
-                            customComment: String): SchemaField =
+                            customComment: String): SchemaField = {
+    val dataTypeExtractor = DataTypeExtractor(structField.dataType)
     SchemaField(
       structField.name,
       customType,
       structField.nullable,
       Some(structField.dataType),
-      MetadataAccessor.metadataToMap(structField.metadata),
+      dataTypeExtractor.numericPrecision,
+      dataTypeExtractor.numericPrecisionRadix,
+      dataTypeExtractor.numericScale,
+      MetadataAccessor.metadataToMap(structField.metadata).mapValues(_.toString),
       Some(customComment))
+  }
 
   val schemaFields = schema.map { field =>
     field.dataType match {
@@ -63,15 +68,101 @@ class SystemTablesSuite
     }
   }
 
+  test("Schema enumeration keeps the order of elements") {
+    object TestEnumeration extends SchemaEnumeration {
+      val name = Field("name", StringType)
+      val age = Field("age", IntegerType)
+      val address = Field("address", StringType)
+    }
+
+    assertResult(
+      StructType(
+        StructField("name", StringType) ::
+        StructField("age", IntegerType) ::
+        StructField("address", StringType) :: Nil))(TestEnumeration.schema)
+  }
+
+  test("Schema enumeration errors if the schema is accessed and then another field is added") {
+    object TestEnumeration extends SchemaEnumeration {
+      schema
+      intercept[IllegalStateException] {
+        Field("test", StringType)
+      }
+    }
+
+    assertResult(StructType(Nil))(TestEnumeration.schema)
+  }
+
+  test("Schema enumeration errors if fields with identical names are defined") {
+    object TestEnumeration extends SchemaEnumeration {
+      val name = Field("name", StringType)
+      intercept[IllegalStateException] {
+        Field("name", IntegerType)
+      }
+    }
+
+    assertResult(TestEnumeration.schema)(StructType(StructField("name", StringType) :: Nil))
+  }
+
+  test("Pushdown enabled datasource catalog for schema systable is preferred over normal one") {
+    abstract class PushDownDatasourceCatalog
+      extends DatasourceCatalog
+        with DatasourceCatalogPushDown
+    val pushDownDatasourceCatalog = mock[PushDownDatasourceCatalog]
+    when(
+      pushDownDatasourceCatalog.getSchemas(
+        any[SQLContext],
+        any[Map[String, String]],
+        any[Seq[String]],
+        any[Option[sources.Filter]]))
+      .thenReturn(sc.parallelize(Seq(Row("t"))))
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[DatasourceCatalog]("com.sap.provider"))
+      .thenAnswer(new Returns(pushDownDatasourceCatalog))
+
+    withResolver(sqlContext, resolver) {
+      val values =
+        sqlc.sql("SELECT TABLE_NAME FROM SYS.SCHEMAS USING com.sap.provider")
+          .collect()
+          .toList
+      assertResult(List(Row("t")))(values)
+    }
+  }
+
+  test("Pushdown enabled datasource catalog for tables systable is preferred over normal one") {
+    abstract class PushDownDatasourceCatalog
+      extends DatasourceCatalog
+      with DatasourceCatalogPushDown
+    val pushDownDatasourceCatalog = mock[PushDownDatasourceCatalog]
+    when(
+      pushDownDatasourceCatalog.getRelations(
+        any[SQLContext],
+        any[Map[String, String]],
+        any[Seq[String]],
+        any[Option[sources.Filter]]))
+      .thenReturn(sc.parallelize(Seq(Row("t"))))
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[DatasourceCatalog]("com.sap.provider"))
+      .thenAnswer(new Returns(pushDownDatasourceCatalog))
+
+    withResolver(sqlContext, resolver) {
+      val values =
+        sqlc.sql("SELECT TABLE_NAME FROM SYS.TABLES USING com.sap.provider")
+          .collect()
+          .toList
+      assertResult(List(Row("t")))(values)
+    }
+  }
+
   test("Pushdown enabled metadata catalog is preferred over normal one") {
-    abstract class PushDownMetadataCatalog extends MetadataCatalog with PushDown
+    abstract class PushDownMetadataCatalog extends MetadataCatalog with MetadataCatalogPushDown
     val pushDownMetadataCatalog = mock[PushDownMetadataCatalog]
     when(
       pushDownMetadataCatalog.getTableMetadata(
         any[SQLContext],
         any[Map[String, String]],
         any[Seq[String]],
-        any[Seq[sources.Filter]])).thenReturn(sc.parallelize(Seq(Row("t", "foo", "bar"))))
+        any[Option[sources.Filter]])).thenReturn(sc.parallelize(Seq(Row("t", "foo", "bar"))))
     val resolver = mock[DatasourceResolver]
     when(resolver.newInstanceOfTyped[MetadataCatalog]("com.sap.provider"))
       .thenAnswer(new Returns(pushDownMetadataCatalog))
@@ -119,7 +210,7 @@ class SystemTablesSuite
   test("SELECT from SCHEMAS system table with target provider returns formatted data") {
     withMock { dataSource =>
       when(dataSource.getSchemas(any[SQLContext], any[Map[String, String]]))
-        .thenReturn(Map(RelationKey("tab") -> SchemaDescription(Table, schemaFields)))
+        .thenReturn(Map(RelationKey("tab") -> SchemaDescription(schemaFields)))
 
       val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS USING com.sap.spark.dsmock").collect()
       // scalastyle:off magic.number
@@ -182,8 +273,8 @@ class SystemTablesSuite
     withMock { dataSource =>
       when(dataSource.getRelations(any[SQLContext], any[Map[String, String]]))
         .thenReturn(
-          new dataSource.RelationInfo("foo", false, "TABLE", None) ::
-          new dataSource.RelationInfo("bar", true, "VIEW", None) :: Nil)
+          new RelationInfo("foo", false, "TABLE", None, "com.sap.spark.dsmock") ::
+          new RelationInfo("bar", true, "VIEW", None, "com.sap.spark.dsmock") :: Nil)
 
       val values = sqlc.sql("SELECT * FROM SYS.TABLES USING com.sap.spark.dsmock").collect()
       assertResult(Set(
@@ -288,10 +379,10 @@ class SystemTablesSuite
     withMock { dataSource =>
       when(dataSource.getRelations(any[SQLContext], any[Map[String, String]]))
         .thenReturn(
-          new dataSource.RelationInfo("t1", false, "TABLE", None) ::
-            new dataSource.RelationInfo("t2", true, "TABLE", None) ::
-            new dataSource.RelationInfo("v1", true, "VIEW", None) ::
-            new dataSource.RelationInfo("v2", true, "VIEW", None) :: Nil)
+          new RelationInfo("t1", false, "TABLE", None, "com.sap.spark.dsmock") ::
+            new RelationInfo("t2", true, "TABLE", None, "com.sap.spark.dsmock") ::
+            new RelationInfo("v1", true, "VIEW", None, "com.sap.spark.dsmock") ::
+            new RelationInfo("v2", true, "VIEW", None, "com.sap.spark.dsmock") :: Nil)
 
       val result1 = sqlc
         .sql("SELECT TABLE_NAME FROM SYS.TABLES USING com.sap.spark.dsmock").collect()
@@ -318,10 +409,10 @@ class SystemTablesSuite
     withMock { dataSource =>
       when(dataSource.getRelations(any[SQLContext], any[Map[String, String]]))
         .thenReturn(
-          new dataSource.RelationInfo("t1", false, "TABLE", None) ::
-            new dataSource.RelationInfo("t2", true, "TABLE", None) ::
-            new dataSource.RelationInfo("v1", true, "VIEW", None) ::
-            new dataSource.RelationInfo("v2", true, "VIEW", None) :: Nil)
+          new RelationInfo("t1", false, "TABLE", None, "com.sap.spark.dsmock") ::
+            new RelationInfo("t2", true, "TABLE", None, "com.sap.spark.dsmock") ::
+            new RelationInfo("v1", true, "VIEW", None, "com.sap.spark.dsmock") ::
+            new RelationInfo("v2", true, "VIEW", None, "com.sap.spark.dsmock") :: Nil)
 
       val results = sqlc.sql(
         """SELECT TABLE_NAME FROM SYS.TABLES

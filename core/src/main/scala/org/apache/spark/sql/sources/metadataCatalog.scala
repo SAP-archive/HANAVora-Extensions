@@ -22,7 +22,7 @@ trait MetadataCatalog {
 /**
   * A [[MetadataCatalog]] that can handle column scans and [[Filter]]s.
   */
-trait PushDown {
+trait MetadataCatalogPushDown {
   this: MetadataCatalog =>
 
   /**
@@ -31,13 +31,13 @@ trait PushDown {
     * @param sqlContext The Spark [[SQLContext]].
     * @param options The provider specific options map.
     * @param requiredColumns The required columns.
-    * @param filters The [[Filter]]s.
+    * @param filter An optional [[Filter]].
     * @return The [[Row]]s with the required columns and passing the given [[Filter]]s.
     */
   def getTableMetadata(sqlContext: SQLContext,
                        options: Map[String, String],
                        requiredColumns: Seq[String],
-                       filters: Seq[Filter]): RDD[Row]
+                       filter: Option[Filter]): RDD[Row]
 }
 
 /**

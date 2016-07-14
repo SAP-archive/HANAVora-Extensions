@@ -18,6 +18,7 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   with DatasourceCatalog
   with PartitioningFunctionProvider {
 
+  private def provider: String = getClass.getPackage.getName
 
   override def getSchemas(sqlContext: SQLContext,
                           options: Map[String, String]): Map[RelationKey, SchemaDescription] =
@@ -157,20 +158,21 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   override def getRelation(sqlContext: SQLContext, name: Seq[String], options: Map[String, String])
     : Option[RelationInfo] = {
     DefaultSource.tables.find(r => r.equals(name.last))
-      .map(r => RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>")))
+      .map(r => RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>"), provider))
       .orElse(DefaultSource.views.find(v => v._1 == name.last)
         .map {
           case (viewName, (kind, query)) =>
-            RelationInfo(viewName, isTemporary = false, kind, Some(query))
+            RelationInfo(viewName, isTemporary = false, kind, Some(query), provider)
         })
   }
 
   override def getRelations(sqlContext: SQLContext, options: Map[String, String])
     : Seq[RelationInfo] = {
     DefaultSource.tables.map(r =>
-      RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>"))) ++
+      RelationInfo(r, isTemporary = false, "TABLE", Some("<DDL statement>"), provider)) ++
     DefaultSource.views.map {
-      case (name, (kind, query)) => RelationInfo(name, isTemporary = false, kind, Some(query))
+      case (name, (kind, query)) =>
+        RelationInfo(name, isTemporary = false, kind, Some(query), provider)
     }
   }
 

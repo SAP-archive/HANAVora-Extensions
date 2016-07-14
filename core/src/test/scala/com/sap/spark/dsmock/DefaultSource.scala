@@ -124,17 +124,12 @@ class DefaultSource
 
   override def getRelation(sqlContext: SQLContext,
                            name: Seq[String],
-                           options: Map[String, String]): Option[RelationInfo] = {
-    underlying.getRelation(sqlContext, name, options).map { info =>
-      RelationInfo(info.name, info.isTemporary, info.kind, info.ddl)
-    }
-  }
+                           options: Map[String, String]): Option[RelationInfo] =
+    underlying.getRelation(sqlContext, name, options)
 
   override def getRelations(sqlContext: SQLContext,
                             options: Map[String, String]): Seq[RelationInfo] =
-    underlying.getRelations(sqlContext, options).map { info =>
-      RelationInfo(info.name, info.isTemporary, info.kind, info.ddl)
-    }
+    underlying.getRelations(sqlContext, options)
 
   override def getTableNames(sqlContext: SQLContext,
                              parameters: Map[String, String]): Seq[String] =
