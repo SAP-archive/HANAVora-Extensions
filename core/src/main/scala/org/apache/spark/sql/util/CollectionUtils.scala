@@ -5,6 +5,21 @@ package org.apache.spark.sql.util
   */
 object CollectionUtils {
 
+  implicit class RichSeq[A](val seq: Seq[A]) {
+
+    /**
+      * @return [[None]] if the given [[Seq]] was empty, else [[Some]] of the given sequence.
+      */
+    def nonEmptyOpt: Option[Seq[A]] =
+      if (seq.nonEmpty) Some(seq) else None
+
+    /**
+      * @return [[Some]] of the given [[Seq]] if it was empty, else [[None]]
+      */
+    def emptyOpt: Option[Seq[A]] =
+      if (seq.isEmpty) Some(seq) else None
+  }
+
   /**
     * A map wrapper class that offers additional functionality.
     *
@@ -30,6 +45,7 @@ object CollectionUtils {
 
   /**
     * A map where the string keys are case insensitive.
+    *
     * @param map The map that contains the data.
     * @tparam V The value type.
     */

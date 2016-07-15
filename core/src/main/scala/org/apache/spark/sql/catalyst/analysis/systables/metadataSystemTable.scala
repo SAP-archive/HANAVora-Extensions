@@ -30,7 +30,7 @@ case class MetadataSystemTable(
     provider: String,
     options: Map[String, String])
   extends SystemTable
-  with ScanAndFilterUtility {
+  with ScanAndFilterImplicits {
 
   /** @inheritdoc */
   override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] = {
@@ -47,7 +47,7 @@ case class MetadataSystemTable(
           val formatter = new OutputFormatter(tableMetadata.tableName, tableMetadata.metadata)
           formatter.format().map(Row.fromSeq)
         }
-        sparkContext.parallelize(scanAndValidate(requiredColumns, filters, rows))
+        sparkContext.parallelize(schema.buildPrunedFilteredScan(requiredColumns, filters)(rows))
     }
   }
 

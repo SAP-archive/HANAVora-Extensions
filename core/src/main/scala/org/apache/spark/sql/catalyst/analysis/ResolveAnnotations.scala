@@ -2,12 +2,11 @@ package org.apache.spark.sql.catalyst.analysis
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
-import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.PlanUtils._
+import org.apache.spark.sql.util.CollectionUtils.RichSeq
 
 import scala.collection.immutable.Queue
-import org.apache.spark.sql.util.CollectionUtil.RichSeq
 
 /**
   * Resolves [[AnnotatedAttribute]] in the query by applying a set of rules.
@@ -93,7 +92,7 @@ case class ResolveAnnotations(analyzer: Analyzer) extends Rule[LogicalPlan] {
         acc ++ node.expressions.flatMap(_.toPostOrderSeq).collect {
           case n: NamedExpression => n
         }
-    }.orderPreservingDistinct
+    }.distinct
   }
 
   private[sql] def aggregateMetadata(plan: LogicalPlan) = {

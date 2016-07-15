@@ -1,16 +1,96 @@
-package org.apache.spark.sql.catalyst.analysis.systables
+package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.AnalysisException
-import org.apache.spark.sql.sources._
+import org.apache.spark.sql.util.CollectionUtils.RichSeq
+import org.apache.spark.sql.{AnalysisException, Row}
 
 /**
   * Converts given filters to functions and optional remains.
   */
-object filterToFunction {
+trait FilterUtils {
   /**
     * Validates a row-like sequence of values and returns `true` if it is valid, `false` otherwise.
     */
-  type Validation = Seq[Any] => Boolean
+  type Validation = Row => Boolean
+
+  // scalastyle:off cyclomatic.complexity
+  /**
+    * Transforms the attribute of the given [[Filter]] top-down.
+    *
+    * @param filter The [[Filter]] whose attributes to transform.
+    * @param transform The transformation function to apply.
+    * @return The transformed [[Filter]].
+    */
+  def transformFilterAttributes(filter: Filter)
+                               (transform: PartialFunction[String, String]): Filter = {
+    def recur(f: Filter): Filter = transformFilterAttributes(f)(transform)
+    def matches(attribute: String) = transform.isDefinedAt(attribute)
+    filter match {
+      case e@EqualTo(attribute, _) if matches(attribute) => e.copy(transform(attribute))
+      case e@EqualNullSafe(attribute, _) if matches(attribute) => e.copy(transform(attribute))
+      case g@GreaterThan(attribute, _) if matches(attribute) => g.copy(transform(attribute))
+      case g@GreaterThanOrEqual(attribute, _) if matches(attribute) => g.copy(transform(attribute))
+      case l@LessThan(attribute, _) if matches(attribute) => l.copy(transform(attribute))
+      case l@LessThanOrEqual(attribute, _) if matches(attribute) => l.copy(transform(attribute))
+      case i@In(attribute, _) if matches(attribute) => i.copy(transform(attribute))
+      case i@IsNull(attribute) if matches(attribute) => i.copy(transform(attribute))
+      case i@IsNotNull(attribute) if matches(attribute) => i.copy(transform(attribute))
+      case s@StringStartsWith(attribute, _) if matches(attribute) => s.copy(transform(attribute))
+      case s@StringEndsWith(attribute, _) if matches(attribute) => s.copy(transform(attribute))
+      case s@StringContains(attribute, _) if matches(attribute) => s.copy(transform(attribute))
+      case n@Not(child) => n.copy(recur(child))
+      case a@And(left, right) => a.copy(recur(left), recur(right))
+      case o@Or(left, right) => o.copy(recur(left), recur(right))
+      case default => default
+    }
+  }
+  // scalastyle:on cyclomatic.complexity
+
+  /**
+    * Extracts [[Filter]]s of the given [[Filter]], if possible.
+    *
+    * A [[Filter]] can be extracted if
+    * it is either a leaf [[Filter]] that any of the given attributes targets or if the filter
+    * is an [[And]] and some of its children can be extracted.
+    *
+    * @param filter The [[Filter]] to extract from.
+    * @param attributes The attributes to extract [[Filter]]s containing it.
+    * @return An optional remaining [[Filter]] after extraction and an optional
+    *         extracted [[Filter]].
+    */
+  def extractFilters(filter: Filter, attributes: Seq[String]): (Option[Filter], Option[Filter]) = {
+    val children = childrenOf(filter)
+    if (children.isEmpty) {
+      if (areAttributesCoveredBy(filter, attributes)) {
+        None -> Some(filter)
+      } else {
+        Some(filter) -> None
+      }
+    } else {
+      extractMultipleChildFilters(filter, attributes)
+    }
+  }
+
+  /**
+    * Extracts [[Filter]]s from a [[Filter]] that has multiple children.
+    *
+    * @param filter The [[Filter]] to extract from.
+    * @param attributes The attributes to extract [[Filter]]s containing it.
+    * @return An optional remaining [[Filter]] after extraction and an optional
+    *         extracted [[Filter]].
+    */
+  private def extractMultipleChildFilters(filter: Filter,
+                                          attributes: Seq[String])
+  : (Option[Filter], Option[Filter]) = filter match {
+    case And(left, right) =>
+      val Seq((leftRemains, leftExtracted), (rightRemains, rightExtracted)) =
+        Seq(left, right).map(extractFilters(_, attributes))
+      val remains =
+        Seq(leftRemains, rightRemains).flatten.nonEmptyOpt.map(_.reduce(And(_, _)))
+      val extracted =
+        Seq(leftExtracted, rightExtracted).flatten.nonEmptyOpt.map(_.reduce(And(_, _)))
+      remains -> extracted
+    case default => Some(default) -> None
+  }
 
   /**
     * Converts the given [[Filter]] to a [[Validation]] and an [[Option]] of the remaining filter.
@@ -23,7 +103,7 @@ object filterToFunction {
     * @return The remaining [[Filter]] that is not targeted by the given attributes and
     *         the [[Validation]].
     */
-  def apply(filter: Filter, attributes: Seq[String]): (Option[Filter], Validation) = {
+  def filterToFunction(filter: Filter, attributes: Seq[String]): (Option[Filter], Validation) = {
     val children = childrenOf(filter)
     val validation = toValidation(filter, attributes)
 
@@ -50,26 +130,19 @@ object filterToFunction {
                                           children: Set[Filter],
                                           validation: Validation): (Option[Filter], Validation) = {
     val childResults: Seq[Filter] =
-      children.map(apply(_, attributes)).flatMap(_._1)(collection.breakOut)
+      children.flatMap(filterToFunction(_, attributes)._1)(collection.breakOut)
     filter match {
-      case and: And => childResults match {
-        /**
-          * In case one of the children of the [[And]] filter has been satisfied by the
-          * given sequence of attributes, we can collapse the [[And]] to its remaining, unsatisfied
-          * child.
-          */
-        case Seq(single) => Some(single) -> validation
-        /**
-          * In all other cases, we cannot break down the [[And]] and return it as remains alongside
-          * with its [[Validation]].
-          */
-        case Seq(first, second) => Some(and) -> validation
-      }
+      /**
+        * In case one of the children of the [[And]] filter has been satisfied by the
+        * given sequence of attributes, we can collapse the [[And]] to its remaining, unsatisfied
+        * child. Otherwise, we will just return the original [[And]].
+        */
+      case and: And => Some(childResults.reduce(And(_, _))) -> validation
       /**
         * For other multi-child [[Filter]]s ([[Not]], [[Or]]) we cannot optimize and prematurely
         * extract a [[Validation]], thus we need to return an always-true [[Validation]].
         */
-      case default => Some(default) -> ((s: Seq[Any]) => true)
+      case default => Some(default) -> ((r: Row) => true)
     }
   }
 
@@ -191,31 +264,36 @@ object filterToFunction {
       case Not(child) =>
         toValidation(child, attributes).andThen(!_)
       case And(left, right) =>
-        (s: Seq[Any]) =>
-          toValidation(left, attributes)(s) && toValidation(right, attributes)(s)
+        (r: Row) => toValidation(left, attributes)(r) && toValidation(right, attributes)(r)
       case Or(left, right) =>
-        (s: Seq[Any]) =>
-          toValidation(left, attributes)(s) || toValidation(right, attributes)(s)
+        (r: Row) => toValidation(left, attributes)(r) || toValidation(right, attributes)(r)
     }
   }
   // scalastyle: cyclomatic.complexity
 
   /**
-    * Generates a closure that executes the given check on the field where the
-    * target attribute is located at.
+    * Generates a closure that checks a target field in a row.
+    *
+    * The closure generated first retrieves the position of the target value in the row.
+    * If the position cannot be inferred, the check will not be run since in the given set
+    * there is nothing to execute the filter upon. Otherwise, the check will be given the
+    * target value and executed.
     *
     * @param attributes The attributes.
     * @param attribute The attribute to look for in the [[Seq]] of attributes.
     * @param check The check to execute on the target field.
-    * @return A closure that executes the check on the target field.
+    * @return A closure that executes the check on the target field if there is a target field.
+    *         Otherwise returns a closure that always returns true.
     */
   private def getAttributeFilter(attributes: Seq[String], attribute: String)
                                 (check: Any => Boolean): Validation = {
     val index = attributes.indexOf(attribute)
     if (index >= 0) {
-      (s: Seq[Any]) => check(s(index))
+      (r: Row) => check(r(index))
     } else {
-      (s: Seq[Any]) => true
+      (r: Row) => true
     }
   }
 }
+
+object FilterUtils extends FilterUtils
