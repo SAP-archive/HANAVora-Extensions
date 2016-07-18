@@ -24,5 +24,5 @@ script=`readlink -f "${BASH_SOURCE[0]}"`
 dir=`dirname "$script"`
 source "$dir/.commons.sh"
 
-exec $SPARK_HOME/bin/spark-submit --class com.sap.spark.SQLRunner "$spark_ext_lib" $*
+exec $SPARK_HOME/bin/spark-submit --class com.sap.spark.cli.SQLRunner "$spark_ext_lib" $*
 
