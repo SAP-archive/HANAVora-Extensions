@@ -5,18 +5,11 @@ dir=`dirname "$script"`
 lib_dir=`readlink -fn "$dir"/../lib`
 
 
-function set_spark_home {
-    # check if spark home is set or derive it from path of file spark-submit
+function check_spark_home {
+    # check if spark home is set or fail
     if [[ -z $SPARK_HOME ]]; then
-        spark_submit_binary=`readlink -nf "$(which spark-submit)"`
-        if [[ ! -z "$spark_submit_binary" ]]
-        then
-            export SPARK_HOME=`dirname "$spark_submit_binary"`
-            echo "[INFO] SPARK_HOME is derived from spark-submit path to: $SPARK_HOME"
-        else
-            echo "[Error] SPARK_HOME environment variable must be set to Spark installation directory"
-            exit 1
-        fi
+        echo "[Error] SPARK_HOME environment variable must be set to Spark installation directory"
+        exit 1
     fi
 }
 
@@ -63,7 +56,7 @@ function parse_user_jars {
     done
 }
 
-set_spark_home
+check_spark_home
 
 set_spark_libs
 
