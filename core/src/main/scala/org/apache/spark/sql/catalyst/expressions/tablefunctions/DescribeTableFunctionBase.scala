@@ -24,7 +24,7 @@ trait DescribeTableFunctionBase extends TableFunction {
         column.name,
         column.index,
         column.isNullable,
-        column.inferredVoraType,
+        column.inferredSqlType,
         column.numericPrecision.orNull,
         column.numericPrecisionRadix.orNull,
         column.numericScale.orNull,

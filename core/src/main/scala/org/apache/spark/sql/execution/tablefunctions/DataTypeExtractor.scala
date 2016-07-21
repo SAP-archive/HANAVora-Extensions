@@ -13,11 +13,11 @@ case class DataTypeExtractor(dataType: DataType) {
   private lazy val sqlBuilder = new SqlBuilder
 
   /**
-    * Returns the inferred matching Vora type to the given spark type.
+    * Returns the inferred matching standard SQL type to the given spark type.
     *
-    * @return The inferred Vora type string.
+    * @return The inferred SQL type string.
     */
-  def inferredVoraType: String = dataType match {
+  def inferredSqlType: String = dataType match {
     case _: NodeType => "<INTERNAL>"
     case default => sqlBuilder.typeToSql(default)
   }

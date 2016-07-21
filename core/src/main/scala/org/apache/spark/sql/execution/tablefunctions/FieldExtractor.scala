@@ -10,7 +10,7 @@ case class FieldExtractor(
     annotationsExtractor: AnnotationsExtractor,
     isNullable: Boolean) {
 
-  def inferredVoraType: String = dataTypeExtractor.inferredVoraType
+  def inferredSqlType: String = dataTypeExtractor.inferredSqlType
 
   def numericPrecision: Option[Int] = dataTypeExtractor.numericPrecision
 

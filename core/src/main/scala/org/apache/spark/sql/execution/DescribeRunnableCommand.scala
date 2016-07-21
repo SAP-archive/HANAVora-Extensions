@@ -35,7 +35,7 @@ case class DescribeRunnableCommand(plan: LogicalPlan) extends RunnableCommand {
       new OutputFormatter(
         column.name,
         column.index - 1, // OLAP_DESCRIBE expects indices to start with 0
-        column.inferredVoraType,
+        column.inferredSqlType,
         nonEmptyAnnotations).format().map(Row.fromSeq)
     }
   }
