@@ -22,6 +22,8 @@ trait DescribeTableFunctionBase extends TableFunction {
         extractor.tableSchema,
         column.tableName,
         column.name,
+        column.originalTableName,
+        column.originalName,
         column.index,
         column.isNullable,
         column.inferredSqlType,

@@ -32,6 +32,8 @@ object DescribeTableStructure {
   object ColumnField {
     val tableName: Attribute              = ("TABLE_NAME", StringType, NotNullable)
     val name: Attribute                   = ("COLUMN_NAME", StringType, NotNullable)
+    val originalTableName: Attribute      = ("ORIGINAL_TABLE_NAME", StringType, NotNullable)
+    val originalName: Attribute           = ("ORIGINAL_COLUMN_NAME", StringType, NotNullable)
     val ordinalPosition: Attribute        = ("ORDINAL_POSITION", IntegerType, NotNullable)
     val isNullable: Attribute             = ("IS_NULLABLE", BooleanType, NotNullable)
     val dataType: Attribute               = ("DATA_TYPE", StringType, NotNullable)
@@ -46,6 +48,8 @@ object DescribeTableStructure {
   val columnRelatedStructure: Seq[Attribute] =
     ColumnField.tableName ::
     ColumnField.name ::
+    ColumnField.originalTableName ::
+    ColumnField.originalName ::
     ColumnField.ordinalPosition ::
     ColumnField.isNullable ::
     ColumnField.dataType ::

@@ -6,6 +6,9 @@ import org.apache.spark.sql.types.{Metadata, MetadataAccessor}
   * Extracts annotations and respects if it should filter on stars or not.
   */
 case class AnnotationsExtractor(metadata: Map[String, Any], checkStar: Boolean) {
+  /**
+    * The field's annotations, without key-value pairs where '*' is key if checkStar is `true`.
+    */
   lazy val annotations: Map[String, String] =
     metadata
       .filter {

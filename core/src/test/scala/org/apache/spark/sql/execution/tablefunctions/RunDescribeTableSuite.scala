@@ -30,8 +30,10 @@ class RunDescribeTableSuite
 
   val expectedDescribePersonsOutput =
     Set(
-      List("", "persons", "name", 1, true, "VARCHAR(*)", null, null, null, null, null),
-      List("", "persons", "age", 2, false, "INTEGER",
+      List("", "persons", "name", "persons", "name",
+        1, true, "VARCHAR(*)", null, null, null, null, null),
+      List("", "persons", "age", "persons", "age",
+        2, false, "INTEGER",
         numericInt.precision, numericInt.radix, numericInt.scale, null, null))
 
   test("Run describe table on in memory data") {
@@ -73,7 +75,8 @@ class RunDescribeTableSuite
     val actual = result.map(_.toSeq.toList).toSet
 
     val expected =
-      Set(List("", "persons", "leftOwner", 1, true, "VARCHAR(*)", null, null, null, "foo", "bar"))
+      Set(List("", "v", "leftOwner", "persons", "name", 1,
+        true, "VARCHAR(*)", null, null, null, "foo", "bar"))
 
     assertResult(expected)(actual)
   }
@@ -95,9 +98,15 @@ class RunDescribeTableSuite
     // scalastyle:off magic.number
     val expected =
       Set(
-        List("", "sales", "YEAH", 1, true, "INTEGER", 32, 2, 0, "Semantics.type", "date"),
-        List("", "sales", "_c1", 2, true, "BIGINT", 64, 2, 0, null, null),
-        List("", "sales", "CUSTOMER_ID", 3, true, "INTEGER", 32, 2, 0, null, null))
+        List("", alterByCatalystSettings(sqlc.catalog, "V1"), "YEAH",
+          alterByCatalystSettings(sqlc.catalog, "sales"), "YEAH", 1, true,
+          "INTEGER", 32, 2, 0, "Semantics.type", "date"),
+        List("", alterByCatalystSettings(sqlc.catalog, "V1"), "_c1",
+          alterByCatalystSettings(sqlc.catalog, "sales"), "REVENUE", 2, true,
+          "BIGINT", 64, 2, 0, null, null),
+        List("", alterByCatalystSettings(sqlc.catalog, "V1"), "CUSTOMER_ID",
+          alterByCatalystSettings(sqlc.catalog, "sales"), "CUSTOMER_ID", 3, true,
+          "INTEGER", 32, 2, 0, null, null))
     // scalastyle:on magic.number
 
     assertResult(expected)(actual.map(_.toSeq.toList).toSet)
@@ -112,11 +121,11 @@ class RunDescribeTableSuite
 
     val expected =
       Set(
-        List("", alterByCatalystSettings(sqlc.catalog, "animalsTbl"),
-          "name", 1, true, "VARCHAR(*)", null, null, null, null, null),
-        List("", "H", "node", 2, false, "<INTERNAL>", null, null, null, null, null))
+        List("", "hv", "name", alterByCatalystSettings(sqlc.catalog, "animalsTbl"), "name",
+          1, true, "VARCHAR(*)", null, null, null, null, null),
+        List("", "hv", "node", "H", "node", 2, false, "<INTERNAL>", null, null, null, null, null))
 
-    assert(expected == actual)
+    assertResult(expected)(actual)
   }
 
   test("Run describe table if exists on non existent table returns empty result") {
@@ -145,7 +154,7 @@ class RunDescribeTableSuite
     assert(values == expectedDescribePersonsOutput)
   }
 
-  test("Column name is not correctly backtracked (Bug 116133)") {
+  test("Column name is correctly backtracked (Bug 116133)") {
     val tpch = TPCHTables(sqlc)
     Seq(
       tpch.customerTable,
@@ -175,17 +184,21 @@ class RunDescribeTableSuite
 
     val values =
       sqlc.sql(
-        """SELECT TABLE_NAME, COLUMN_NAME
+        """SELECT TABLE_NAME, COLUMN_NAME, ORIGINAL_TABLE_NAME, ORIGINAL_COLUMN_NAME
           |FROM describe_table(SELECT * FROM RASH_REVENUE_1995_2005)""".stripMargin)
         .collect()
         .toSet
 
     assertResult(
       Set(
-        Row(alterByCatalystSettings(sqlc.catalog, "CUSTOMER"), "CustomerName"),
-        Row(alterByCatalystSettings(sqlc.catalog, "NATION"), "NationName"),
-        Row(alterByCatalystSettings(sqlc.catalog, "LINEITEM"), "NewDate"),
-        Row(alterByCatalystSettings(sqlc.catalog, "LINEITEM"), "L_SHIPDATE")))(values)
+        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "CustomerName",
+          "CUSTOMER", "C_NAME"),
+        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "NationName",
+          "NATION", "N_NAME"),
+        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "NewDate",
+          "LINEITEM", "L_SHIPDATE"),
+        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "L_SHIPDATE",
+          "LINEITEM", "L_SHIPDATE")))(values)
   }
 }
 

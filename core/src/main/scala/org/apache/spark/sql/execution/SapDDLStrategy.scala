@@ -19,12 +19,6 @@ private[sql] case class SapDDLStrategy(planner: ExtendedPlanner) extends Strateg
   // scalastyle:off cyclomatic.complexity
   // scalastyle:off method.length
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan.flatMap({
-    // TODO (AC) Remove this once table-valued function are rebased on top.
-    case DescribeRelationCommand(name) => ExecutedCommand(
-      DescribeRunnableCommand(planner.optimizedPlan(name))) :: Nil
-    case DescribeQueryCommand(query) =>
-      val analyzedPlan = planner.analyze(query)
-      ExecutedCommand(DescribeRunnableCommand(analyzedPlan)) :: Nil
     case AppendCommand(table, options) =>
       val logicalRelation = planner.optimizedPlan(table).asInstanceOf[LogicalRelation]
       val appendRelation = logicalRelation.relation.asInstanceOf[AppendRelation]

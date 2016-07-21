@@ -49,7 +49,7 @@ case class SparkLocalSchemaSystemTable(sqlContext: SQLContext)
         val unresolvedPlan = sqlContext.catalog.lookupRelation(tableIdent)
         // TODO(AC): This should be removed once the new view implementation lands
         Try(sqlContext.analyzer.execute(unresolvedPlan)).map { plan =>
-          val extractor = new LogicalPlanExtractor(plan)
+          val extractor = LogicalPlanExtractor(plan)
           extractor.columns.flatMap { column =>
             val nonEmptyAnnotations = OutputFormatter.toNonEmptyMap(column.annotations)
             val formatter =
@@ -57,6 +57,8 @@ case class SparkLocalSchemaSystemTable(sqlContext: SQLContext)
                 null,
                 column.tableName,
                 column.name,
+                column.originalTableName,
+                column.originalName,
                 column.index,
                 column.isNullable,
                 column.dataType.simpleString,
@@ -98,7 +100,7 @@ case class ProviderBoundSchemaSystemTable(
         catalog.getSchemas(sqlContext, options, requiredColumns, filters.toSeq.merge)
       case catalog =>
         val values = catalog.getSchemas(sqlContext, options).flatMap {
-          case (RelationKey(tableName, schemaOpt), SchemaDescription(fields)) =>
+          case (RelationKey(tableName, originalTableName, schemaOpt), SchemaDescription(fields)) =>
             fields.zipWithIndex.flatMap {
               case (field, index) =>
                 val nonEmptyAnnotations =
@@ -108,6 +110,8 @@ case class ProviderBoundSchemaSystemTable(
                     schemaOpt.orNull,
                     tableName,
                     field.name,
+                    originalTableName,
+                    field.originalName,
                     index + 1, // Index should start at 1
                     field.nullable,
                     field.typ,
@@ -116,7 +120,7 @@ case class ProviderBoundSchemaSystemTable(
                     field.numericPrecisionRadix.orNull,
                     field.numericScale,
                     nonEmptyAnnotations,
-                    field.comment)
+                    field.comment.orNull)
                 formatter
                   .format()
                   .map(Row.fromSeq)
@@ -138,6 +142,8 @@ object SchemaSystemTable extends SchemaEnumeration {
   val tableSchema = Field("TABLE_SCHEMA", StringType, nullable = true)
   val tableName = Field("TABLE_NAME", StringType, nullable = false)
   val columnName = Field("COLUMN_NAME", StringType, nullable = false)
+  val originalTableName = Field("ORIGINAL_TABLE_NAME", StringType, nullable = false)
+  val originalColumnName = Field("ORIGINAL_COLUMN_NAME", StringType, nullable = false)
   val ordinalPosition = Field("ORDINAL_POSITION", IntegerType, nullable = false)
   val isNullable = Field("IS_NULLABLE", BooleanType, nullable = false)
   val dataType = Field("DATA_TYPE", StringType, nullable = false)

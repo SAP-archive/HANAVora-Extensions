@@ -6,8 +6,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
-import org.apache.spark.sql.sources.sql.{Cube, Dimension, Plain, ViewKind}
+import org.apache.spark.sql.sources.sql.ViewKind
 import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 
@@ -98,7 +97,7 @@ private object SapSqlParser extends BackportedSqlParser
    * Overriden to hook [[createView]] parser.
    */
   override protected lazy val start: Parser[LogicalPlan] =
-    selectUsing | start1 | insert | cte | createViewUsing | createView | describeTable
+    selectUsing | start1 | insert | cte | createViewUsing | createView
 
   /**
     * This is the starting rule for select statements.
@@ -228,13 +227,6 @@ private object SapSqlParser extends BackportedSqlParser
           options = opts.getOrElse(CaseInsensitiveMap.empty),
           allowExisting = allowExisting.isDefined)
     }
-
-  protected lazy val describeTable: Parser[LogicalPlan] =
-    (OLAP_DESCRIBE ~> (ident <~ ".").? ~ ident ^^ {
-      case db ~ tbl =>
-        DescribeRelationCommand(UnresolvedRelation(TableIdentifier(tbl, db), None))
-    }
-    |OLAP_DESCRIBE ~> start1 ^^ { l:LogicalPlan => DescribeQueryCommand(l) })
 
   /** EXTRACT function. */
   protected lazy val extract: Parser[Expression] =

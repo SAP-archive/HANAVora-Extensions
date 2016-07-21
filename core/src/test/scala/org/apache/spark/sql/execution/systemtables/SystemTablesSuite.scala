@@ -51,6 +51,7 @@ class SystemTablesSuite
     val dataTypeExtractor = DataTypeExtractor(structField.dataType)
     SchemaField(
       structField.name,
+      structField.name,
       customType,
       structField.nullable,
       Some(structField.dataType),
@@ -186,10 +187,14 @@ class SystemTablesSuite
     val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS").collect()
     // scalastyle:off magic.number
     assertResult(Set(
-      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data", ""),
-      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null, ""),
-      Row(null, "tab", "vFoo", 1, false, "string", "string", null, null, null, "meta", "morph", ""),
-      Row(null, "tab", "vBar", 2, true, "int", "int", 32, 2, 0, "meta", "data", "")
+      Row(null, "tab", "foo", "tab", "foo", 1, false,
+        "string", "string", null, null, null, "meta", "data", ""),
+      Row(null, "tab", "bar", "tab", "bar", 2, true,
+        "int", "int", 32, 2, 0, null, null, ""),
+      Row(null, "v", "vFoo", "tab", "foo", 1, false,
+        "string", "string", null, null, null, "meta", "morph", ""),
+      Row(null, "v", "vBar", "tab", "bar", 2, true,
+        "int", "int", 32, 2, 0, "meta", "data", "")
     ))(values.toSet)
     // scalastyle:on magic.number
   }
@@ -201,8 +206,10 @@ class SystemTablesSuite
     val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS").collect()
     // scalastyle:off magic.number
     assertResult(Set(
-      Row(null, "tab", "foo", 1, false, "string", "string", null, null, null, "meta", "data", ""),
-      Row(null, "tab", "bar", 2, true, "int", "int", 32, 2, 0, null, null, "")
+      Row(null, "tab", "foo", "tab", "foo", 1, false,
+        "string", "string", null, null, null, "meta", "data", ""),
+      Row(null, "tab", "bar", "tab", "bar", 2, true,
+        "int", "int", 32, 2, 0, null, null, "")
     ))(values.toSet)
     // scalastyle:on magic.number
   }
@@ -210,15 +217,15 @@ class SystemTablesSuite
   test("SELECT from SCHEMAS system table with target provider returns formatted data") {
     withMock { dataSource =>
       when(dataSource.getSchemas(any[SQLContext], any[Map[String, String]]))
-        .thenReturn(Map(RelationKey("tab") -> SchemaDescription(schemaFields)))
+        .thenReturn(Map(RelationKey("tab", "oTab") -> SchemaDescription(schemaFields)))
 
       val values = sqlc.sql("SELECT * FROM SYS.SCHEMAS USING com.sap.spark.dsmock").collect()
       // scalastyle:off magic.number
       assertResult(Set(
-        Row(null, "tab", "foo", 1, false, "CUSTOM-String", "string", null, null, null,
-          "meta", "data", "CUSTOM-COMMENT1"),
-        Row(null, "tab", "bar", 2, true, "CUSTOM-Integer", "int", 32, 2, 0, null, null,
-          "CUSTOM-COMMENT2")
+        Row(null, "tab", "foo", "oTab", "foo", 1, false,
+          "CUSTOM-String", "string", null, null, null, "meta", "data", "CUSTOM-COMMENT1"),
+        Row(null, "tab", "bar", "oTab", "bar", 2, true,
+          "CUSTOM-Integer", "int", 32, 2, 0, null, null, "CUSTOM-COMMENT2")
       ))(values.toSet)
       // scalastyle:on magic.number
     }

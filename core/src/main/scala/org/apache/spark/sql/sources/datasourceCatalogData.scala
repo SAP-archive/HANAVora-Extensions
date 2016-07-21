@@ -6,9 +6,13 @@ import org.apache.spark.sql.types.DataType
   * Key to find a relation.
   *
   * @param relationName The relation name.
+  * @param originalRelationName The original relation name.
   * @param schema The schema the relation resides in.
   */
-case class RelationKey(relationName: String, schema: Option[String] = None)
+case class RelationKey(
+    relationName: String,
+    originalRelationName: String,
+    schema: Option[String] = None)
 
 /**
   * A description of a table or view schema
@@ -21,6 +25,7 @@ case class SchemaDescription(relationSchema: Seq[SchemaField])
   * A field in a relation schema.
   *
   * @param name The field name.
+  * @param originalName The original name of the field.
   * @param typ The field type.
   * @param nullable `true` if the field is nullable, `false` otherwise.
   * @param sparkDataType [[Some]]([[DataType]]) if there is a Spark
@@ -34,6 +39,7 @@ case class SchemaDescription(relationSchema: Seq[SchemaField])
   */
 case class SchemaField(
     name: String,
+    originalName: String,
     typ: String,
     nullable: Boolean,
     sparkDataType: Option[DataType],

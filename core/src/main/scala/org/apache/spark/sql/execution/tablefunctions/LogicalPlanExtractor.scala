@@ -22,10 +22,19 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
     val attributes = plan.output
     val shouldCheckStar = !plan.isInstanceOf[LogicalRelation]
     attributes.map(attr => attr -> backTrack(attr)).zipWithIndex.map {
-      case ((attr, (columnName, tableName)), index) =>
+      case ((attr,
+        (tableName, columnName, originalTableName, originalColumnName)), index) =>
         // + 1 since ordinal should start at 1
-        FieldExtractor(index + 1, tableName, columnName,
-          attr.dataType, attr.metadata, attr.nullable, shouldCheckStar)
+        FieldExtractor(
+          index + 1,
+          tableName,
+          originalTableName,
+          columnName,
+          originalColumnName,
+          attr.dataType,
+          attr.metadata,
+          attr.nullable,
+          shouldCheckStar)
     }
   }
 
@@ -58,39 +67,32 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
     }
   }
 
-  def backTrack(attribute: Attribute): (String, String) = {
+  private def backTrack(attribute: Attribute): (String, String, String, String) = {
     val preOrderSeq = plan.toPreOrderSeq
-    val (originalAttribute, attrNameOpt) =
-      preOrderSeq.foldLeft[(Attribute, Option[String])](attribute -> None) {
-        case ((attr, nameAlias), Reformatting(expressions)) =>
+    val originalAttribute =
+      preOrderSeq.foldLeft[Attribute](attribute) {
+        case (attr, Reformatting(expressions)) =>
           val column = ColumnMatcher(attr.exprId)
           val updated = expressions.collectFirst {
-            case alias@column(matched) =>
-              alias.name -> matched
+            case alias@column(matched) => matched
           }
           /** With this, only the top most alias (if any) is preserved) */
-          updated.map(_._2).getOrElse(attr) -> nameAlias.orElse(updated.map(_._1))
+          updated.getOrElse(attr)
         case (attr, default) =>
           attr
     }
 
-    val attrName = attrNameOpt.getOrElse(attribute.name)
+    val originalTableName = extractName(originalAttribute, preOrderSeq.reverse).get
+    val tableName = extractName(attribute, preOrderSeq).getOrElse("")
 
-    val candidates = preOrderSeq.filter(_.outputSet.contains(originalAttribute)).reverse
-
-    val nameCandidates = candidates.map(extractName)
-
-    val tableName = nameCandidates.collectFirst {
-      case Some(name) => name
-    }.getOrElse(candidates.head.nodeName)
-
-    attrName -> tableName
+    (tableName, attribute.name, originalTableName, originalAttribute.name)
   }
 
-  def extractName(plan: LogicalPlan): Option[String] = plan match {
-    case Subquery(alias, _) => Some(alias)
-    case _ => None
-  }
+  private def extractName(attribute: Attribute, plans: Seq[LogicalPlan]): Option[String] =
+    plans.filter(_.outputSet.contains(attribute)).collectFirst {
+      case Subquery(alias, _) => alias
+      case LogicalRelation(r: SqlLikeRelation, _) => r.tableName
+    }
 
   def tablePart: Seq[Any] = {
     tableSchema :: Nil
