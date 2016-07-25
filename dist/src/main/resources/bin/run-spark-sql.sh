@@ -8,7 +8,11 @@ simple CSV format without quotation.
 
 Options:
 
-You can use all options for 'spark-submit' (besides '--class'). Additional options:
+You can use all options for 'spark-submit' (besides '--class').
+
+NOTE: You probably need to set the option '--master' to something adequate for your cluster.
+
+Additional options:
 
 -h\tprint this message
 -o\toutput file (default: stdout)

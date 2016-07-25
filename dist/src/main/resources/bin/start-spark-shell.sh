@@ -26,7 +26,11 @@ Script includes the jar library from the lib folder and starts a spark shell.
 
 Options:
 
-You can use all options for 'spark-shell' even '--jars'). Additional options:
+You can use all options for 'spark-shell' even '--jars').
+
+NOTE: You probably need to set the option '--master' to something adequate for your cluster.
+
+Additional options:
 
 -h\tprint this message
 "
