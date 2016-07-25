@@ -7,7 +7,6 @@ import org.apache.spark.sql.catalyst.analysis.systables._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
-import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
 import org.apache.spark.sql.sources.commands.Table
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
@@ -16,8 +15,10 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.apache.spark.sql.DatasourceResolver._
+import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
 import org.mockito.internal.stubbing.answers.Returns
 import org.scalatest.mock.MockitoSugar
+import org.apache.spark.util.DummyRelationUtils._
 
 /**
   * Test suites for system tables.
@@ -147,6 +148,36 @@ class SystemTablesSuite
     }
   }
 
+  test("Select from TABLES system table returns the correct result set (Bug 117362, 117363)") {
+    withMock { dataSource =>
+      val handle = mock[ViewHandle]
+      when(dataSource.createView(any[CreateViewInput])).thenReturn(handle)
+      when(dataSource.createRelation(
+        sqlContext = any[SQLContext],
+        tableName = any[Seq[String]],
+        parameters = any[Map[String, String]],
+        schema = any[StructType],
+        partitioningFunction = any[Option[String]],
+        partitioningColumns = any[Option[Seq[String]]],
+        isTemporary = any[Boolean],
+        allowExisting = any[Boolean]))
+        .thenReturn(new DummyRelation('foo.string)(sqlc) with TemporaryFlagRelation {
+          override def isTemporary(): Boolean = false
+        })
+
+      sqlc.sql("CREATE TABLE t (foo string) USING com.sap.spark.dsmock")
+      sqlc.sql("CREATE VIEW v1 AS SELECT * FROM t USING com.sap.spark.dsmock")
+      sqlc.sql("CREATE VIEW v2 AS SELECT * FROM t")
+
+      val values = sqlc.sql("SELECT TABLE_NAME, KIND, IS_TEMPORARY FROM SYS.TABLES").collect().toSet
+      assertResult(
+        Set(
+          Row("t", "TABLE", "FALSE"),
+          Row("v1", "VIEW", "FALSE"),
+          Row("v2", "VIEW", "TRUE")))(values)
+    }
+  }
+
   test("Select from TABLES system table and target a datasource") {
     withMock { dataSource =>
       when(dataSource.getRelations(any[SQLContext], any[Map[String, String]]))
@@ -168,7 +199,7 @@ class SystemTablesSuite
 
     val values = sqlc.sql("SELECT * FROM SYS.TABLES").collect()
     assertResult(Set(
-      Row("foo", "TRUE", "TABLE", "com.sap.spark.dstest"),
+      Row("foo", "FALSE", "TABLE", "com.sap.spark.dstest"),
       Row("bar", "TRUE", "VIEW", null),
       Row("baz", "FALSE", "VIEW", "com.sap.spark.dstest")
     ))(values.toSet)

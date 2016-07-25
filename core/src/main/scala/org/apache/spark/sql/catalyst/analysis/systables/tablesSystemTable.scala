@@ -36,6 +36,7 @@ case class SparkLocalTablesSystemTable(sqlContext: SQLContext)
       .map { table =>
         val plan = sqlContext.catalog.lookupRelation(TableIdentifier(table))
         val isTemporary = plan.collectFirst {
+          case LogicalRelation(t: TemporaryFlagRelation, _) => t.isTemporary()
           case t: TemporaryFlagRelation => t.isTemporary()
         }.getOrElse(true) // By default, we treat it as temporary
         val kind = plan.collectFirst {

@@ -95,8 +95,8 @@ trait ScanAndFilterUtility {
           |Required: ${requiredColumns.mkString(", ")}
           |Difference: ${difference.mkString(", ")}
         """.stripMargin)
-    val columnUsages = columnNames.map(requiredSet.contains)
-    (s: Seq[Any]) => s.zip(columnUsages).collect { case (value, true) => value }
+    val columnUsages = requiredColumns.map(column => columnNames.indexWhere(_ == column))
+    (s: Seq[Any]) => columnUsages.map(s.apply)
   }
 }
 
