@@ -1,6 +1,7 @@
 package org.apache.spark.sql.views
 
 import com.sap.spark.dstest.DefaultSource
+import com.sap.spark.dsmock.DefaultSource.withMock
 import org.apache.spark.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
@@ -14,12 +15,15 @@ import org.apache.spark.sql.catalyst.expressions.IsNull
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.sql.{Dimension, Plain}
 import org.mockito.Mockito._
+import org.mockito.Matchers._
 import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.mock.MockitoSugar
 import DatasourceResolver._
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.tablefunctions.TPCHTables
 import org.apache.spark.sql.types._
 import org.mockito.internal.stubbing.answers.Returns
+import org.apache.spark.util.DummyRelationUtils._
 
 import scala.util.Random
 
@@ -44,6 +48,38 @@ class ViewsSuite extends FunSuite
   override def beforeAll(): Unit = {
     super.beforeAll()
     DefaultSource.reset()
+  }
+
+  test("View with raw sql works") {
+    withMock { defaultSource =>
+      val rdd = mock[RDD[Row]]
+      val schema: StructType = 'a.string
+      when(defaultSource.getRDD(any[String])).thenReturn(rdd)
+      when(defaultSource.getResultingAttributes(any[String])).thenReturn(schema.toAttributes)
+
+      sqlc.sql("CREATE VIEW v AS ``SELECT * FROM FOO`` USING com.sap.spark.dsmock")
+      val resultSchema = sqlc.sql("SELECT * FROM v").schema
+
+      assertResult(schema)(resultSchema)
+    }
+  }
+
+  test("View with raw sql in subquery works") {
+    withMock { defaultSource =>
+      val rdd = mock[RDD[Row]]
+      val schema: StructType = 'a.string
+      when(defaultSource.getRDD(any[String])).thenReturn(rdd)
+      when(defaultSource.getResultingAttributes(any[String])).thenReturn(schema.toAttributes)
+
+      sqlc.sql(
+        """CREATE VIEW v AS
+          |SELECT * FROM
+          |(``SELECT * FROM FOO``
+          |USING com.sap.spark.dsmock) t""".stripMargin)
+      val resultSchema = sqlc.sql("SELECT * FROM v").schema
+
+      assertResult(schema)(resultSchema)
+    }
   }
 
   test("Create view with min/max works (bug 116822)") {

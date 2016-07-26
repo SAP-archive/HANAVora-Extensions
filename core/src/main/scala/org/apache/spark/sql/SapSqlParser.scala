@@ -100,6 +100,19 @@ private object SapSqlParser extends BackportedSqlParser
     selectUsing | start1 | insert | cte | createViewUsing | createView | describeTable
 
   /**
+    * This is the starting rule for select statements.
+    *
+    * Overridden to hook [[selectUsing]] parser.
+    */
+  override protected lazy val start1: Parser[LogicalPlan] =
+    (selectUsing | select | ("(" ~> select <~ ")")) *
+      ( UNION ~ ALL        ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2) }
+        | INTERSECT          ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Intersect(q1, q2) }
+        | EXCEPT             ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
+        | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2)) }
+        )
+
+  /**
    * Overriden to hook [[hierarchy]] parser.
    */
   override protected lazy val relation: Parser[LogicalPlan] =

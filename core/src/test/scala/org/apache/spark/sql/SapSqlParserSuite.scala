@@ -8,7 +8,7 @@ import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableF
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.execution.datasources.{CreateNonPersistentViewCommand, CreatePersistentViewCommand}
-import org.apache.spark.sql.sources.sql.{Cube => CubeKind, Dimension, Plain}
+import org.apache.spark.sql.sources.sql.{Dimension, Plain, Cube => CubeKind}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.FunSuite
@@ -67,6 +67,38 @@ class SapSqlParserSuite
   // variables for raw select tests
   val rawSqlString = "SELECT something bla FROM A"
   val className = "class.name"
+
+  test("CREATE VIEW with RAW SQL") {
+    val parsed = SapSqlParser.parse(
+      """CREATE VIEW v AS
+        |``SELECT * FROM foo`` USING com.sap.spark.engines
+      """.stripMargin)
+
+    assertResult(
+      CreateNonPersistentViewCommand(
+        Plain,
+        TableIdentifier("v"),
+        UnresolvedSelectUsing("SELECT * FROM foo", "com.sap.spark.engines"),
+        temporary = false))(parsed)
+  }
+
+  test("CREATE VIEW with RAW SQL in Subquery") {
+    val parsed = SapSqlParser.parse(
+      """CREATE VIEW v AS SELECT * FROM
+        |(``SELECT * FROM foo`` USING com.sap.spark.engines) AS t
+      """.stripMargin)
+
+    assertResult(
+      CreateNonPersistentViewCommand(
+        Plain,
+        TableIdentifier("v"),
+        Project(
+          Seq(UnresolvedAlias(UnresolvedStar(None))),
+          Subquery(
+            "t",
+            UnresolvedSelectUsing("SELECT * FROM foo", "com.sap.spark.engines"))),
+        temporary = false))(parsed)
+  }
 
   test ("RAW SQL: ``select ....`` USING class.name") {
     // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
