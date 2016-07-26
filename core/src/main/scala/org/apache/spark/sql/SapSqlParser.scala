@@ -9,6 +9,7 @@ import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
 import org.apache.spark.sql.sources.sql.{Cube, Dimension, Plain, ViewKind}
 import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField}
+import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 
 import scala.util.parsing.input.Position
 
@@ -20,7 +21,8 @@ import scala.util.parsing.input.Position
  * For DML statements see [[SapDDLParser]].
  */
 private object SapSqlParser extends BackportedSqlParser
-with AnnotationParsingRules{
+  with AnnotationParsingRules
+  with WithConsumedInputRules {
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")
@@ -46,13 +48,13 @@ with AnnotationParsingRules{
   protected val TEMPORARY = Keyword("TEMPORARY")
   protected val DIMENSION = Keyword("DIMENSION")
   protected val CUBE = Keyword("CUBE")
+  protected val IF = Keyword("IF")
+  protected val EXISTS = Keyword("EXISTS")
 
   /* Extract keywords */
   protected val EXTRACT = Keyword("EXTRACT")
 
   lexical.delimiters += "$"
-
-  protected lazy val viewKind: Parser[String] = DIMENSION | CUBE
 
   /* System table keywords */
   protected lazy val SYS = Keyword("SYS")
@@ -95,7 +97,7 @@ with AnnotationParsingRules{
    * Overriden to hook [[createView]] parser.
    */
   override protected lazy val start: Parser[LogicalPlan] =
-    selectUsing | start1 | insert | cte | createView | describeTable
+    selectUsing | start1 | insert | cte | createViewUsing | createView | describeTable
 
   /**
    * Overriden to hook [[hierarchy]] parser.
@@ -183,12 +185,34 @@ with AnnotationParsingRules{
       case seq => seq.map(UnresolvedAttribute(_))
     }
 
+  protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
+    case ViewKind(kind) => kind
+  }
 
   /** Create temporary [dimension] view parser. */
   protected lazy val createView: Parser[LogicalPlan] =
-    (CREATE ~> TEMPORARY.?) ~ (viewKind.? <~ VIEW) ~ (ident <~ AS) ~ start1 ^^ {
-      case temp ~ ViewKind(kind) ~ name ~ query =>
+    (CREATE ~> TEMPORARY.?) ~ viewKind ~ (ident <~ AS) ~ start1 ^^ {
+      case temp ~ kind ~ name ~ query =>
         CreateNonPersistentViewCommand(kind, TableIdentifier(name), query, temp.isDefined)
+    }
+
+  /**
+    * Resolves a CREATE VIEW ... USING statement, in addition is adds the original VIEW SQL string
+    * added by the user into the OPTIONS.
+    */
+  protected lazy val createViewUsing: Parser[CreatePersistentViewCommand] =
+    withConsumedInput(
+      (CREATE ~> viewKind) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
+      (USING ~> className) ~ (OPTIONS ~> options).?) ^^ {
+      case (kind ~ allowExisting ~ name ~ plan ~ provider ~ opts, text) =>
+        CreatePersistentViewCommand(
+          kind = kind,
+          identifier = name,
+          plan = plan,
+          viewSql = text.trim,
+          provider = provider,
+          options = opts.getOrElse(CaseInsensitiveMap.empty),
+          allowExisting = allowExisting.isDefined)
     }
 
   protected lazy val describeTable: Parser[LogicalPlan] =

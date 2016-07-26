@@ -17,6 +17,8 @@ import org.mockito.Mockito._
 import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.mock.MockitoSugar
 import DatasourceResolver._
+import org.apache.spark.sql.execution.tablefunctions.TPCHTables
+import org.apache.spark.sql.types._
 import org.mockito.internal.stubbing.answers.Returns
 
 import scala.util.Random
@@ -42,6 +44,36 @@ class ViewsSuite extends FunSuite
   override def beforeAll(): Unit = {
     super.beforeAll()
     DefaultSource.reset()
+  }
+
+  test("Create view with min/max works (bug 116822)") {
+    val customerTable = new TPCHTables(sqlc).customerTable
+    sqlc.baseRelationToDataFrame(customerTable).registerTempTable(customerTable.tableName)
+
+    sqlc.sql(
+      """CREATE VIEW RASH_AGGR_1 AS
+        |SELECT MIN(C_CUSTKEY) AS KEY, C_MKTSEGMENT
+        |FROM CUSTOMER
+        |GROUP BY C_MKTSEGMENT
+        |USING com.sap.spark.dstest
+      """.stripMargin)
+
+    assertResult(
+      StructType(
+        StructField("KEY", IntegerType) ::
+        StructField("C_MKTSEGMENT", StringType) :: Nil))(
+      sqlc.sql("SELECT * FROM RASH_AGGR_1").schema)
+  }
+
+  test("Create view with year function works (bug 116821)") {
+    sqlc.sql(
+      """CREATE VIEW v AS
+        |SELECT YEAR('2015-04-01') AS col
+        |USING com.sap.spark.dstest
+      """.stripMargin)
+
+    assertResult(
+      StructType(StructField("col", IntegerType) :: Nil))(sqlc.sql("SELECT * FROM v").schema)
   }
 
   test("Rewire nested view after dropping and recreating nested view (bug 104634)") {

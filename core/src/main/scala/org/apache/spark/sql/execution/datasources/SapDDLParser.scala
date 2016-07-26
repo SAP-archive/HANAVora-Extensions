@@ -20,10 +20,10 @@ import org.apache.spark.sql.util.CollectionUtils._
 class SapDDLParser(parseQuery: String => LogicalPlan)
   extends BackportedSapSqlParser(parseQuery)
   with AnnotationParsingRules
-  with EngineDDLParsingRules {
+  with EngineDDLParsingRules
+  with WithConsumedInputRules {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
-      createViewUsingOrig |
       dropViewUsing |
       describeTableUsing |
       createTable |
@@ -266,15 +266,9 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           start.toInt, end.toInt, strideParts)
     }
 
-  /**
-    * Resolves a CREATE VIEW ... USING statement, in addition is adds the original VIEW SQL string
-    * added by the user into the OPTIONS.
-    */
-  protected lazy val createViewUsingOrig: Parser[LogicalPlan] =
-    withConsumedInput(createViewUsing) ^^ {
-      case ((name, plan, provider, opts, allowExisting, kind), text) =>
-        CreatePersistentViewCommand(kind, name, plan, text.trim, provider, opts, allowExisting)
-    }
+  protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
+    case ViewKind(kind) => kind
+  }
 
   /**
     * Resolves a DROP VIEW ... USING statement. For more information about the rationale behind
@@ -288,23 +282,9 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
     }
 
-  protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
-    case ViewKind(kind) => kind
-  }
-
   protected lazy val relationKind: Parser[RelationKind] = (TABLE | VIEW) ^^ {
     case RelationKind(kind) => kind
   }
-
-  /** Create view parser rule */
-  protected lazy val createViewUsing: Parser[(TableIdentifier, LogicalPlan,
-    String, Map[String, String], Boolean, ViewKind)] =
-    (CREATE ~> viewKind) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~ (AS ~> start1) ~
-      (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
-      case kind ~ allowExisting ~ name ~ plan ~ provider ~ opts =>
-        (name, plan, provider, opts.getOrElse(Map.empty[String, String]), allowExisting.isDefined,
-          kind)
-    }
 
   /**
    * Resolves the REGISTER ALL TABLES statements:
@@ -534,22 +514,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       case e ~ a => a.fold(e)(Alias(e, _)())
     }
       )
-
-  /**
-    * Helper method that keeps in the input of a parsed input using parser 'p'.
-    *
-    * @param p The original parser.
-    * @tparam U The output type of 'p'
-    * @return a tuple containing the original parsed input along with the input [[String]].
-    */
-  def withConsumedInput [U](p: => Parser[U]): Parser[(U, String)] = new Parser[(U, String)] {
-    def apply(in: Input) = p(in) match {
-      case Success(result, next) =>
-        val parsedString = in.source.subSequence(in.offset, next.offset).toString
-        Success(result -> parsedString, next)
-      case other: NoSuccess => other
-    }
-  }
 
   /**
    * Overridden to allow the user to add annotations on the table columns.

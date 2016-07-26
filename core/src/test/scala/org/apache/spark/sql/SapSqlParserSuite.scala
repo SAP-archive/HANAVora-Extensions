@@ -7,8 +7,8 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
-import org.apache.spark.sql.execution.datasources.CreateNonPersistentViewCommand
-import org.apache.spark.sql.sources.sql.{Dimension, Plain}
+import org.apache.spark.sql.execution.datasources.{CreateNonPersistentViewCommand, CreatePersistentViewCommand}
+import org.apache.spark.sql.sources.sql.{Cube => CubeKind, Dimension, Plain}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.FunSuite
@@ -342,6 +342,211 @@ class SapSqlParserSuite
     assertFailingQuery[SapParserException]("CREATE DIMENSION myview AS SELECT 1 FROM mytable")
   }
 
+  test("Parse correct CREATE VIEW USING") {
+    val parser = new SapParserDialect
+    val statement = "CREATE VIEW v AS SELECT * FROM t USING com.sap.spark.vora"
+
+    val parsed = parser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assert(actual.kind == Plain)
+    assertResult(statement)(actual.viewSql)
+    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
+    assertResult(false)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.identifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map.empty)(actual.options)
+  }
+
+  test("Parse correct CREATE VIEW USING with sub-select (bug 105558") {
+    val parser = new SapParserDialect
+    val statement = "CREATE VIEW v AS SELECT sq.a FROM " +
+      "(SELECT * FROM t) sq USING com.sap.spark.vora"
+
+    val parsed = parser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assert(actual.kind == Plain)
+
+    assertResult(
+      Project(
+        UnresolvedAlias(UnresolvedAttribute(Seq("sq", "a"))) :: Nil,
+        Subquery(
+          "sq",
+          Project(
+            UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+            UnresolvedRelation(TableIdentifier("t"), None)
+          )
+        )
+      ))(actual.plan)
+    assertResult(statement)(actual.viewSql)
+    assertResult(false)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.identifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map.empty)(actual.options)
+  }
+
+  test("Parse correct CREATE VIEW USING OPTIONS") {
+    val parser = new SapParserDialect
+    val statement = """CREATE VIEW IF NOT EXISTS v
+                      |AS SELECT * FROM t
+                      |USING com.sap.spark.vora
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
+
+    val parsed = parser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assert(actual.kind == Plain)
+    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
+    assertResult(true)(actual.allowExisting)
+    assertResult(statement)(actual.viewSql)
+    assertResult(TableIdentifier("v"))(actual.identifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
+  }
+
+  test("Parse correct CREATE VIEW USING with annotations") {
+    val parser = new SapParserDialect
+    val statement = """CREATE VIEW IF NOT EXISTS v
+                      |AS SELECT a as al @ ( b = 'c' ) FROM t
+                      |USING com.sap.spark.vora
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
+
+    val parsed = parser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+    val persistedViewCommand = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assertResult(persistedViewCommand.identifier.table)("v")
+    assertResult(statement)(persistedViewCommand.viewSql)
+    assert(persistedViewCommand.kind == Plain)
+    assert(persistedViewCommand.plan.isInstanceOf[Project])
+    val projection = persistedViewCommand.plan.asInstanceOf[Project]
+
+    assertResult(UnresolvedRelation(TableIdentifier("t")))(projection.child)
+
+    val expected = Seq(
+      ("al", UnresolvedAttribute("a"), Map("b" -> Literal.create("c", StringType))))
+
+    assertAnnotatedProjection(expected)(projection.projectList)
+
+    assertResult("com.sap.spark.vora")(persistedViewCommand.provider)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(persistedViewCommand.options)
+  }
+
+  test("Handle incorrect CREATE VIEW statements") {
+    val parser = new SapParserDialect
+    val invStatement1 =
+      """CREATE VIE v AS SELECT * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement1))
+
+    val invStatement2 =
+      """CREATE VIEW v AS SELEC * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement2))
+
+    val invStatement3 =
+      """CREATE VIEW v AS SELECT * FROM t USIN com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement3))
+
+    val invStatement5 =
+      """CREATE VIEW v AS SELECT USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement5))
+  }
+
+  test("Parse correct CREATE DIMENSION VIEW USING OPTIONS") {
+    val parser = new SapParserDialect
+    val statement = """CREATE DIMENSION VIEW IF NOT EXISTS v
+                      |AS SELECT * FROM t
+                      |USING com.sap.spark.vora
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
+
+    val parsed = parser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assert(actual.kind == Dimension)
+    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
+    assertResult(true)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.identifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
+  }
+
+  test("Handle incorrect CREATE DIMENSION VIEW statements") {
+    val parser = new SapParserDialect
+    val invStatement1 =
+      """CREATE DIMENSI VIEW v AS SELECT * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement1))
+
+    val invStatement2 =
+      """CREATE DIMNESION v AS SELEC * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement2))
+
+    val invStatement3 =
+      """CREATE DIMNESION VIEW v AS SELECT * FROM t USIN com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement3))
+
+    val invStatement5 =
+      """CREATE DIMNESION VIEW v AS SELECT USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement5))
+  }
+
+  test("Parse correct CREATE CUBE VIEW USING OPTIONS") {
+    val parser = new SapParserDialect
+    val statement = """CREATE CUBE VIEW IF NOT EXISTS v
+                      |AS SELECT * FROM t
+                      |USING com.sap.spark.vora
+                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
+
+    val parsed = parser.parse(statement)
+    assert(parsed.isInstanceOf[CreatePersistentViewCommand])
+
+    val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
+    assertResult(statement)(actual.viewSql)
+    assert(actual.kind == CubeKind)
+    assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
+      UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
+    assertResult(true)(actual.allowExisting)
+    assertResult(TableIdentifier("v"))(actual.identifier)
+    assertResult("com.sap.spark.vora")(actual.provider)
+    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
+  }
+
+  test("Handle incorrect CREATE CUBE VIEW statements") {
+    val parser = new SapParserDialect
+    val invStatement1 =
+      """CREATE CUBEI VIEW v AS SELECT * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement1))
+
+    val invStatement2 =
+      """CREATE CIUBE v AS SELEC * FROM t USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement2))
+
+    val invStatement3 =
+      """CREATE CBE VIEW v AS SELECT * FROM t USIN com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement3))
+
+    val invStatement5 =
+      """CREATE CUBEN VIEW v AS SELECT USING com.sap.spark.vora
+      """.stripMargin
+    intercept[SapParserException](parser.parse(invStatement5))
+  }
+
   /**
     * Utility method that creates a [[SapParserDialect]] parser and tries to parse the given
     * query, it expects the parser to fail with the exception type parameter and the exception
@@ -351,13 +556,13 @@ class SapSqlParserSuite
     * @param message Part of the expected error message.
     * @tparam T The exception type.
     */
-  def assertFailingQuery[T <: Exception: ClassTag: TypeTag](query: String,
-                                                   message: String = "Syntax error"): Unit = {
+  def assertFailingQuery[T <: Exception: ClassTag: TypeTag]
+        (query: String,
+         message: String = "Syntax error"): Unit = {
     val parser = new SapParserDialect
     val ex = intercept[T] {
       parser.parse(query)
     }
     assert(ex.getMessage.contains(message))
   }
-
 }
