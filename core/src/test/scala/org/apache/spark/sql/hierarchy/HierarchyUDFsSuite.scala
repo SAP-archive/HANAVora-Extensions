@@ -82,7 +82,7 @@ class HierarchyUDFsSuite
 
   test("adjacency lisy hierarchy with multiple ORDER SIBLINGS BY columns works correctly") {
     createAbstractTable(sqlContext)
-    val hierarchy = sqlContext.sql(s"""SELECT * FROM HIERARCHY
+    val hierarchy = sqlContext.sql(s"""SELECT name, node FROM HIERARCHY
                                        | (USING $abstractTbl AS v JOIN PRIOR u ON v.pred = u.name
                                        | ORDER SIBLINGS BY ord ASC
                                        | START WHERE pred IS NULL
@@ -109,7 +109,7 @@ class HierarchyUDFsSuite
     assertResult(expected)(result)
 
     // use multiple columns, should be the same result, semiOrd is monotonic to ord column.
-    val hierarchy2 = sqlContext.sql(s"""SELECT * FROM HIERARCHY
+    val hierarchy2 = sqlContext.sql(s"""SELECT name, node FROM HIERARCHY
                                        | (USING $abstractTbl AS v JOIN PRIOR u ON v.pred = u.name
                                        | ORDER SIBLINGS BY semiOrd ASC, ord ASC
                                        | START WHERE pred IS NULL
@@ -119,7 +119,7 @@ class HierarchyUDFsSuite
     assertResult(expected)(result2)
 
     // user reverseOrd, should get different results, tree should be mirrored.
-    val hierarchy3 = sqlContext.sql(s"""SELECT * FROM HIERARCHY
+    val hierarchy3 = sqlContext.sql(s"""SELECT name, node FROM HIERARCHY
                                         | (USING $abstractTbl AS v JOIN PRIOR u ON v.pred = u.name
                                         | ORDER SIBLINGS BY reverseOrd ASC
                                         | START WHERE pred IS NULL

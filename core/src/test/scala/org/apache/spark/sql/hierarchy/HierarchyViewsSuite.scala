@@ -1,10 +1,9 @@
 package org.apache.spark.sql.hierarchy
 
 import org.apache.spark.Logging
+import org.apache.spark.sql.types.Node
 import org.apache.spark.sql.{AnalysisException, GlobalSapSQLContext, Row}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, FunSuite}
-
-import scala.util.Random
+import org.scalatest.{BeforeAndAfter, FunSuite}
 
 /**
  * Test suite for using a hierarchy in a view.
@@ -189,5 +188,49 @@ class HierarchyViewsSuite
     }
     assertResult("Level-based hierarchy currently only supports PATH levels, check VORASPARK-273 " +
       "for more information.")(ex.message)
+  }
+
+  test("Implicit exclusion of Node column from top-level select works (bug 116471)") {
+    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl)}")
+    val result = sqlContext.sql(s"SELECT * FROM HV").collect().toSet
+    val expected = Set(
+      Row("Senior Developer", 2, 4, 1),
+      Row("Minion 3", 4, 7, 2),
+      Row("Minion 2", 4, 6, 1),
+      Row("The Other Middle Manager", 1, 3, 2),
+      Row("The Middle Manager", 1, 2, 1),
+      Row("Minion 1", 2, 5, 2),
+      Row("THE BOSS", null, 1, 1)
+    )
+    assertResult(expected)(result)
+  }
+
+  test("Explicit selection of the hierarchy node column works (bug 116471)") {
+    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl)}")
+    val result = sqlContext.sql(s"SELECT node FROM HV WHERE name='Minion 1'").collect().toSet
+    val expected = Set(Row(Node(Seq(1, 2, 5), "\"long\"", 6, 4, true, null)))
+    assertResult(expected)(result)
+  }
+
+  test("Implicit exclusion of Node column from top-level select with sub-query works " +
+    "(bug 116471)") {
+    val result = sqlContext.sql(
+      s"""
+        |SELECT * FROM
+        |(${adjacencyListHierarchySQL(orgTbl)}) a,
+        |(${adjacencyListHierarchySQL(orgTbl)}) b
+        | WHERE IS_CHILD(a.node, b.node)
+      """.stripMargin).collect.toSet
+
+    val expected = Set(
+      Row("Senior Developer", 2, 4, 1, "The Middle Manager", 1, 2, 1),
+      Row("Minion 3", 4, 7, 2, "Senior Developer", 2, 4, 1),
+      Row("Minion 2", 4, 6, 1, "Senior Developer", 2, 4, 1),
+      Row("The Other Middle Manager", 1, 3, 2, "THE BOSS", null, 1, 1),
+      Row("The Middle Manager", 1, 2, 1, "THE BOSS", null, 1, 1),
+      Row("Minion 1", 2, 5, 2, "The Middle Manager", 1, 2, 1)
+    )
+
+    assertResult(expected)(result)
   }
 }

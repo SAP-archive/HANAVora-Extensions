@@ -179,7 +179,8 @@ class HierarchySuite
   }
 
   test("integration: build join hierarchy top to bottom using SQL and RDD[Row]") {
-    val result = sqlContext.sql(adjacencyListHierarchySQL(orgTbl)).collect()
+    val result = sqlContext.sql(
+      adjacencyListHierarchySQL(orgTbl, "name, pred, succ, ord, node")).collect()
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 7, isLeaf = false)),
       Row("The Other Middle Manager", 1L, 3L, 2, Node(List(1L, 3L), LongType, 7, 6, isLeaf = true)),
@@ -200,7 +201,8 @@ class HierarchySuite
     )
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val result = sqlContext.sql(adjacencyListHierarchySQL("h_src")).collect()
+    val result = sqlContext.sql(
+      adjacencyListHierarchySQL("h_src", "name, pred, succ, ord, node")).collect()
 
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 6, isLeaf = false)),
@@ -228,7 +230,8 @@ class HierarchySuite
     )
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val result = sqlContext.sql(adjacencyListHierarchySQL("h_src")).collect()
+    val result = sqlContext.sql(
+      adjacencyListHierarchySQL("h_src", "name, pred, succ, ord, node")).collect()
 
     val expected = Set(
       Row("THE BOSS", null, 1L, 1, Node(List(1L), LongType, 1, 6, isLeaf = false)),
@@ -251,7 +254,7 @@ class HierarchySuite
     val rdd = sc.parallelize(cycleHierarchy)
     val hSrc = sqlContext.createDataFrame(rdd).cache()
     hSrc.registerTempTable("h_src")
-    val result = sqlContext.sql("""SELECT * FROM HIERARCHY(
+    val result = sqlContext.sql("""SELECT name, pred, succ, ord, node FROM HIERARCHY(
                                    USING h_src AS v JOIN PRIOR u ON v.pred = u.succ
                                    ORDER SIBLINGS BY ord ASC
                                    START WHERE succ = 1

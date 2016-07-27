@@ -25,6 +25,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
     ResolveViews(analyzer) ::
     ResolveSystemTables(analyzer, this) ::
+    ExcludeHierarchyNodeFromSelectStar(analyzer) ::
     ResolveReferencesWithHierarchies(analyzer) ::
     ResolveHierarchy(analyzer) ::
     ResolveStarAnnotations(analyzer) ::

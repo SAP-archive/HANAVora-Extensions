@@ -107,7 +107,7 @@ class RunDescribeTableSuite
     createAnimalsTable(sqlc)
     sqlc.sql(s"CREATE VIEW hv AS ${adjacencyListHierarchySQL(animalsTable, "name, node")}")
 
-    val result = sqlc.sql("SELECT * FROM DESCRIBE_TABLE(SELECT * FROM hv)").collect()
+    val result = sqlc.sql("SELECT * FROM DESCRIBE_TABLE(SELECT name, node FROM hv)").collect()
     val actual = result.map(_.toSeq.toList).toSet
 
     val expected =
