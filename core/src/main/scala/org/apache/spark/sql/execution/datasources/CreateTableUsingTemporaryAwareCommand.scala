@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
+import org.apache.spark.sql.{DataFrame, DatasourceResolver, Row, SQLContext}
 import org.apache.spark.sql.catalyst.TableIdentifierUtils._
 
 /**
@@ -28,7 +28,8 @@ case class CreateTableUsingTemporaryAwareCommand(
     // Convert the table name according to the case-sensitivity settings
     val tableId = alterByCatalystSettings(sqlContext.catalog, tableIdentifier)
 
-    val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
+    val resolver = DatasourceResolver.resolverFor(sqlContext)
+    val dataSource: Any = resolver.newInstanceOf(provider)
 
     // check if this class implements the DatabaseRelation Provider trait
     // this is also checked in the corresponding strategy CreatePersistentTableStrategy

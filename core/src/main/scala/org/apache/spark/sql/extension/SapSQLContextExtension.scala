@@ -57,7 +57,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
 
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] =
     SapDDLStrategy(planner) ::
-    CreateTableStrategy ::
+    CreateTableStrategy(this) ::
     CatalystSourceStrategy ::
     HierarchyStrategy(planner) ::
     TableFunctionsStrategy(planner) ::

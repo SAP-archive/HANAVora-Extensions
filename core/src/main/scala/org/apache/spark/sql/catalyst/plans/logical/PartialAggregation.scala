@@ -128,6 +128,7 @@ object PartialAggregation extends Logging {
     val partialAggregateExpressionsForPushdown: Seq[NamedExpression] =
       resultExpressions.flatMap(ne => ne match {
         case a@Alias(agg: AggregateExpression, _) => rewriteAggregateExpressionsToPartial(agg, a)
+        case Alias(expr: NamedExpression, _) => Seq(expr)
         case expr: NamedExpression => Seq(expr)
         case _ => Seq.empty
       })
