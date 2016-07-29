@@ -579,6 +579,16 @@ class SapSqlParserSuite
     intercept[SapParserException](parser.parse(invStatement5))
   }
 
+  test("IF function can be used") {
+    val parsed = SapSqlParser.parse("SELECT IF(1 = 1) FROM baz")
+    assertResult(
+      Project(
+        Seq(
+          UnresolvedAlias(
+            UnresolvedFunction("IF", Seq(EqualTo(Literal(1), Literal(1))), isDistinct = false))),
+        UnresolvedRelation(TableIdentifier("baz"))))(parsed)
+  }
+
   /**
     * Utility method that creates a [[SapParserDialect]] parser and tries to parse the given
     * query, it expects the parser to fail with the exception type parameter and the exception

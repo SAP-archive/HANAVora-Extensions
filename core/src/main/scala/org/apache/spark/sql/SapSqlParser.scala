@@ -48,8 +48,9 @@ private object SapSqlParser extends BackportedSqlParser
   protected val TEMPORARY = Keyword("TEMPORARY")
   protected val DIMENSION = Keyword("DIMENSION")
   protected val CUBE = Keyword("CUBE")
-  protected val IF = Keyword("IF")
   protected val EXISTS = Keyword("EXISTS")
+  // IF is not added as keyword since it is also used as a function name
+  protected val IF = ident.filter(_.toLowerCase == "if")
 
   /* Extract keywords */
   protected val EXTRACT = Keyword("EXTRACT")
