@@ -426,6 +426,19 @@ class SystemTablesSuite
     }
   }
 
+  test("Tables system table returns correct temporary information (Bug 117362)") {
+    sqlc.baseRelationToDataFrame(DummyRelation('a.string)(sqlc)).registerTempTable("t1")
+    sqlc.baseRelationToDataFrame(new DummyRelation('a.string)(sqlc) with TemporaryFlagRelation {
+      override def isTemporary(): Boolean = false
+    }).registerTempTable("t2")
+    sqlc.sql("CREATE VIEW v1 AS SELECT * FROM foo USING com.sap.spark.dstest")
+    sqlc.sql("CREATE VIEW v2 AS SELECT * FROM v1")
+    val values =
+      sqlc.sql("SELECT TABLE_NAME, IS_TEMPORARY FROM SYS.TABLES").collect.map(_.toSeq).toSet
+    assertResult(Set(Seq("t1", "TRUE"), Seq("t2", "FALSE"), Seq("v1", "FALSE"), Seq("v2", "TRUE")))(
+      values)
+  }
+
 }
 
 object SystemTablesSuite {

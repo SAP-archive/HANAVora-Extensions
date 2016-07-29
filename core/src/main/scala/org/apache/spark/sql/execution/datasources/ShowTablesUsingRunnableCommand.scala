@@ -1,7 +1,7 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.sources.DatasourceCatalog
-import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.RunnableCommand
@@ -35,7 +35,7 @@ case class ShowTablesUsingRunnableCommand(provider: String, options: Map[String,
   ).toAttributes
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
+    val dataSource: Any = DatasourceResolver.resolverFor(sqlContext).newInstanceOf(provider)
 
     dataSource match {
       case describableRelation: DatasourceCatalog =>
@@ -46,7 +46,7 @@ case class ShowTablesUsingRunnableCommand(provider: String, options: Map[String,
             relationInfo.isTemporary.toString.toUpperCase,
             relationInfo.kind.toUpperCase))
       case _ =>
-        throw new RuntimeException(s"The provided data source $provider does not support" +
+        throw new RuntimeException(s"The provided data source $provider does not support " +
         "showing its relations.")
     }
   }
