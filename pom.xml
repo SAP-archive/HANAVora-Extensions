@@ -210,6 +210,7 @@
         <version>3.2</version>
         <scope>test</scope>
       </dependency>
+
     </dependencies>
   </dependencyManagement>
 
@@ -440,6 +441,13 @@
     </profile>
     <profile>
       <id>full-tests</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.sap.hl.currency</groupId>
+          <artifactId>currency-conversion</artifactId>
+          <version>${sap.currency.version}</version>
+        </dependency>
+      </dependencies>
       <build>
         <pluginManagement>
           <plugins>
@@ -469,7 +477,7 @@
               <artifactId>scalatest-maven-plugin</artifactId>
               <configuration>
                 <tagsToExclude>
-                  org.scalatest.tags.Slow,org.scalatest.tags.SporadicFailure
+                  org.scalatest.tags.Slow,org.scalatest.tags.SporadicFailure,com.sap.tags.ExternalLibraryNeeded
                 </tagsToExclude>
               </configuration>
             </plugin>
@@ -479,6 +487,13 @@
     </profile>
     <profile>
       <id>push-validation</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.sap.hl.currency</groupId>
+          <artifactId>currency-conversion</artifactId>
+          <version>${sap.currency.version}</version>
+        </dependency>
+      </dependencies>
       <build>
         <pluginManagement>
           <plugins>
