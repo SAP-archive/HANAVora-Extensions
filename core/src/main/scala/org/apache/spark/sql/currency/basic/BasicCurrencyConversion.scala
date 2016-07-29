@@ -8,7 +8,7 @@ import scala.util.{Failure, Success, Try}
 object BasicCurrencyConversion {
   type CurrencyKey = (String, String)
   type DateKey = Int
-  type RatesMap = DualKeyPartialSortedMap[CurrencyKey, DateKey, Double]
+  type RatesMap = DualKeyPartialSortedMap[CurrencyKey, DateKey, java.math.BigDecimal]
 }
 
 /**
@@ -46,15 +46,16 @@ class BasicCurrencyConversion(
     *         "set_to_null". The unconverted amount will be returned if [[errorHandling]]
     *         is set to "keep_unconverted".
     */
-  def convert(amount: Double, from: String, to: String, date: String): Try[Option[Double]] = {
+  def convert(amount: java.math.BigDecimal, from: String, to: String, date: String):
+  Try[Option[java.math.BigDecimal]] = {
     val dateKey = date.replaceAll("-", "").toInt
     val currencyKey = (from, to)
     val converted = rates.getSortedKeyFloorValue(currencyKey, dateKey) match {
-      case Some(rate) => Some(amount * rate)
+      case Some(rate) => Some(amount.multiply(rate))
       case None if allowInverse =>
         val invCurrencyKey = (to, from)
         rates.getSortedKeyFloorValue(invCurrencyKey, dateKey) match {
-          case Some(rate) => Some(amount / rate)
+          case Some(rate) => Some(amount.divide(rate, java.math.RoundingMode.HALF_EVEN))
           case _ => None
         }
       case _ => None
@@ -62,11 +63,11 @@ class BasicCurrencyConversion(
     applyErrorHandling(converted, amount, from, to, date)
   }
 
-  private[this] def applyErrorHandling(convertedAmount: Option[Double],
-                                       origAmount: Double,
+  private[this] def applyErrorHandling(convertedAmount: Option[java.math.BigDecimal],
+                                       origAmount: java.math.BigDecimal,
                                        from: String,
                                        to: String,
-                                       date: String): Try[Option[Double]] = {
+                                       date: String): Try[Option[java.math.BigDecimal]] = {
     convertedAmount match {
       case Some(_converted) => Success(Some(_converted))
       case None if errorHandling.equalsIgnoreCase(ERROR_HANDLING_FAIL) =>

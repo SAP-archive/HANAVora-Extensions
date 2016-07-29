@@ -2,8 +2,11 @@ package org.apache.spark.sql.currency.basic
 
 import org.apache.spark.SparkException
 import org.apache.spark.sql.GlobalSapSQLContext
-import org.apache.spark.sql.currency.{ConversionRateNotFoundException, CurrencyConversionFunction, DataRow, RateRow}
+import org.apache.spark.sql.currency._
+import org.apache.spark.sql.currency.TestUtils._
 import org.scalatest.{BeforeAndAfterEach, _}
+
+
 
 class BasicCurrencyConversionFunctionSuite
   extends FunSuite
@@ -11,29 +14,42 @@ class BasicCurrencyConversionFunctionSuite
   with ShouldMatchers
   with BeforeAndAfterEach {
 
+
   val FUNCTION_NAME = CurrencyConversionFunction.functions
     .filter(_._2 == BasicCurrencyConversionFunction).head._1
 
-  val DATA_TABLE = "simple_conversion_table"
+  val DATA_TABLE = "simple_input_table"
   val DATA_ROWS = (1 to 10).map { i =>
-    DataRow(i + 1000.0, "EUR", "USD", "2016-01-%02d".format(i + 10))
+    DataRow(new java.math.BigDecimal(i + 1000.0), "EUR", "USD", "2016-01-%02d".format(i + 10))
+  }
+
+  // data table using DOUBLE instead of DECIMAL
+  val DATA_TABLE_DOUBLE = "input_table_using_doubles"
+  val DATA_ROWS_DOUBLE = (1 to 10).map { i =>
+    DataRowUsingDouble(i + 1000.0, "EUR", "USD", "2016-01-%02d".format(i + 10))
   }
 
   // Two set of rate and expected result tables.
   val RATES_TABLE_1 = "CUSTOM_RATES_1"
   val RATE_ROWS_1 = (1 to 10).map { i =>
-    RateRow("EUR", "USD", "2016-01-%02d".format(i + 10), 1.0 * i)
+    RateRow("EUR", "USD", "2016-01-%02d".format(i + 10), new java.math.BigDecimal(1.0 * i))
   }
   val EXPECTED_RESULT_1 = DATA_ROWS.map(_.amount).zip(RATE_ROWS_1.map(_.rate)).map {
-    case (x, r) => x * r
+    case (x, r) => x.multiply(r)
   }
 
   val RATES_TABLE_2 = "CUSTOM_RATES_2"
   val RATE_ROWS_2 = (1 to 10).map { i =>
-    RateRow("EUR", "USD", "2016-01-%02d".format(i + 10), 2.0 * i)
+    RateRow("EUR", "USD", "2016-01-%02d".format(i + 10), new java.math.BigDecimal(2.0 * i))
   }
   val EXPECTED_RESULT_2 = DATA_ROWS.map(_.amount).zip(RATE_ROWS_2.map(_.rate)).map {
-    case (x, r) => x * r
+    case (x, r) => x.multiply(r)
+  }
+
+  // one rates table using DOUBLE type
+  val RATES_TABLE_DOUBLE = "CUSTOM_RATES_1"
+  val RATE_ROWS_DOUBLE = (1 to 10).map { i =>
+    RateRowUsingDouble("EUR", "USD", "2016-01-%02d".format(i + 10), 1.0 * i)
   }
 
   // Default names for rate and expected result tables
@@ -54,6 +70,12 @@ class BasicCurrencyConversionFunctionSuite
         |       $FUNCTION_NAME(amount, NULL, to, date)
         |FROM   $DATA_TABLE""".stripMargin
 
+  val QUERY_FROM_DOUBLE =
+    s"""SELECT amount,
+        |       spark_partition_id(),
+        |       $FUNCTION_NAME(amount, from, to, date)
+        |FROM   $DATA_TABLE_DOUBLE""".stripMargin
+
   val PARALLELISM = 3
 
   def setOption(key: String, value: String): Unit =
@@ -65,13 +87,17 @@ class BasicCurrencyConversionFunctionSuite
     // build test tables
     val dataRDD = sc.parallelize(DATA_ROWS, PARALLELISM)
     sqlContext.createDataFrame(dataRDD).registerTempTable(DATA_TABLE)
+    val dataRDDDouble = sc.parallelize(DATA_ROWS_DOUBLE, PARALLELISM)
+    sqlContext.createDataFrame(dataRDDDouble).registerTempTable(DATA_TABLE_DOUBLE)
     val ratesRDD1 = sc.parallelize(RATE_ROWS_1, PARALLELISM)
     sqlContext.createDataFrame(ratesRDD1).registerTempTable(RATES_TABLE_1)
     val ratesRDD2 = sc.parallelize(RATE_ROWS_2, PARALLELISM)
     sqlContext.createDataFrame(ratesRDD2).registerTempTable(RATES_TABLE_2)
+    val ratesRDDDouble = sc.parallelize(RATE_ROWS_DOUBLE, PARALLELISM)
+    sqlContext.createDataFrame(ratesRDDDouble).registerTempTable(RATES_TABLE_DOUBLE)
     // set default options
     setOption(PARAM_SOURCE_TABLE_NAME, RATES_TABLE)
-    // Since we (still) have the ERP function as an "object",
+    // Since we (still) have the UDF as an "object",
     // we need to clean up the static status.
     setOption(PARAM_DO_UPDATE, "true")
     setOption(PARAM_ALLOW_INVERSE, "false")
@@ -109,8 +135,8 @@ class BasicCurrencyConversionFunctionSuite
   }
 
   test("values are correct") {
-    sqlContext.sql(QUERY).collect().map(_.getDouble(2)).zip(EXPECTED_RESULT).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    sqlContext.sql(QUERY).collect().map(_.getDecimal(2)).zip(EXPECTED_RESULT).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
   }
 
@@ -119,34 +145,34 @@ class BasicCurrencyConversionFunctionSuite
   }
 
   test("switch data option") {
-    sqlContext.sql(QUERY).collect().map(_.getDouble(2)).zip(EXPECTED_RESULT_1).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    sqlContext.sql(QUERY).collect().map(_.getDecimal(2)).zip(EXPECTED_RESULT_1).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
     sqlContext.sql(s"SET ${CONF_PREFIX + PARAM_SOURCE_TABLE_NAME} = $RATES_TABLE_2")
-    sqlContext.sql(QUERY).collect().map(_.getDouble(2)).zip(EXPECTED_RESULT_2).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    sqlContext.sql(QUERY).collect().map(_.getDecimal(2)).zip(EXPECTED_RESULT_2).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
     sqlContext.sql(s"SET ${CONF_PREFIX + PARAM_SOURCE_TABLE_NAME} = $RATES_TABLE_1")
-    sqlContext.sql(QUERY).collect().map(_.getDouble(2)).zip(EXPECTED_RESULT_1).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    sqlContext.sql(QUERY).collect().map(_.getDecimal(2)).zip(EXPECTED_RESULT_1).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
   }
 
   test("do_update option") {
-    sqlContext.sql(QUERY).collect().map(_.getDouble(2)).zip(EXPECTED_RESULT_1).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    sqlContext.sql(QUERY).collect().map(_.getDecimal(2)).zip(EXPECTED_RESULT_1).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
     // change rows in rates_1 and check that it is not used
     sqlContext.sql(s"DROP TABLE $RATES_TABLE_1")
     val rates2 = sqlContext.sql(s"SELECT * FROM $RATES_TABLE_2")
     rates2.registerTempTable(RATES_TABLE_1)
-    sqlContext.sql(QUERY).collect().map(_.getDouble(2)).zip(EXPECTED_RESULT_1).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    sqlContext.sql(QUERY).collect().map(_.getDecimal(2)).zip(EXPECTED_RESULT_1).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
     // now do_update and check that values from rates_2 are used
     setOption(PARAM_DO_UPDATE, "true")
-    sqlContext.sql(QUERY).collect().map(_.getDouble(2)).zip(EXPECTED_RESULT_2).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    sqlContext.sql(QUERY).collect().map(_.getDecimal(2)).zip(EXPECTED_RESULT_2).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
     // do_update should automatically be set to false after it was applied
     assert(sqlContext.getConf(CONF_PREFIX + PARAM_DO_UPDATE).equalsIgnoreCase("false"))
@@ -155,7 +181,7 @@ class BasicCurrencyConversionFunctionSuite
   test("allow_inverse option") {
     val INV_DATA_TABLE = "inv_data_table"
     val INV_DATA_ROWS = (1 to 10).map { i =>
-      DataRow(i + 1000.0, "USD", "EUR", "2016-01-%02d".format(i + 10))
+      DataRow(new java.math.BigDecimal(i + 1000.0), "USD", "EUR", "2016-01-%02d".format(i + 10))
     }
     val dataRDD = sc.parallelize(INV_DATA_ROWS, 3)
     sqlContext.createDataFrame(dataRDD).registerTempTable(INV_DATA_TABLE)
@@ -174,7 +200,7 @@ class BasicCurrencyConversionFunctionSuite
   test("error_handling option") {
     val INV_DATA_TABLE = "inv_data_table"
     val INV_DATA_ROWS = (1 to 10).map { i =>
-      DataRow(i + 1000.0, "USD", "EUR", "2016-01-%02d".format(i + 10))
+      DataRow(new java.math.BigDecimal(i + 1000.0), "USD", "EUR", "2016-01-%02d".format(i + 10))
     }
     val dataRDD = sc.parallelize(INV_DATA_ROWS, PARALLELISM)
     sqlContext.createDataFrame(dataRDD).registerTempTable(INV_DATA_TABLE)
@@ -189,7 +215,7 @@ class BasicCurrencyConversionFunctionSuite
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_KEEP)
     sqlContext.sql(s"SELECT $FUNCTION_NAME(amount, from, to, date) FROM $INV_DATA_TABLE")
       .collect().zip(INV_DATA_ROWS).foreach { case (row, dataRow) =>
-      row.getDouble(0) should be(dataRow.amount +- 1e-5)
+      assertComparesEqual(row.getDecimal(0))(dataRow.amount)
     }
 
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_NULL)
@@ -206,13 +232,18 @@ class BasicCurrencyConversionFunctionSuite
          |       $FUNCTION_NAME(amount, from, to, date)
          |FROM   $DATA_TABLE""".stripMargin)
       .collect()
-    rows.map(_.getDouble(0)).zip(EXPECTED_RESULT).foreach {
-      case (converted, expected) => converted should be(expected +- 1e-5)
+    rows.map(_.getDecimal(0)).zip(EXPECTED_RESULT).foreach {
+      case (converted, expected) => assertComparesEqual(converted)(expected)
     }
-    rows.map { row => Seq(row.getDouble(0), row.getDouble(1), row.getDouble(2)) }
+    rows.map { row => Seq(row.getDecimal(0), row.getDecimal(1), row.getDecimal(2)) }
       .foreach { cols =>
         val value = cols.head
-        cols.foreach { _ should be (value +- 1e-5) }
+        cols.foreach { assertComparesEqual(_)(value) }
       }
+  }
+
+  test("smoke test for DOUBLE usage does not fail (no further guarantees given)") {
+    setOption(PARAM_SOURCE_TABLE_NAME, RATES_TABLE_DOUBLE)
+    sqlContext.sql(QUERY_FROM_DOUBLE).collect()
   }
 }

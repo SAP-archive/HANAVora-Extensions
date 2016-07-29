@@ -3,7 +3,7 @@ package org.apache.spark.sql.currency.basic
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.expressions.{Expression, ImplicitCastInputTypes}
-import org.apache.spark.sql.types.{AbstractDataType, DataType, DoubleType, StringType}
+import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 /**
@@ -33,7 +33,7 @@ case class BasicCurrencyConversionExpression(
     val sourceCurrency =
       Option(inputArguments(FROM_INDEX).asInstanceOf[UTF8String]).map(_.toString)
     val targetCurrency = Option(inputArguments(TO_INDEX).asInstanceOf[UTF8String]).map(_.toString)
-    val amount = Option(inputArguments(AMOUNT_INDEX).asInstanceOf[Double])
+    val amount = Option(inputArguments(AMOUNT_INDEX).asInstanceOf[Decimal].toJavaBigDecimal)
     val date = Option(inputArguments(DATE_INDEX).asInstanceOf[UTF8String]).map(_.toString)
 
     (amount, sourceCurrency, targetCurrency, date) match {
@@ -42,19 +42,22 @@ case class BasicCurrencyConversionExpression(
     }
   }
 
-  def nullSafeEval(amount: Double,
+  def nullSafeEval(amount: java.math.BigDecimal,
                    sourceCurrency: String,
                    targetCurrency: String,
                    date: String): Any = {
-    conversion.convert(amount, sourceCurrency, targetCurrency, date).get.orNull
+    conversion.convert(amount, sourceCurrency, targetCurrency, date)
+      .get
+      .map(Decimal.apply)
+      .orNull
   }
 
-  override def dataType: DataType = DoubleType
+  override def dataType: DataType = DecimalType.forType(DoubleType)
 
   override def nullable: Boolean = true
 
   // TODO(MD, CS): use DateType but support date string
   override def inputTypes: Seq[AbstractDataType] =
-    Seq(DoubleType, StringType, StringType, StringType)
+    Seq(DecimalType, StringType, StringType, StringType)
 }
 

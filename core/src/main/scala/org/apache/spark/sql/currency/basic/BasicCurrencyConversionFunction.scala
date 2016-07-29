@@ -6,6 +6,8 @@ import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.currency._
 import org.apache.spark.sql.util.ValidatingPropertyMap._
 
+import scala.util.Try
+
 protected object BasicCurrencyConversionConfig {
 
   /**
@@ -26,9 +28,9 @@ protected object BasicCurrencyConversionConfig {
     }
     BasicCurrencyConversionConfig(
       ratesTable = props.getString(PARAM_SOURCE_TABLE_NAME),
-      allowInverse = props.get(PARAM_ALLOW_INVERSE).get.toBoolean,
+      allowInverse = props(PARAM_ALLOW_INVERSE).toBoolean,
       errorHandling = props.getString(PARAM_ERROR_HANDLING),
-      doUpdate = props.get(PARAM_DO_UPDATE).get.toBoolean
+      doUpdate = props(PARAM_DO_UPDATE).toBoolean
     )
   }
 }
@@ -96,7 +98,10 @@ object BasicCurrencyConversionFunction extends CurrencyConversionFunction {
       val from = row.getString(0)
       val to = row.getString(1)
       val date = row.getString(2).replaceAll("-", "").toInt
-      val rate = row.getDouble(3)
+      val rate =
+        Try(row.getDecimal(3)).recover {
+          case ex: ClassCastException => new java.math.BigDecimal(row.getDouble(3))
+        }.get
       ratesMap.put((from, to), date, rate)
     }
   }
