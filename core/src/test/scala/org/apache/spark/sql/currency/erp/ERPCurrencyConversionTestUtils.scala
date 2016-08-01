@@ -3,6 +3,9 @@ package org.apache.spark.sql.currency.erp
 import org.apache.spark.sql.SQLContext
 
 object ERPCurrencyConversionTestUtils {
+  private val DecimalOne = java.math.BigDecimal.ONE
+  private val DecimalRateA = new java.math.BigDecimal("0.7")
+  private val DecimalRateB = new java.math.BigDecimal("1.2")
 
   /**
     * Registers sample ERP conversion tables using the given table
@@ -23,10 +26,10 @@ object ERPCurrencyConversionTestUtils {
      */
     val tcurx = List(("USD", 2), ("EUR", 2))
     val tcurv = List(("000", "M", "1", "", "0", "", "", "0", "0"))
-    val tcurf = List(("000", "M", "USD", "EUR", "79839898", 1, 1, "", ""),
-                     ("000", "M", "EUR", "USD", "79839898", 1, 1, "", ""))
-    val tcurr = List(("000", "M", "USD", "EUR", "79839898", 0.7, 1, 1),
-                     ("000", "M", "EUR", "USD", "79839898", 1.2, 1, 1))
+    val tcurf = List(("000", "M", "USD", "EUR", "79839898", DecimalOne, DecimalOne, "", ""),
+                     ("000", "M", "EUR", "USD", "79839898", DecimalOne, DecimalOne, "", ""))
+    val tcurr = List(("000", "M", "USD", "EUR", "79839898", DecimalRateA, DecimalOne, DecimalOne),
+                     ("000", "M", "EUR", "USD", "79839898", DecimalRateB, DecimalOne, DecimalOne))
     val tcurn = List(("000", "M", "USD", "EUR", "79839898", ""),
                      ("000", "M", "EUR", "USD", "79839898", ""))
 

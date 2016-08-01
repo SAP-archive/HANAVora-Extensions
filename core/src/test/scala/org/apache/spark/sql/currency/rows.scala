@@ -7,7 +7,7 @@ case class DataRowUsingDouble(amount: Double, from: String, to: String, date: St
 case class ERPDataRow(
     client: String,
     method: String,
-    amount: Double,
+    amount: java.math.BigDecimal,
     from: String,
     to: String,
     date: String)

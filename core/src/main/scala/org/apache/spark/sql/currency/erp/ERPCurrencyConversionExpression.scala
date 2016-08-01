@@ -5,14 +5,14 @@ import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.expressions.{Expression, ImplicitCastInputTypes}
 import org.apache.spark.sql.currency.CurrencyConversionException
 import org.apache.spark.sql.currency.erp.ERPConversionLoader.RConversionOptionsCurried
-import org.apache.spark.sql.types.{AbstractDataType, DataType, DoubleType, StringType}
+import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
 import scala.util.control.NonFatal
 
 
 /**
- * This expression uses the [[com.sap.hl.currency.api.CurrencyConversionProvider]]
+ * This expression uses the [[com.sap.hl.currency.erp.ERPConversionProvider]]
  * to convert currencies, if this class is on the class path.
  *
  * @param conversionFunction the conversion closure initialized on the spark driver
@@ -45,7 +45,7 @@ case class ERPCurrencyConversionExpression(
     val client = Option(inputArguments(CLIENT_INDEX).asInstanceOf[UTF8String]).map(_.toString)
     val conversionType =
       Option(inputArguments(CONVERSION_TYPE_INDEX).asInstanceOf[UTF8String]).map(_.toString)
-    val amount = Option(inputArguments(AMOUNT_INDEX).asInstanceOf[Double])
+    val amount = Option(inputArguments(AMOUNT_INDEX).asInstanceOf[Decimal].toJavaBigDecimal)
     val sourceCurrency =
       Option(inputArguments(FROM_INDEX).asInstanceOf[UTF8String]).map(_.toString)
     val targetCurrency = Option(inputArguments(TO_INDEX).asInstanceOf[UTF8String]).map(_.toString)
@@ -60,15 +60,15 @@ case class ERPCurrencyConversionExpression(
     // handling already took place. We just wrap it in case it is a cryptic error.
     resultTry.recover {
       case NonFatal(err) => throw new CurrencyConversionException(errorMessage, err)
-    }.get.orNull
+    }.get.map(Decimal.apply).orNull
   }
 
-  override def dataType: DataType = DoubleType
+  override def dataType: DataType = DecimalType.forType(DoubleType)
 
   override def nullable: Boolean = true
 
   override def inputTypes: Seq[AbstractDataType] =
-    Seq(StringType, StringType, DoubleType, StringType, StringType, StringType)
+    Seq(StringType, StringType, DecimalType, StringType, StringType, StringType)
 
   def inputNames: Seq[String] =
     Seq("client", "conversion_type", "amount", "source", "target", "date")

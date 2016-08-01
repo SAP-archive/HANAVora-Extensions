@@ -172,7 +172,7 @@ protected[erp] object ERPConversionLoader {
   private val setupErrorMsg =
     "Currency conversion encountered an internal error during setup (see below)"
 
-  type RConversionAmount = Option[Double]
+  type RConversionAmount = Option[java.math.BigDecimal]
   type RConversionResult = Try[RConversionAmount]
   type RConversionOptions = Map[String, String]
   type RConversionData = Map[String, Iterator[Seq[String]]]
@@ -242,7 +242,7 @@ protected[erp] object ERPConversionLoader {
        c: Option[String],
        d: Option[String],
        e: Option[String]) =>
-        (x: Option[Double]) =>
+        (x: Option[java.math.BigDecimal]) =>
           val msg = """
                       |Currency conversion could not be initialized, and
                       |no push-down alternatives are available.

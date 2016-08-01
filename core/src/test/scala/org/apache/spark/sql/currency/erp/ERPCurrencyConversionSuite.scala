@@ -31,7 +31,7 @@ class ERPCurrencyConversionSuite
   }
 
   /**
-    * Check whether the give nexception contains a CurrencyConversionException as a cause.
+    * Check whether the given exception contains a CurrencyConversionException as a cause.
     *
     * Note: HiveContext silently swallows exceptions during expression generation and reports the
     * corresponding UDF as absent. Therefore, we log an error in the builder so that the user can
@@ -119,7 +119,8 @@ class ERPCurrencyConversionSuite
     setERPTableMapping(ERP_TABLE_MAPPING)
 
     val rows = (1 to 10).map { i =>
-      ERPDataRow("000", "M", i + 1000.0, "EUR", "USD", "2016-01-%02d".format(i + 10))
+      ERPDataRow("000", "M", java.math.BigDecimal.valueOf(i + 1000.0),
+                 "EUR", "USD", "2016-01-%02d".format(i + 10))
     }
     val dataRDD = sc.parallelize(rows, PARALLELISM)
     sqlContext.createDataFrame(dataRDD).registerTempTable(DATA_TABLE)
@@ -190,7 +191,8 @@ class ERPCurrencyConversionSuite
     // keep should work
     setOption(PARAM_ERROR_HANDLING, ERROR_HANDLING_KEEP)
     sqlContext.sql(QUERY_WITH_UNKNOWN_CLIENT).collect().foreach {
-      case Row(left: Double, _, right: Double, _ *) => left should be (right)
+      case Row(left: java.math.BigDecimal, _, right: java.math.BigDecimal, _ *) =>
+        left.compareTo(right) should be (0)
     }
 
     // null should also work
