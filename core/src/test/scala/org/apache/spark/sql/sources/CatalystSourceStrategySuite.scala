@@ -84,8 +84,7 @@ class CatalystSourceStrategySuite
       aggregateFunctionToAttributeMap,
       resultExpressions,
       child) => {
-        partialGroupings.head.name ==
-          partialAggregates.head.name
+        partialAggregates.head.find(_.toString == partialGroupings.head.name).isDefined
       }
       case _ => false
     }
@@ -202,8 +201,8 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Sum(Cast(lcrCInt, DoubleType)), Partial, false).as("sumc_avg"),
-        AggregateExpression(Count(lcrCInt), Partial, false).as("countc_avg")),
+        AggregateExpression(Sum(Cast(lcrCInt, DoubleType)), Partial, false).as("sum"),
+        AggregateExpression(Count(lcrCInt), Partial, false).as("count")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -212,7 +211,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Count(lcrCInt), Partial, false).as("countc_cnt")),
+        AggregateExpression(Count(lcrCInt), Partial, false).as("count")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -221,7 +220,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Sum(lcrCInt), Partial, false).as("sumc_sum")),
+        AggregateExpression(Sum(lcrCInt), Partial, false).as("sum")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -230,7 +229,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Max(lcrCInt), Partial, false).as("maxc_max")),
+        AggregateExpression(Max(lcrCInt), Partial, false).as("max")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -239,7 +238,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Min(lcrCInt), Partial, false).as("minc_min")),
+        AggregateExpression(Min(lcrCInt), Partial, false).as("min")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 

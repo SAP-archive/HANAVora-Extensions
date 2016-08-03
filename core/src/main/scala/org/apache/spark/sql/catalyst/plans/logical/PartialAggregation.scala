@@ -6,6 +6,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.execution.aggregate.TungstenAggregate
 import org.apache.spark.sql.types.{DecimalType, DoubleType}
+import org.apache.spark.sql.util.CollectionUtils.RichSeq
 
 /**
   *
@@ -90,7 +91,51 @@ object PartialAggregation extends Logging {
       */
     val aggregateExpressions = resultExpressions.flatMap (_.collect {
         case agg: AggregateExpression => agg
-      }).distinct
+    }).distinct
+
+    /**
+      * We split and rewrite the given aggregate expressions to partial aggregate expressions
+      * and keep track of the original aggregate expression for later referencing.
+      */
+    val aggregateExpressionsToAliases: Map[AggregateExpression, Seq[Alias]] =
+      aggregateExpressions
+        .map(agg => agg -> rewriteAggregateExpressionsToPartial(agg))(collection.breakOut)
+
+    /**
+      * Since for pushdown only [[NamedExpression]]s are allowed, we do the following:
+      * 1. We extract [[Attribute]]s that can be pushed down straight.
+      * 2. For [[Expression]]s with [[AggregateExpression]]s in them, we can only push down the
+      *    [[AggregateExpression]]s and leave the [[Expression]] for evaluation on spark side.
+      *    If the [[Expression]] does not contain any [[AggregateExpression]], we can also directly
+      *    push it down.
+      */
+    val pushdownExpressions = resultExpressions.flatMap {
+      case attr: Attribute => Seq(attr)
+      case Alias(attr: Attribute, _) => Seq(attr)
+      case alias@Alias(expression, _) =>
+        /**
+          * If the collected sequence of [[AggregateExpression]]s is empty then there
+          * is no dependency of a regular [[Expression]] to a distributed value computed by
+          * an [[AggregateExpression]] and as such we can push it down. Otherwise, we just push
+          * down the [[AggregateExpression]]s and apply the other [[Expression]]s via the
+          * resultExpressions.
+          */
+        expression.collect {
+          case agg: AggregateExpression => agg
+        }.nonEmptyOpt.getOrElse(Seq(alias))
+      case _ => Seq.empty
+    }.distinct
+
+    /**
+      * With this step, we replace the pushdownExpressions with the corresponding
+      * [[NamedExpression]]s that we can continue to work on. Regular [[NamedExpression]]s are
+      * 'replaced' by themselves whereas the [[AggregateExpression]]s are replaced by their
+      * partial versions hidden behind [[Alias]]es.
+      */
+    val namedPushdownExpressions = pushdownExpressions.flatMap {
+      case agg: AggregateExpression => aggregateExpressionsToAliases(agg)
+      case namedExpression: NamedExpression => Seq(namedExpression)
+    }
 
     // For those distinct aggregate expressions, we create a map from the
     // aggregate function to the corresponding attribute of the function.
@@ -119,19 +164,12 @@ object PartialAggregation extends Logging {
         }
         other -> mappedExpression
     }
+    /** This step is separate to keep the input order of the groupingExpressions */
     val groupExpressionMap = namedGroupingExpressions.toMap
 
     // make expression out of the tuples
     val finalGroupingExpressions = namedGroupingExpressions.map(_._2)
     val finalAggregateExpressions = aggregateExpressions.map(_.copy(mode = Final))
-
-    val partialAggregateExpressionsForPushdown: Seq[NamedExpression] =
-      resultExpressions.flatMap(ne => ne match {
-        case a@Alias(agg: AggregateExpression, _) => rewriteAggregateExpressionsToPartial(agg, a)
-        case Alias(expr: NamedExpression, _) => Seq(expr)
-        case expr: NamedExpression => Seq(expr)
-        case _ => Seq.empty
-      })
 
     /** Extracted from the `Aggregation` Strategy of Spark:
       * The original `resultExpressions` are a set of expressions which may reference
@@ -165,11 +203,11 @@ object PartialAggregation extends Logging {
     (finalGroupingExpressions,
       finalAggregateExpressions,
       /* *
-       * final and partial grouping expressions are the same! Still needed for Tungesten/
+       * final and partial grouping expressions are the same! Still needed for Tungsten/
        * SortBasedAggregate Physical plan node
        */
       finalGroupingExpressions,
-      partialAggregateExpressionsForPushdown,
+      namedPushdownExpressions,
       aggregateFunctionToAttribute,
       rewrittenResultExpressions,
       child)
@@ -178,42 +216,45 @@ object PartialAggregation extends Logging {
 
 
   /**
-    * This method rewrites aggregates to the corresponding partial ones. For instance an average is
-    * rewritten to a sum and a count.
+    * This method rewrites an [[AggregateExpression]] to the corresponding partial ones.
+    * For instance an [[Average]] is rewritten to a [[Sum]] and a [[Count]].
     *
-    * @param aggregateExpression aggregate expresions to be rewritten
-    * @param outerAlias alias for that expression
-    * @return
+    * @param aggregateExpression [[AggregateExpression]] to rewrite.
+    * @return A sequence of [[Alias]]es that represent the split up [[AggregateExpression]].
     */
-  private def rewriteAggregateExpressionsToPartial(aggregateExpression: AggregateExpression,
-                                                   outerAlias: Alias):
-  Seq[NamedExpression] = {
+  private def rewriteAggregateExpressionsToPartial(
+                          aggregateExpression: AggregateExpression): Seq[Alias] = {
     val inputBuffers = aggregateExpression.aggregateFunction.inputAggBufferAttributes
     aggregateExpression.aggregateFunction match {
       case avg: Average => {
         // two: sum and count
-        val sumAlias = inputBuffers(0)
-        val cntAlias = inputBuffers(1)
+        val Seq(sumAlias, countAlias, _*) = inputBuffers
         val typedChild = avg.child.dataType match {
           case DoubleType | DecimalType.Fixed(_, _) => avg.child
           case _ => Cast(avg.child, DoubleType)
         }
-        Seq( // sum
-          Alias(AggregateExpression(Sum(typedChild), mode = Partial,
-            aggregateExpression.isDistinct)
-            , sumAlias.name + outerAlias.name)
-          (sumAlias.exprId, sumAlias.qualifiers, Some(sumAlias.metadata)),
-          // count
-          Alias(AggregateExpression(Count(avg.child), mode = Partial,
-            aggregateExpression.isDistinct), cntAlias.name + outerAlias.name)(cntAlias.exprId,
-            cntAlias.qualifiers, Some(cntAlias.metadata)))
+        val sumExpression = // sum
+          AggregateExpression(Sum(typedChild), mode = Partial, aggregateExpression.isDistinct)
+        val countExpression = // count
+          AggregateExpression(Count(avg.child), mode = Partial, aggregateExpression.isDistinct)
+        Seq(referenceAs(sumAlias, sumExpression), referenceAs(countAlias, countExpression))
       }
       case Count(_) | Sum(_) | Max(_) | Min(_) =>
-        Seq(Alias(aggregateExpression.copy(mode = Partial),
-          inputBuffers.head.name + outerAlias.name)
-        (inputBuffers.head.exprId, inputBuffers.head.qualifiers, Some(inputBuffers.head.metadata)))
+        inputBuffers.map(ref => referenceAs(ref, aggregateExpression.copy(mode = Partial)))
       case _ => throw new RuntimeException("Approached rewrite with unsupported expression")
     }
 
+  }
+
+  /**
+    * References a given [[Expression]] as an [[Alias]] of the given [[Attribute]].
+    *
+    * @param attribute The [[Attribute]] to create the [[Alias]] reference of.
+    * @param expression The [[Expression]] to reference as the given [[Attribute]].
+    * @return An [[Alias]] of the [[Expression]] referenced as the [[Attribute]].
+    */
+  private def referenceAs(attribute: Attribute, expression: Expression): Alias = {
+    Alias(expression, attribute.name)(
+      attribute.exprId, attribute.qualifiers, Some(attribute.metadata))
   }
 }
