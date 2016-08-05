@@ -142,13 +142,13 @@ object ERPCurrencyConversionFunction extends CurrencyConversionFunction with Log
     }
 
     val maybeClosure = ERPConversionLoader.createInstance(config.options.toMap, dataIterators)
-    log.debug("Erp tables successfully loaded.")
 
     sourceConfig = Some(config.source)
     options = Some(config.options)
 
     maybeClosure match {
       case Success(closure) =>
+        log.debug("Erp tables successfully loaded.")
         sqlContext.setConf(CONF_PREFIX + PARAM_DO_UPDATE, DO_UPDATE_FALSE)
         conversionFunctionHolder = Option(closure)
       case Failure(err) =>
@@ -211,7 +211,7 @@ protected[erp] object ERPConversionLoader {
       Failure(new CurrencyConversionException(msg, cause))
     }
 
-    val backend = Try(mirror.staticModule(MODULE_NAME))
+    Try(mirror.staticModule(MODULE_NAME))
       .recoverWith { case NonFatal(ex) => fail(moduleNotFoundMsg, ex) }
       .map(mirror.reflectModule(_).instance.asInstanceOf[DuckType])
       .recoverWith { case NonFatal(ex) => fail(couldNotInvokeMsg, ex) }
@@ -220,8 +220,8 @@ protected[erp] object ERPConversionLoader {
         case ex: NoSuchMethodException => fail(couldNotInvokeMsg, ex)
         case NonFatal(ex) => fail(setupErrorMsg, ex)
       }
-    val function = backend.map(_(tables)(options))
-    function
+      .map(_(tables)(options))
+      .recoverWith {case NonFatal(ex) => fail(setupErrorMsg, ex)}
   }
 
   /**
@@ -238,13 +238,13 @@ protected[erp] object ERPConversionLoader {
   def getErrorCaseFallback(cause: Throwable): RConversionOptionsCurried = {
     {
       (a: Option[String],
-            b: Option[String],
-            c: Option[String],
-            d: Option[String],
-            e: Option[String]) =>
+       b: Option[String],
+       c: Option[String],
+       d: Option[String],
+       e: Option[String]) =>
         (x: Option[Double]) =>
           val msg = """
-                      |Currency conversion could not be initiated due to missing dependencies, and
+                      |Currency conversion could not be initialized, and
                       |no push-down alternatives are available.
                     """.stripMargin.trim
           throw new CurrencyConversionException(msg, cause)
