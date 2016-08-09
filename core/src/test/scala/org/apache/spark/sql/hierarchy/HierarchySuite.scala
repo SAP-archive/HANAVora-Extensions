@@ -446,10 +446,11 @@ class HierarchySuite
   }
 
   test("integration: I can use star with full outer join hierarchy with table and unary UDFs") {
-    val result = sqlContext.sql(s"""
-                    SELECT A.name, B.address, LEVEL(A.node), IS_ROOT(A.node)
-                    FROM ${adjacencyListHierarchySQL(orgTbl)} A FULL OUTER JOIN $addressesTable B
-                    ON A.name = B.name""").collect()
+    val result = sqlContext.sql(
+      s"""SELECT A.name, B.address, LEVEL(A.node), IS_ROOT(A.node)
+        |FROM ${adjacencyListHierarchySQL(orgTbl, "name", "node")}
+        |A FULL OUTER JOIN $addressesTable B
+        |ON A.name = B.name""".stripMargin).collect()
 
     val expected = Set(
       Row("THE BOSS", "Nice Street", 1, true),
@@ -516,5 +517,18 @@ class HierarchySuite
 
     val result = sqlContext.sql("SELECT NAME(node), col1, LEVEL(node) FROM h").collect()
     assertResult(Set.empty)(result.toSet)
+  }
+
+  test("node type is not removed from star projection targeting a explicit projection") {
+    createSensorsTable(sqlContext)
+    val schema =
+      sqlContext.sql(s"""SELECT * FROM (
+                       |SELECT node FROM HIERARCHY ( USING $sensorsTable AS v
+                       |JOIN PRIOR u ON v.par = u.sensor
+                       |ORDER SIBLINGS BY sensor ASC
+                       |START WHERE sensor = "c"
+                       |SET node) AS H
+                       |WHERE IS_ROOT(node) = true) sub""".stripMargin).schema
+    assertResult(StructType(StructField("node", NodeType, nullable = false) :: Nil))(schema)
   }
 }
