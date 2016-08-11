@@ -1,5 +1,7 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
+import java.util.concurrent.atomic.AtomicLong
+
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions._
@@ -85,21 +87,43 @@ object PartialAggregation extends Logging {
     /**
       * A single aggregate expression might appear multiple times in resultExpressions.
       * In order to avoid evaluating an individual aggregate function multiple times, we'll
-      * build a set of the distinct aggregate expressions and build a function which can
+      * build a seq of the distinct aggregate expressions and build a function which can
       * be used to re-write expressions so that they reference the single copy of the
       * aggregate function which actually gets computed.
       */
-    val aggregateExpressions = resultExpressions.flatMap (_.collect {
-        case agg: AggregateExpression => agg
-    }).distinct
+    val (nonDistinctAggregateExpressions, aggregateExpressionsToNamedExpressions) =
+      resultExpressions
+        .foldLeft(
+          Seq.empty[AggregateExpression] -> Map.empty[AggregateExpression, Set[NamedExpression]]) {
+            case ((aggExpressions, aggExpressionsToNamedExpressions), current) =>
+              val aggregateExpressionsInCurrent =
+                current.collect { case a: AggregateExpression => a }
+              /**
+                * We keep track of the outermost [[NamedExpression]] referencing the
+                * [[AggregateExpression]] to always have distinct names for the named pushdown
+                * expressions.
+                */
+              val updatedMapping =
+                aggregateExpressionsInCurrent.foldLeft(aggExpressionsToNamedExpressions) {
+                  case (mapping, expression) =>
+                    val currentMapping = mapping.getOrElse(expression, Set.empty)
+                    mapping.updated(expression, currentMapping + current)
+                }
+              (aggExpressions ++ aggregateExpressionsInCurrent) -> updatedMapping
+      }
+
+    val aggregateExpressions = nonDistinctAggregateExpressions.distinct
 
     /**
       * We split and rewrite the given aggregate expressions to partial aggregate expressions
       * and keep track of the original aggregate expression for later referencing.
       */
     val aggregateExpressionsToAliases: Map[AggregateExpression, Seq[Alias]] =
-      aggregateExpressions
-        .map(agg => agg -> rewriteAggregateExpressionsToPartial(agg))(collection.breakOut)
+      aggregateExpressions.map { agg =>
+        agg -> rewriteAggregateExpressionsToPartial(
+          agg,
+          aggregateExpressionsToNamedExpressions(agg))
+      }(collection.breakOut)
 
     /**
       * Since for pushdown only [[NamedExpression]]s are allowed, we do the following:
@@ -223,7 +247,9 @@ object PartialAggregation extends Logging {
     * @return A sequence of [[Alias]]es that represent the split up [[AggregateExpression]].
     */
   private def rewriteAggregateExpressionsToPartial(
-                          aggregateExpression: AggregateExpression): Seq[Alias] = {
+                          aggregateExpression: AggregateExpression,
+                          outerNamedExpressions: Set[NamedExpression]): Seq[Alias] = {
+    val outerName = outerNamedExpressions.map(_.name).toSeq.sorted.mkString("", "_", "_")
     val inputBuffers = aggregateExpression.aggregateFunction.inputAggBufferAttributes
     aggregateExpression.aggregateFunction match {
       case avg: Average => {
@@ -237,10 +263,13 @@ object PartialAggregation extends Logging {
           AggregateExpression(Sum(typedChild), mode = Partial, aggregateExpression.isDistinct)
         val countExpression = // count
           AggregateExpression(Count(avg.child), mode = Partial, aggregateExpression.isDistinct)
-        Seq(referenceAs(sumAlias, sumExpression), referenceAs(countAlias, countExpression))
+        Seq(
+          referenceAs(outerName + sumAlias.name, sumAlias, sumExpression),
+          referenceAs(outerName + countAlias.name, countAlias, countExpression))
       }
       case Count(_) | Sum(_) | Max(_) | Min(_) =>
-        inputBuffers.map(ref => referenceAs(ref, aggregateExpression.copy(mode = Partial)))
+        inputBuffers.map(ref =>
+          referenceAs(outerName + ref.name, ref, aggregateExpression.copy(mode = Partial)))
       case _ => throw new RuntimeException("Approached rewrite with unsupported expression")
     }
 
@@ -253,8 +282,7 @@ object PartialAggregation extends Logging {
     * @param expression The [[Expression]] to reference as the given [[Attribute]].
     * @return An [[Alias]] of the [[Expression]] referenced as the [[Attribute]].
     */
-  private def referenceAs(attribute: Attribute, expression: Expression): Alias = {
-    Alias(expression, attribute.name)(
-      attribute.exprId, attribute.qualifiers, Some(attribute.metadata))
+  private def referenceAs(name: String, attribute: Attribute, expression: Expression): Alias = {
+    Alias(expression, name)(attribute.exprId, attribute.qualifiers, Some(attribute.metadata))
   }
 }

@@ -10,7 +10,9 @@ import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{AdjacencyListHierarchySpec, Hierarchy, LogicalPlan, PartialAggregation}
 import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.aggregate.TungstenAggregate
 import org.apache.spark.sql.execution.datasources.{CatalystSourceStrategy, LogicalRelation}
+import org.apache.spark.sql.sources.sql.SqlLikeRelation
 import org.apache.spark.sql.types._
 import org.apache.spark.util.DummyRelationUtils._
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
@@ -49,7 +51,8 @@ class CatalystSourceStrategySuite
 
   private val schema = StructType(Seq(
     'c_int.ofType.int,
-    'c_string.ofType.int
+    'c_string.ofType.int,
+    'c_int2.ofType.int
   ))
 
   override def beforeAll(): Unit = {
@@ -174,6 +177,8 @@ class CatalystSourceStrategySuite
         supportsLogicalPlanFunc = Some(_ => true))(sqlc)
     val lcr = LogicalRelation(catalystRelation)
     val lcrCInt = lcr.attribute("c_int")
+    val lcrC2Int = lcr.attribute("c_int2")
+    val lcrCString = lcr.attribute("c_string")
 
     var plan: LogicalPlan = lcr
     var physicals = CatalystSourceStrategy(plan)
@@ -201,8 +206,8 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Sum(Cast(lcrCInt, DoubleType)), Partial, false).as("sum"),
-        AggregateExpression(Count(lcrCInt), Partial, false).as("count")),
+        AggregateExpression(Sum(Cast(lcrCInt, DoubleType)), Partial, false).as("c_avg_sum"),
+        AggregateExpression(Count(lcrCInt), Partial, false).as("c_avg_count")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -211,7 +216,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Count(lcrCInt), Partial, false).as("count")),
+        AggregateExpression(Count(lcrCInt), Partial, false).as("c_cnt_count")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -220,7 +225,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Sum(lcrCInt), Partial, false).as("sum")),
+        AggregateExpression(Sum(lcrCInt), Partial, false).as("c_sum_sum")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -229,7 +234,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Max(lcrCInt), Partial, false).as("max")),
+        AggregateExpression(Max(lcrCInt), Partial, false).as("c_max_max")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -238,7 +243,7 @@ class CatalystSourceStrategySuite
     assert(physicals.nonEmpty)
     comparePlans(lcr
       .groupBy(lcrCInt)(
-        AggregateExpression(Min(lcrCInt), Partial, false).as("min")),
+        AggregateExpression(Min(lcrCInt), Partial, false).as("c_min_min")),
       getLogicalPlans(prepareExecution(physicals.head).execute()).head
     )
 
@@ -253,6 +258,31 @@ class CatalystSourceStrategySuite
     )
     physicals = CatalystSourceStrategy(plan)
     assert(physicals.isEmpty)
+
+    plan = lcr.groupBy(lcrCString)(min(lcrCInt), min(lcrC2Int))
+    physicals = CatalystSourceStrategy(plan)
+  }
+
+  test("Partial aggregate names are non-ambiguous") {
+    val catalystRelation =
+      new DummyCatalystSourceRelation(
+        schema,
+        isMultiplePartitionExecutionFunc = Some(_ => true),
+        supportsLogicalPlanFunc = Some(_ => true))(sqlc) with SqlLikeRelation {
+        override def tableName: String = "foo"
+      }
+    val lcr = LogicalRelation(catalystRelation)
+    val lcrCInt = lcr.attribute("c_int")
+    val lcrC2Int = lcr.attribute("c_int2")
+    val lcrCString = lcr.attribute("c_string")
+
+    val plan = lcr.groupBy(lcrCString)(min(lcrCInt).as("c1min"), min(lcrC2Int).as("c2min"))
+    plan match {
+      case PartialAggregation(_, _, _, pushdownExpressions, _, _, _) =>
+        val distinctPushdownNames = pushdownExpressions.map(_.name).distinct
+        assert(distinctPushdownNames.size == pushdownExpressions.size)
+      case _ => fail("Could not calculate partial aggregation")
+    }
   }
 
 }
