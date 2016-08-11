@@ -19,7 +19,7 @@ trait DatasourceResolver {
     if (tag.runtimeClass.isInstance(instance)) {
       instance.asInstanceOf[A]
     } else {
-      throw new RuntimeException(s"Created instance $instance not of expected type " +
+      throw new ClassCastException(s"Created instance $instance not of expected type " +
         s"${tag.runtimeClass.getSimpleName}")
     }
   }

@@ -1,30 +1,17 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.{SQLContext, Strategy}
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, SelectUsing}
-import org.apache.spark.sql.execution.{PhysicalRDD, RDDConversions, SparkPlan}
-import org.apache.spark.sql.sources.RawSqlSourceProvider
+import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.{SQLContext, Strategy}
 
 /**
-  * Translates [[org.apache.spark.sql.catalyst.plans.logical.SelectUsing]] into a physical plan
+  * Translates [[SelectUsing]] into a spark plan given by the current raw sql execution.
   */
 private[sql] object RawSqlSourceStrategy extends Strategy {
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    case SelectUsing(sqlCommand, className, attributes) => {
-      // 1. instantiate "class name" which is the provider
-      val dataSource: Any = ResolvedDataSource.lookupDataSource(className).newInstance()
+    case SelectUsing(execution) =>
+      execution.createSparkPlan() :: Nil
 
-      // 2. call a method on the newly created object to return an RDD
-      dataSource match {
-        case rawSql:RawSqlSourceProvider =>
-          // 3. get attributes, RDD and convert it to an RDD[InternalRow]
-          val rowRDD = rawSql.getRDD(sqlCommand)
-          val internalRowRDD = RDDConversions.rowToRowRdd(rowRDD, attributes.map(_.dataType))
-
-          // 4. pack that into Physical RDD
-          Seq(PhysicalRDD(attributes, internalRowRDD, s"Raw SQL extraction for ${sqlCommand}"))
-      }
-    }
     case _ => Nil
   }
 }

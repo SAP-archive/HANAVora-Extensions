@@ -52,10 +52,16 @@ class ViewsSuite extends FunSuite
 
   test("View with raw sql works") {
     withMock { defaultSource =>
-      val rdd = mock[RDD[Row]]
       val schema: StructType = 'a.string
-      when(defaultSource.getRDD(any[String])).thenReturn(rdd)
-      when(defaultSource.getResultingAttributes(any[String])).thenReturn(schema.toAttributes)
+      val output = schema.toAttributes
+      val execution = mock[RawSqlExecution]
+      when(execution.output).thenReturn(output)
+      when(defaultSource.executionOf(
+        any[SQLContext],
+        any[Map[String, String]],
+        any[String],
+        any[Option[StructType]]))
+        .thenReturn(execution)
 
       sqlc.sql("CREATE VIEW v AS ``SELECT * FROM FOO`` USING com.sap.spark.dsmock")
       val resultSchema = sqlc.sql("SELECT * FROM v").schema
@@ -66,10 +72,16 @@ class ViewsSuite extends FunSuite
 
   test("View with raw sql in subquery works") {
     withMock { defaultSource =>
-      val rdd = mock[RDD[Row]]
       val schema: StructType = 'a.string
-      when(defaultSource.getRDD(any[String])).thenReturn(rdd)
-      when(defaultSource.getResultingAttributes(any[String])).thenReturn(schema.toAttributes)
+      val execution = mock[RawSqlExecution]
+      when(execution.output).thenReturn(schema.toAttributes)
+      when(defaultSource
+        .executionOf(
+          any[SQLContext],
+          any[Map[String, String]],
+          any[String],
+          any[Option[StructType]]))
+        .thenReturn(execution)
 
       sqlc.sql(
         """CREATE VIEW v AS

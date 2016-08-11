@@ -188,10 +188,13 @@ class DefaultSource
     : Seq[PartitioningFunction] =
     underlying.getAllPartitioningFunctions(sqlContext, parameters)
 
-  override def getRDD(sqlCommand: String): RDD[Row] = underlying.getRDD(sqlCommand)
 
-  override def getResultingAttributes(sqlCommand: String): Seq[Attribute] =
-    underlying.getResultingAttributes(sqlCommand)
+  /** @inheritdoc */
+  override def executionOf(sqlContext: SQLContext,
+                           options: Map[String, String],
+                           sqlCommand: String,
+                           expectedOutput: Option[StructType]): RawSqlExecution =
+    underlying.executionOf(sqlContext, options, sqlCommand, expectedOutput)
 
   // does nothing
   override def executeDDL(identifier: String,

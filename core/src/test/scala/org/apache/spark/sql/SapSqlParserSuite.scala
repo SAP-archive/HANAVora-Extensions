@@ -108,7 +108,7 @@ class SapSqlParserSuite
 
   test ("RAW SQL: ``select ....`` USING class.name AS (schema)") {
     val schema = "(a integer, b double)"
-    val schemaFields = Seq(StructField("a", IntegerType), StructField("b", DoubleType))
+    val schemaFields = StructType(Seq(StructField("a", IntegerType), StructField("b", DoubleType)))
 
     // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
     assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className AS $schema")
@@ -118,7 +118,23 @@ class SapSqlParserSuite
   test ("RAW SQL: ``select ....`` USING class.name AS () - empty schema") {
     // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
     assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className AS ()")
-      .equals(UnresolvedSelectUsing(rawSqlString, className, Some(Seq.empty))))
+      .equals(UnresolvedSelectUsing(rawSqlString, className, Some(StructType(Seq.empty)))))
+  }
+
+  test ("RAW SQL: ``select ....`` USING class.name OPTIONS ... ()") {
+    assertResult(UnresolvedSelectUsing(rawSqlString, className, None, Map("foo" -> "bar")))(
+      SapSqlParser.parse(
+        s"""``$rawSqlString``
+           |USING $className
+           |OPTIONS (
+           |foo "bar"
+           |)
+         """.stripMargin)
+    )
+  }
+
+  test("RawSQL with only one ` should fail!") {
+    intercept[SapParserException](SapSqlParser.parse(s"""`select ...` USING $className AS ()"""))
   }
 
   test("parse system table") {

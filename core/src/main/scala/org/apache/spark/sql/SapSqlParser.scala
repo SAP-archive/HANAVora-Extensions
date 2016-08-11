@@ -8,7 +8,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.commands.{DescribeQueryCommand, DescribeRelationCommand}
 import org.apache.spark.sql.sources.sql.{Cube, Dimension, Plain, ViewKind}
-import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField}
+import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 
 import scala.util.parsing.input.Position
@@ -351,12 +351,17 @@ private object SapSqlParser extends BackportedSqlParser
   /**
     * Parses RAW Sql, i.e., sql we do not parse but pass directly to an appropriate datasource
     *
-    * Example: "some engine specifc syntax" WITH com.sap.spark.engines
+    * Example: ``some engine specific syntax`` USING com.sap.spark.engines [OPTIONS (key "value")]
     *
      */
   protected lazy val selectUsing: Parser[LogicalPlan] =
-    rawSqlLit ~ (USING ~> className) ~ (AS ~> tableCols).? ^^ {
-      case s ~ c ~ a => UnresolvedSelectUsing(s, c, a)
+    rawSqlLit ~ (USING ~> className) ~ (OPTIONS ~> options).? ~ (AS ~> tableCols).? ^^ {
+      case command ~ provider ~ optionsOpt ~ columnsOpt =>
+        UnresolvedSelectUsing(
+          command,
+          provider,
+          columnsOpt.map(StructType.apply),
+          optionsOpt.getOrElse(Map.empty))
   }
 
   /**

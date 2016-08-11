@@ -1,11 +1,15 @@
 package org.apache.spark.sql.sources
 
+import java.util.concurrent.atomic.AtomicReference
+
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.plans.logical.Statistics
+import org.apache.spark.sql.execution.{PhysicalRDD, RDDConversions, SparkPlan}
 import org.apache.spark.sql.sources.RawDDLObjectType.RawDDLObjectType
 import org.apache.spark.sql.sources.RawDDLStatementType.RawDDLStatementType
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{Row, SQLContext}
 
 case object RawDDLObjectType {
 
@@ -37,22 +41,20 @@ case object RawDDLStatementType {
   * Indicates that a datasource supports the raw sql interface
   */
 trait RawSqlSourceProvider {
-  /**
-    * Forwards a query to the engine/source it refers to
-    *
-    * @param sqlCommand SQL String that has to be queried
-    * @return RDD representing the result of the SQL String
-    */
-  def getRDD(sqlCommand: String): RDD[Row]
 
   /**
-    * Determines the schema of the raw sql string. Usually this happens by executing query to
-    * extract the schema.
+    * Returns the spark plan for the execution of the given SQL command.
     *
-    * @param sqlCommand user defined sql string
-    * @return schema of the result of sqlCommand parameter
+    * @param sqlContext The Spark [[SQLContext]].
+    * @param options The options for the datasource.
+    * @param sqlCommand The sql command that to issue.
+    * @param expectedOutput The expected output, if any.
+    * @return The [[SparkPlan]] executing the given SQL command.
     */
-  def getResultingAttributes(sqlCommand: String): Seq[Attribute]
+  def executionOf(sqlContext: SQLContext,
+                  options: Map[String, String],
+                  sqlCommand: String,
+                  expectedOutput: Option[StructType]): RawSqlExecution
 
   /**
     * Runs a DDL statement
@@ -70,4 +72,59 @@ trait RawSqlSourceProvider {
                  sparkSchema: Option[StructType],
                  sqlCommand: String,
                  options: Map[String, String]): Unit
+}
+
+/** An execution of a SQL statement */
+trait RawSqlExecution {
+
+  /** The output schema of the execution */
+  def schema: StructType
+
+  /** Creates the spark plan representing this execution */
+  def createSparkPlan(): SparkPlan
+
+  /**
+    * @return The Spark [[SQLContext]]
+    */
+  @transient
+  def sqlContext: SQLContext
+
+  @transient
+  lazy val statistics: Statistics =
+    Statistics(sizeInBytes = BigInt(sqlContext.conf.defaultSizeInBytes))
+
+  lazy val output: Seq[Attribute] = schema.toAttributes
+
+  def rowRddToSparkPlan(rowRdd: RDD[Row]): SparkPlan = {
+    val internalRdd = RDDConversions.rowToRowRdd(rowRdd, schema.map(_.dataType))
+    PhysicalRDD(output, internalRdd, "Raw SQL execution")
+  }
+}
+
+/** A [[RawSqlExecution]] whose schema initialization is lazy */
+trait LazySchemaRawSqlExecution extends RawSqlExecution {
+  private val schemaOpt: AtomicReference[Option[StructType]] = new AtomicReference(None)
+
+  /**
+    * Retrieves the [[Some]] schema if it was already calculated and [[None]] otherwise.
+    *
+    * @return [[Some]][[StructType]] if `schema` was already accessed, [[None]] otherwise.
+    */
+  def schemaOption: Option[StructType] = schemaOpt.get
+
+  /** @inheritdoc */
+  override def schema: StructType = synchronized {
+    schemaOpt.get.getOrElse {
+      val _schema = calculateSchema()
+      schemaOpt.set(Some(_schema))
+      _schema
+    }
+  }
+
+  /**
+    * Calculates the schema of this execution. This is called at most once.
+    *
+    * @return The calculated [[StructType]].
+    */
+  protected def calculateSchema(): StructType
 }
