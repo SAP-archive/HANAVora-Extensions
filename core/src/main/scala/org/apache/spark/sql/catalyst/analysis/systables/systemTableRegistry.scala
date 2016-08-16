@@ -90,4 +90,5 @@ object SystemTableRegistry extends SimpleSystemTableRegistry {
   register("object_dependencies", DependenciesSystemTableProvider)
   register("table_metadata", MetadataSystemTableProvider)
   register("schemas", SchemaSystemTableProvider)
+  register("session_context", SessionSystemTableProvider)
 }

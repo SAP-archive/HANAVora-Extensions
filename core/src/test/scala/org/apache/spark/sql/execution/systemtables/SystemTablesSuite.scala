@@ -439,6 +439,21 @@ class SystemTablesSuite
       values)
   }
 
+  test("Select from session system table") {
+    try {
+      sqlContext.setConf("foo", "bar")
+      sqlContext.sparkContext.conf.set("baz", "qux")
+
+      val result = sqlc.sql("SELECT SECTION, KEY, VALUE FROM SYS.SESSION_CONTEXT").collect().toSet
+
+      assert(result.contains(Row("SparkContext", "baz", "qux")))
+      assert(result.contains(Row("SQLContext", "foo", "bar")))
+    } finally {
+      sqlContext.conf.unsetConf("foo")
+      sqlContext.sparkContext.conf.remove("baz")
+    }
+  }
+
 }
 
 object SystemTablesSuite {
