@@ -1,21 +1,62 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.tablefunctions.OutputFormatter
-import org.apache.spark.sql.sources.{Filter, MetadataCatalog, MetadataCatalogPushDown}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.sources._
+import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.util.CollectionUtils._
+import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
 
+/** A provider for the metadata system table. */
 object MetadataSystemTableProvider
   extends SystemTableProvider
+  with LocalSpark
   with ProviderBound {
+
+
+  /** @inheritdoc */
+  override def create(sqlContext: SQLContext): SystemTable =
+    SparkLocalMetadataSystemTable(sqlContext)
+
 
   /** @inheritdoc */
   override def create(sqlContext: SQLContext,
                       provider: String,
                       options: Map[String, String]): SystemTable =
-    MetadataSystemTable(sqlContext, provider, options)
+    ProviderBoundMetadataSystemTable(sqlContext, provider, options)
+}
+
+/**
+  * The spark local metadata system table.
+  *
+  * Technical metadata is retrieved from [[Relation]]s that implement
+  * the [[MetadataRelation]] trait. For non-relations, `null` is shown
+  * for both key and value.
+  *
+  * @param sqlContext The Spark [[SQLContext]].
+  */
+case class SparkLocalMetadataSystemTable(sqlContext: SQLContext)
+  extends SystemTable
+  with AutoScan {
+
+  /** @inheritdoc */
+  override def execute(): Seq[Row] = {
+    sqlContext.tableNames.flatMap { name =>
+      val plan = sqlContext.catalog.lookupRelation(TableIdentifier(name))
+      val metadataRelationOpt = Relation.unapply(plan).collect { case m: MetadataRelation => m }
+      val metadata = metadataRelationOpt.fold(Map.empty[String, String])(_.metadata)
+      val nonEmptyMetadata = if (metadata.isEmpty) Map((null, null)) else metadata
+      nonEmptyMetadata.map {
+        case (key, value) =>
+          val correctlyCasedName = alterByCatalystSettings(sqlContext.catalog, name)
+          Row(correctlyCasedName, key, value)
+      }
+    }
+  }
+
+  override def schema: StructType = MetadataSystemTable.schema
 }
 
 /**
@@ -25,7 +66,7 @@ object MetadataSystemTableProvider
   * @param provider The provider that should implement the [[MetadataCatalog]] interface.
   * @param options The provider options.
   */
-case class MetadataSystemTable(
+case class ProviderBoundMetadataSystemTable(
     sqlContext: SQLContext,
     provider: String,
     options: Map[String, String])

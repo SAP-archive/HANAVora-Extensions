@@ -246,6 +246,44 @@ class SystemTablesSuite
     }
   }
 
+  test("Select from spark local TABLE_METADATA system table returns metadata of local tables") {
+    abstract class MockMetadataRelation extends UnaryNode with Table with MetadataRelation
+
+    val nonMetadataRelation = mock[LogicalPlan]
+    val metadataRelation1 = mock[MockMetadataRelation]
+    val metadataRelation2 = mock[MockMetadataRelation]
+    val metadataRelation3 = mock[MockMetadataRelation]
+
+    when(nonMetadataRelation.collectFirst[Relation](any[Nothing])).thenReturn(None)
+    Seq(metadataRelation1, metadataRelation2, metadataRelation3).foreach { metadataRelation =>
+      when(metadataRelation.collectFirst[Relation](any[PartialFunction[LogicalPlan, Relation]]))
+        .thenReturn(Some(metadataRelation))
+    }
+
+    when(metadataRelation1.metadata).thenReturn(Map("foo" -> "bar", "baz" -> "bang"))
+    when(metadataRelation2.metadata).thenReturn(Map("baz" -> "1"))
+    when(metadataRelation3.metadata).thenReturn(Map.empty[String, String])
+
+    sqlContext.registerRawPlan(nonMetadataRelation, "nometadata")
+    sqlContext.registerRawPlan(metadataRelation1, "metadata1")
+    sqlContext.registerRawPlan(metadataRelation2, "metadata2")
+    sqlContext.registerRawPlan(metadataRelation3, "metadata3")
+
+    val values =
+      sqlContext
+        .sql("SELECT TABLE_NAME, METADATA_KEY, METADATA_VALUE FROM SYS.TABLE_METADATA")
+        .collect()
+        .toSet
+
+    assertResult(
+      Set(
+        Row("nometadata", null, null),
+        Row("metadata1", "foo", "bar"),
+        Row("metadata1", "baz", "bang"),
+        Row("metadata2", "baz", "1"),
+        Row("metadata3", null, null)))(values)
+  }
+
   test("Select from TABLES system table returns the correct result set (Bug 117362, 117363)") {
     withMock { dataSource =>
       val handle = mock[ViewHandle]
