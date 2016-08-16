@@ -35,6 +35,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveDeepDescribe(analyzer) ::
     ResolveSelectUsing(this) ::
     ResolveDropCommand(analyzer, catalog) ::
+    ResolveInferSchemaCommand(this) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =

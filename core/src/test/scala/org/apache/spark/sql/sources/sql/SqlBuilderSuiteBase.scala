@@ -3,6 +3,7 @@ package org.apache.spark.sql.sources.sql
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.Filter
+import org.apache.spark.sql.types.DataType
 import org.scalatest.FunSuite
 
 import scala.util.matching.Regex
@@ -57,6 +58,19 @@ trait SqlBuilderSuiteBase {
       intercept[RuntimeException] {
         sqlBuilder.internalLogicalPlanToSql(plan)
       }
+    }
+  }
+
+  /**
+    * Tests whether the generated SQL type string is correct for the given [[DataType]].
+    *
+    * @param expected The expected SQL type string.
+    * @param dataType The [[DataType]] to convert.
+    */
+  def testGeneratedSqlDataType(expected: String)(dataType: DataType): Unit = {
+    test(s"The generated sql type for ${dataType.simpleString} is $expected") {
+      val generated = sqlBuilder.typeToSql(dataType)
+      assertResult(expected)(generated)
     }
   }
 

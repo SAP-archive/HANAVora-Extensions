@@ -3,11 +3,11 @@ package com.sap.spark.util
 import java.util.Locale
 
 import scala.io.Source
-
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{SQLContext, SapSQLContext}
 import org.apache.spark.sql.hive.SapHiveContext
 
+import scala.tools.nsc.io.Directory
 import scala.util.{Failure, Success}
 
 /**
@@ -84,4 +84,13 @@ object TestUtils {
     } else {
       sql
     }
+
+  def withTempDirectory[A](f: Directory => A): A = {
+    val dir = Directory.makeTemp()
+    try {
+      f(dir)
+    } finally {
+      dir.deleteIfExists()
+    }
+  }
 }

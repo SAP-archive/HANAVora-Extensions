@@ -8,6 +8,7 @@ import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableF
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.execution.datasources.{CreateNonPersistentViewCommand, CreatePersistentViewCommand}
+import org.apache.spark.sql.sources.commands.{Orc, Parquet, UnresolvedInferSchemaCommand}
 import org.apache.spark.sql.sources.sql.{Dimension, Plain, Cube => CubeKind}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
@@ -603,6 +604,20 @@ class SapSqlParserSuite
           UnresolvedAlias(
             UnresolvedFunction("IF", Seq(EqualTo(Literal(1), Literal(1))), isDistinct = false))),
         UnresolvedRelation(TableIdentifier("baz"))))(parsed)
+  }
+
+  test("Infer schema command with explicit types") {
+    val parsed1 = SapSqlParser.parse("""INFER SCHEMA OF "foo" AS orc""")
+    val parsed2 = SapSqlParser.parse("""INFER SCHEMA OF "foo" AS parquet""")
+
+    assertResult(UnresolvedInferSchemaCommand("foo", Some(Orc)))(parsed1)
+    assertResult(UnresolvedInferSchemaCommand("foo", Some(Parquet)))(parsed2)
+  }
+
+  test("Infer schema command without explicit type") {
+    val parsed = SapSqlParser.parse("""INFER SCHEMA OF "foo"""")
+
+    assertResult(UnresolvedInferSchemaCommand("foo", None))(parsed)
   }
 
   /**

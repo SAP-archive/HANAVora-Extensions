@@ -6,6 +6,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.sources.sql.ViewKind
 import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
@@ -60,6 +61,13 @@ private object SapSqlParser extends BackportedSqlParser
   protected lazy val SYS = Keyword("SYS")
   protected lazy val OPTIONS = Keyword("OPTIONS")
 
+  /* Infer schema keywords */
+  protected lazy val INFER = ident.map(lexical.normalizeKeyword).filter(_ == "infer")
+  protected lazy val SCHEMA = ident.map(lexical.normalizeKeyword).filter(_ == "schema")
+  protected lazy val OF = ident.map(lexical.normalizeKeyword).filter(_ == "of")
+  protected lazy val PARQUET = ident.map(lexical.normalizeKeyword).filter(_ == "parquet")
+  protected lazy val ORC = ident.map(lexical.normalizeKeyword).filter(_ == "orc")
+
   protected lazy val optionName: Parser[String] = repsep(ident, ".").^^(_.mkString("."))
 
   protected lazy val pair: Parser[(String, String)] =
@@ -97,7 +105,7 @@ private object SapSqlParser extends BackportedSqlParser
    * Overriden to hook [[createView]] parser.
    */
   override protected lazy val start: Parser[LogicalPlan] =
-    selectUsing | start1 | insert | cte | createViewUsing | createView
+    selectUsing | start1 | insert | cte | createViewUsing | createView | inferSchema
 
   /**
     * This is the starting rule for select statements.
@@ -227,6 +235,15 @@ private object SapSqlParser extends BackportedSqlParser
           options = opts.getOrElse(CaseInsensitiveMap.empty),
           allowExisting = allowExisting.isDefined)
     }
+
+  protected lazy val inferSchema: Parser[UnresolvedInferSchemaCommand] =
+    INFER ~> SCHEMA ~> OF ~> stringLit ~ (AS ~> fileType).? ^^ {
+      case path ~ explicitFileType => UnresolvedInferSchemaCommand(path, explicitFileType)
+    }
+
+  protected lazy val fileType: Parser[FileType] =
+    PARQUET ^^^ Parquet |
+    ORC ^^^ Orc
 
   /** EXTRACT function. */
   protected lazy val extract: Parser[Expression] =

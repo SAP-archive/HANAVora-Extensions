@@ -344,6 +344,31 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
      """.stripMargin
   )(Distinct(t1.unionAll(t2.except(t1))))
 
+  testGeneratedSqlDataType("VARCHAR(*)")(StringType)
+  testGeneratedSqlDataType("INTEGER")(IntegerType)
+  testGeneratedSqlDataType("TINYINT")(ByteType)
+  testGeneratedSqlDataType("SMALLINT")(ShortType)
+  testGeneratedSqlDataType("BIGINT")(LongType)
+  testGeneratedSqlDataType("FLOAT")(FloatType)
+  testGeneratedSqlDataType("DOUBLE")(DoubleType)
+  testGeneratedSqlDataType("DECIMAL(5,2)")(DecimalType(5, 2))
+  testGeneratedSqlDataType("DECIMAL(1,1)")(DecimalType(1, 1))
+  testGeneratedSqlDataType("DATE")(DateType)
+  testGeneratedSqlDataType("BOOLEAN")(BooleanType)
+  testGeneratedSqlDataType("TIMESTAMP")(TimestampType)
+
+  test("SqlBuilder cannot generate a standard sql type string for array types") {
+    intercept[IllegalArgumentException] {
+      sqlBuilder.typeToSql(ArrayType(StringType))
+    }
+  }
+
+  test("SqlBuilder cannot generate a standard sql type string for struct types") {
+    intercept[IllegalArgumentException] {
+      sqlBuilder.typeToSql(StructType(Seq(StructField("foo", StringType))))
+    }
+  }
+
   case object UnsupportedLogicalPlan extends LeafNode {
     override def output: Seq[Attribute] = Seq()
   }
