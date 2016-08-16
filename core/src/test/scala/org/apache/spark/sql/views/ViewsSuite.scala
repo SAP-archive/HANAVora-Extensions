@@ -379,4 +379,14 @@ class ViewsSuite extends FunSuite
         "com.sap.spark.dstest"
     )))(actual)
   }
+
+  test("Invalid views are excluded from the schema system table") {
+    sqlc.sql("CREATE TABLE a (a int) USING com.sap.spark.dstest")
+    sqlc.sql("CREATE VIEW v1 AS SELECT * FROM nonexistent")
+    sqlc.sql("CREATE VIEW v2 AS SELECT *")
+
+    val result = sqlc.sql("SELECT TABLE_NAME FROM SYS.SCHEMAS").collect().toSet
+
+    assertResult(Set(Row("a")))(result)
+  }
 }

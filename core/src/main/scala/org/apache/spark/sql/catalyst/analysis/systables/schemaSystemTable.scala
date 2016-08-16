@@ -1,12 +1,13 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.tablefunctions._
-import org.apache.spark.sql.sources.commands.Table
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
+
+import scala.util.Try
 
 /**
   * [[SystemTableProvider]] for the [[SchemaSystemTable]].
@@ -46,28 +47,30 @@ case class SparkLocalSchemaSystemTable(sqlContext: SQLContext)
       .flatMap { name =>
         val tableIdent = TableIdentifier(alterByCatalystSettings(sqlContext.catalog, name))
         val unresolvedPlan = sqlContext.catalog.lookupRelation(tableIdent)
-        val plan = sqlContext.analyzer.execute(unresolvedPlan)
-        val extractor = new LogicalPlanExtractor(plan)
-        extractor.columns.flatMap { column =>
-          val nonEmptyAnnotations = OutputFormatter.toNonEmptyMap(column.annotations)
-          val formatter =
-            new OutputFormatter(
-              null,
-              column.tableName,
-              column.name,
-              column.index,
-              column.isNullable,
-              column.dataType.simpleString,
-              column.dataType.simpleString,
-              column.numericPrecision.orNull,
-              column.numericPrecisionRadix.orNull,
-              column.numericScale.orNull,
-              nonEmptyAnnotations,
-              "" /* columns have empty comment in Spark */)
-          formatter
-            .format()
-            .map(Row.fromSeq)
-        }
+        // TODO(AC): This should be removed once the new view implementation lands
+        Try(sqlContext.analyzer.execute(unresolvedPlan)).map { plan =>
+          val extractor = new LogicalPlanExtractor(plan)
+          extractor.columns.flatMap { column =>
+            val nonEmptyAnnotations = OutputFormatter.toNonEmptyMap(column.annotations)
+            val formatter =
+              new OutputFormatter(
+                null,
+                column.tableName,
+                column.name,
+                column.index,
+                column.isNullable,
+                column.dataType.simpleString,
+                column.dataType.simpleString,
+                column.numericPrecision.orNull,
+                column.numericPrecisionRadix.orNull,
+                column.numericScale.orNull,
+                nonEmptyAnnotations,
+                "" /* columns have empty comment in Spark */)
+            formatter
+              .format()
+              .map(Row.fromSeq)
+          }
+        }.getOrElse(Seq.empty)
       }
   }
 }
