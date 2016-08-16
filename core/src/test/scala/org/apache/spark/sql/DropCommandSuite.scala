@@ -7,8 +7,7 @@ import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode}
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 import org.apache.spark.sql.hive.SapHiveContext
-import org.apache.spark.sql.sources.commands.{Table, View, WithExplicitRelationKind}
-import org.apache.spark.sql.sources.{BaseRelation, DropRelation}
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.scalatest.FunSuite
 
@@ -210,9 +209,11 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
   }
 
   trait DropDummy extends DropRelation {
-    this: WithExplicitRelationKind =>
+    this: Relation =>
 
     var wasDropped = false
+
+    override def isTemporary: Boolean = true
 
     override def dropTable(): Unit = wasDropped = true
   }

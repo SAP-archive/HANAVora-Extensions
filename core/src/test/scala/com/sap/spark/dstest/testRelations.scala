@@ -1,8 +1,8 @@
 package com.sap.spark.dstest
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.sources.commands.{Table, WithOrigin}
-import org.apache.spark.sql.sources.{BaseRelation, DropRelation, TemporaryFlagRelation}
+import org.apache.spark.sql.sources.commands.WithOrigin
+import org.apache.spark.sql.sources.{BaseRelation, DropRelation, Table}
 import org.apache.spark.sql.types._
 
 /**
@@ -14,14 +14,13 @@ case class DummyRelationWithTempFlag(
     schema: StructType,
     temporary: Boolean)
   extends BaseRelation
-  with TemporaryFlagRelation
-  with DropRelation
   with Table
+  with DropRelation
   with WithOrigin {
 
   override val provider: String = "com.sap.spark.dstest"
 
-  override def isTemporary(): Boolean = temporary
+  override def isTemporary: Boolean = temporary
 
   override def dropTable(): Unit = {}
 }
@@ -33,6 +32,8 @@ case class DummyRelationWithoutTempFlag(
   with DropRelation
   with Table
   with WithOrigin {
+
+  override def isTemporary: Boolean = false
 
   override val provider: String = "com.sap.spark.dstest"
 

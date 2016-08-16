@@ -7,7 +7,7 @@ import org.apache.spark.sql.sources.sql.{Dimension, ViewKind}
  * This trait is a thin wrapper of a logical plan for a dimension view statement.
  */
 sealed trait DimensionView extends AbstractView {
-  override val kind: ViewKind = Dimension
+  override val viewKind: ViewKind = Dimension
 }
 
 /**

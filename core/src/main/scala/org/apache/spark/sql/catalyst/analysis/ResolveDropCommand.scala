@@ -5,8 +5,8 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.sources.DropRelation
-import org.apache.spark.sql.sources.commands.{RelationKind, Table, UnresolvedDropCommand, WithExplicitRelationKind}
+import org.apache.spark.sql.sources.commands.UnresolvedDropCommand
+import org.apache.spark.sql.sources.{DropRelation, RelationKind, Table}
 
 import scala.util.Try
 
@@ -26,8 +26,7 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
 
       val affected = plan.map { lp =>
         val targetKind =
-          lp.collectFirst { case WithExplicitRelationKind(relationKind) => relationKind }
-            .getOrElse(Table) // By default, we treat something as a table
+          RelationKind.kindOf(lp, Table)
         checkValidKind(kind, tableId, targetKind)
         buildDependentsMap(catalog, tableId)
       }

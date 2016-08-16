@@ -1,7 +1,6 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 import org.apache.spark.sql.catalyst.analysis.TableDependencyCalculator
-import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.sources.commands.RelationKind
+import org.apache.spark.sql.sources.{RelationKind, Table}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SQLContext}
 
@@ -37,17 +36,17 @@ case class DependenciesSystemTable(sqlContext: SQLContext)
     dependentsMap.flatMap {
       case (tableIdent, dependents) =>
         val curTable = tables(tableIdent)
-        val curKind = RelationKind.typeOf(curTable)
+        val curKind = RelationKind.kindOf(curTable, Table)
         dependents.map { dependent =>
           val dependentTable = tables(dependent)
-          val dependentKind = RelationKind.typeOf(dependentTable)
+          val dependentKind = RelationKind.kindOf(dependentTable, Table)
           Row(
             tableIdent.database.orNull,
             tableIdent.table,
-            curKind.toUpperCase,
+            curKind.name.toUpperCase,
             dependent.database.orNull,
             dependent.table,
-            dependentKind.toUpperCase,
+            dependentKind.name.toUpperCase,
             ReferenceDependency.id)
         }
     }.toSeq

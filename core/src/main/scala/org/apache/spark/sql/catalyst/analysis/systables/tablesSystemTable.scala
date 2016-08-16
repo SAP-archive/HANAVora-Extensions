@@ -2,10 +2,9 @@ package org.apache.spark.sql.catalyst.analysis.systables
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.execution.datasources.LogicalRelation
-import org.apache.spark.sql.sources.commands.{WithExplicitRelationKind, WithOrigin}
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.sources.commands.WithOrigin
+import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
@@ -36,17 +35,12 @@ case class SparkLocalTablesSystemTable(sqlContext: SQLContext)
       .tableNames()
       .map { table =>
         val plan = sqlContext.catalog.lookupRelation(TableIdentifier(table))
-        val isTemporary = plan.collectFirst {
-          case LogicalRelation(t: TemporaryFlagRelation, _) => t.isTemporary()
-          case t: TemporaryFlagRelation => t.isTemporary()
-        }.getOrElse(true) // By default, we treat it as temporary
-        val kind = plan.collectFirst {
-          case r: WithExplicitRelationKind => r.relationKind.name
-          case LogicalRelation(r: WithExplicitRelationKind, _) => r.relationKind.name
-        }.getOrElse("TABLE") // By default, we treat it as a table
-        val origin = plan.collectFirst {
-          case o: WithOrigin => o.provider
-          case LogicalRelation(o: WithOrigin, _) => o.provider
+        val relationOpt = Relation.unapply(plan)
+        val isTemporary = relationOpt.fold(true)(_.isTemporary)
+        // By default, we treat plans as a table
+        val kind = relationOpt.fold[RelationKind](Table)(_.kind).name.toUpperCase
+        val origin = relationOpt.collect {
+          case w: WithOrigin => w.provider
         }
         Row(table, isTemporary.toString.toUpperCase, kind.toUpperCase, origin.orNull)
       }

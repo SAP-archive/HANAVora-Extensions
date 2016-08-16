@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.sources.RawDDLObjectType
+import org.apache.spark.sql.sources.{RawDDLObjectType, View}
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.sources.sql.{Dimension, Plain, Cube => CubeKind}
 import org.apache.spark.sql.types._

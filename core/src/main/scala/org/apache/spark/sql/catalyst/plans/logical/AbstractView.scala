@@ -1,17 +1,18 @@
 package org.apache.spark.sql.catalyst.plans.logical
 
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.sources
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.sources.commands.{WithExplicitRelationKind, WithOrigin}
+import org.apache.spark.sql.sources.commands.WithOrigin
 import org.apache.spark.sql.sources.sql.ViewKind
 
 /**
   * A logical plan of a view.
   */
-trait AbstractView extends UnaryNode with commands.View {
+trait AbstractView extends UnaryNode with sources.View {
   val plan: LogicalPlan
 
-  val kind: ViewKind
+  val viewKind: ViewKind
 
   override def child: LogicalPlan = plan
 
@@ -22,16 +23,16 @@ trait AbstractView extends UnaryNode with commands.View {
   * A view that has some persistence in a datasource.
   */
 trait Persisted
-  extends TemporaryFlagRelation
-  with DropRelation
+  extends DropRelation
   with WithOrigin {
-  self: AbstractView with WithExplicitRelationKind =>
+
+  this: AbstractView with Relation =>
 
   val handle: ViewHandle
 
   override val provider: String
 
-  override def isTemporary(): Boolean = false
+  override def isTemporary: Boolean = false
 
   /** @inheritdoc */
   override def dropTable(): Unit = handle.drop()
@@ -40,9 +41,9 @@ trait Persisted
 /**
   * A view that only exists in the spark catalog.
   */
-trait NonPersisted extends TemporaryFlagRelation {
-  self: AbstractView =>
-  override def isTemporary(): Boolean = true
+trait NonPersisted {
+  self: AbstractView with Relation =>
+  override def isTemporary: Boolean = true
 }
 
 object AbstractView {

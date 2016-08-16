@@ -259,8 +259,8 @@ class SystemTablesSuite
         partitioningColumns = any[Option[Seq[String]]],
         isTemporary = any[Boolean],
         allowExisting = any[Boolean]))
-        .thenReturn(new DummyRelation('foo.string)(sqlc) with TemporaryFlagRelation {
-          override def isTemporary(): Boolean = false
+        .thenReturn(new DummyRelation('foo.string)(sqlc) with Table {
+          override def isTemporary: Boolean = false
         })
 
       sqlc.sql("CREATE TABLE t (foo string) USING com.sap.spark.dsmock")
@@ -435,8 +435,8 @@ class SystemTablesSuite
 
   test("Tables system table returns correct temporary information (Bug 117362)") {
     sqlc.baseRelationToDataFrame(DummyRelation('a.string)(sqlc)).registerTempTable("t1")
-    sqlc.baseRelationToDataFrame(new DummyRelation('a.string)(sqlc) with TemporaryFlagRelation {
-      override def isTemporary(): Boolean = false
+    sqlc.baseRelationToDataFrame(new DummyRelation('a.string)(sqlc) with Table {
+      override def isTemporary: Boolean = false
     }).registerTempTable("t2")
     sqlc.sql("CREATE VIEW v1 AS SELECT * FROM foo USING com.sap.spark.dstest")
     sqlc.sql("CREATE VIEW v2 AS SELECT * FROM v1")

@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.OverrideCatalog
 import org.apache.spark.sql.catalyst.plans.logical.Subquery
 import org.apache.spark.sql.execution.datasources.IsLogicalRelation
-import org.apache.spark.sql.sources.TemporaryFlagRelation
+import org.apache.spark.sql.sources.Relation
 
 /**
  * Enhances the Override Catalog to query returned datasource tables if they are temporary
@@ -16,8 +16,8 @@ trait TemporaryFlagProxyCatalog extends OverrideCatalog{
     val proxiedTables = tables.map {
       case (tableName: String , isTemporary: Boolean) =>
         lookupRelation(TableIdentifier(tableName)) match {
-          case sq @ Subquery(_, IsLogicalRelation(br: TemporaryFlagRelation)) =>
-            (tableName, br.isTemporary())
+          case sq @ Subquery(_, IsLogicalRelation(br: Relation)) =>
+            (tableName, br.isTemporary)
           case _ => (tableName, isTemporary)
         }
       }

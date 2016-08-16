@@ -1,12 +1,9 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, Persisted}
 import org.apache.spark.sql.sources.sql.ViewKind
 import org.apache.spark.sql.sources.{AbstractViewProvider, DropViewInput}
-import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
-
-import scala.reflect.ClassTag
+import org.apache.spark.sql.{Row, SQLContext}
 
 /**
   * A command to drop a view.

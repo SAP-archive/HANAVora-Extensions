@@ -9,10 +9,10 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
+import org.apache.spark.sql.sources.RelationKind
 import org.apache.spark.sql.sources.commands._
 
 import scala.util.parsing.input.Position
-
 import org.apache.spark.sql.util.CollectionUtils._
 
 // scalastyle: off file.size.limit
@@ -282,9 +282,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
     }
 
-  protected lazy val relationKind: Parser[RelationKind] = (TABLE | VIEW) ^^ {
-    case RelationKind(kind) => kind
-  }
+  protected lazy val relationKind: Parser[RelationKind] =
+    TABLE ^^^ sources.Table | VIEW ^^^ sources.View
 
   /**
    * Resolves the REGISTER ALL TABLES statements:

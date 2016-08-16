@@ -7,7 +7,7 @@ import org.apache.spark.sql.sources.sql.{Plain, ViewKind}
  * This trait is a thin wrapper of a logical plan for a view statement.
  */
 sealed trait View extends AbstractView {
-  override val kind: ViewKind = Plain
+  override val viewKind: ViewKind = Plain
 }
 
 /**

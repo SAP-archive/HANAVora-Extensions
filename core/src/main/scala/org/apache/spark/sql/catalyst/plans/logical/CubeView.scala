@@ -7,7 +7,7 @@ import org.apache.spark.sql.sources.sql.{ViewKind, Cube => CubeKind}
  * This trait is a thin wrapper of a logical plan for a cube view statement.
  */
 sealed trait CubeView extends AbstractView {
-  override val kind: ViewKind = CubeKind
+  override val viewKind: ViewKind = CubeKind
 }
 
 /**
