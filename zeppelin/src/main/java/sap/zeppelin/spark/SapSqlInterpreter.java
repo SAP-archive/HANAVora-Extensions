@@ -18,6 +18,7 @@
 package sap.zeppelin.spark;
 
 import org.apache.spark.SparkContext;
+import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SapSQLContext;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
@@ -26,6 +27,7 @@ import org.apache.zeppelin.spark.SparkSqlInterpreter;
 import org.apache.zeppelin.spark.ZeppelinContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sap.zeppelin.spark.treeview.TreeViewGenerator;
 
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,6 +37,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class SapSqlInterpreter extends SparkSqlInterpreter{
   private final Logger logger = LoggerFactory.getLogger(SapSqlInterpreter.class);
+
+  private static final String TREEVIEWKEYWORD = "treeview";
 
   // Please use "getSapSQLContext()" as a getter
   private SapSQLContext _sapSqlC = null;
@@ -107,20 +111,50 @@ public class SapSqlInterpreter extends SparkSqlInterpreter{
       logger.debug("About to execute on SapSQLContext with Unknown Version");
     }
 
-    Object rdd = null;
-    try {
-      rdd = sqlc.sql(st);
-    } catch (Exception e) {
-      if (Boolean.parseBoolean(getProperty("zeppelin.spark.sql.stacktrace"))) {
-        throw new InterpreterException(e);
-      }
-      logger.error("Exception during SQL Processing (SapSqlContext)", e);
-      String msg = e.getMessage()
-              + "\nset zeppelin.spark.sql.stacktrace = true to see full stacktrace";
-      return new InterpreterResult(Code.ERROR, msg);
-    }
+    // this one will return the result that has to be shown
+    String msg = null;
 
-    String msg = ZeppelinContext.showDF(sc, context, rdd, this.maxResult);
+    /**
+     * We split here the input string, if the first "literal" is the TREEVIEWKEYWORD we output
+     * a nice hierachical view.
+     */
+    String[] split = st.split(" ", 5);
+
+    // if thats true, we want to show the results as a hierarchical tree view
+    if(split.length <= 5 && split.length > 0 && split[0].equalsIgnoreCase(TREEVIEWKEYWORD)) {
+      // we need exactly 5 "arguments"
+      if(!(split.length == 5)) {
+        return new InterpreterResult(Code.ERROR, "Not enough arguments for TREEVIEW");
+      }
+      String idColumn = split[1];
+      String predColumn = split[2];
+      String nameColumn = split[3];
+
+      //idcolumn and pred column must not be the same
+      if(idColumn.equalsIgnoreCase(predColumn)) {
+        return new InterpreterResult(Code.ERROR, "id column and pred column must not be the same");
+      }
+
+      // this is the actual SQL command
+      st = split[4];
+      msg = TreeViewGenerator.getInstance().createTreeView(sqlc.sql(st), idColumn, predColumn,
+              nameColumn, maxResult);
+    } else {
+      DataFrame df = null;
+      try {
+        df = sqlc.sql(st);
+      } catch (Exception e) {
+        if (Boolean.parseBoolean(getProperty("zeppelin.spark.sql.stacktrace"))) {
+          throw new InterpreterException(e);
+        }
+        logger.error("Exception during SQL Processing (SapSqlContext)", e);
+        msg = e.getMessage()
+                + "\nset zeppelin.spark.sql.stacktrace = true to see full stacktrace";
+        return new InterpreterResult(Code.ERROR, msg);
+      }
+
+      msg = ZeppelinContext.showDF(sc, context, df, this.maxResult);
+    }
     sc.clearJobGroup();
     return new InterpreterResult(Code.SUCCESS, msg);
   }

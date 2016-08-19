@@ -61,6 +61,11 @@ class SapSqlInterpreterSuite extends FunSuite
 
         def onUpdate(out: InterpreterOutput, output: Array[Byte]) { }
     }))
+    val filePath: String = this.getClass.getResource("/planets.json").getFile
+    sql.getSapSQLContext.sql(
+      s"""CREATE TEMPORARY TABLE $planetTableName
+          |USING org.apache.spark.sql.json
+          |OPTIONS (path "$filePath")""".stripMargin)
   }
 
 
@@ -81,5 +86,40 @@ class SapSqlInterpreterSuite extends FunSuite
     val result: InterpreterResult = sql.interpret("select with wrong syntax", context)
 
     assert((InterpreterResult.Code.ERROR eq result.code))
+  }
+
+  test("TreeView Keyword") {
+    val query: String = s"treeview number pred name select * from $planetTableName"
+    val ret: InterpreterResult = sql.interpret(query, context)
+    assert(ret.`type` == InterpreterResult.Type.ANGULAR)
+    assert(ret.message.contains("""var includeddata =
+                                  | { "name":"sun", "children": [{ "name":"mercury" },
+                                  | { "name":"venus" }, { "name":"earth", "children": [{ "name":"moon" }] },
+                                  | { "name":"jupiter" }, { "name":"saturn" }] };""".stripMargin.replaceAll("\n", "")))
+  }
+
+  test("TreeView Keyword With Different NameParameter") {
+    val query: String = s"treeview number pred number select * from $planetTableName"
+    val ret: InterpreterResult = sql.interpret(query, context)
+    assert((ret.`type` == InterpreterResult.Type.ANGULAR))
+    assert((ret.message.contains(
+      """var includeddata =
+        | { "name":"1", "children": [{ "name":"2" }, { "name":"3" },
+        | { "name":"4", "children": [{ "name":"10" }] },
+        | { "name":"5" }, { "name":"6" }] };""".stripMargin.replaceAll("\n", ""))))
+  }
+
+  test("TreeViewKeyword With Missing Parameter") {
+    val query: String = "treeview "
+    val ret: InterpreterResult = sql.interpret(query, context)
+    assert((InterpreterResult.Code.ERROR eq ret.code))
+    assert((ret.message == "Not enough arguments for TREEVIEW"))
+  }
+
+  test("TreeView Same Parameter For Id and Pred") {
+    val query: String = "treeview number number name select * from testTable"
+    val ret: InterpreterResult = sql.interpret(query, context)
+    assert((InterpreterResult.Code.ERROR eq ret.code))
+    assert((ret.message == "id column and pred column must not be the same"))
   }
 }
