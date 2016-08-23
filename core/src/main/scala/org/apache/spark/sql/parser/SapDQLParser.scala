@@ -1,11 +1,14 @@
 package org.apache.spark.sql.parser
 
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.{AbstractSparkSQLParser, TableIdentifier}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedExtractValue, UnresolvedFunction, UnresolvedRelation, UnresolvedStar}
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Complete, Count, HyperLogLogPlusPlus}
+import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.util.DataTypeParser
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.sources.sql.ViewKind
@@ -21,9 +24,61 @@ import scala.util.parsing.input.Position
  * This parser covers only SELECT and CREATE [TEMPORARY] VIEW statements.
  * For DML statements see [[SapDDLParser]].
  */
-private[sql] object SapDQLParser extends BackportedSqlParser
+private[sql] object SapDQLParser
+  extends AbstractSparkSQLParser
+  with DataTypeParser
+  with LiteralParser
   with AnnotationParser
   with WithConsumedInputParser {
+
+  // Keyword is a convention with AbstractSparkSQLParser, which will scan all of the `Keyword`
+  // properties via reflection the class in runtime for constructing the SqlLexical object
+  protected val ALL = Keyword("ALL")
+  protected val AND = Keyword("AND")
+  protected val APPROXIMATE = Keyword("APPROXIMATE")
+  protected val AS = Keyword("AS")
+  protected val ASC = Keyword("ASC")
+  protected val BETWEEN = Keyword("BETWEEN")
+  protected val BY = Keyword("BY")
+  protected val CASE = Keyword("CASE")
+  protected val CAST = Keyword("CAST")
+  protected val DESC = Keyword("DESC")
+  protected val DISTINCT = Keyword("DISTINCT")
+  protected val ELSE = Keyword("ELSE")
+  protected val END = Keyword("END")
+  protected val EXCEPT = Keyword("EXCEPT")
+  protected val FROM = Keyword("FROM")
+  protected val FULL = Keyword("FULL")
+  protected val GROUP = Keyword("GROUP")
+  protected val HAVING = Keyword("HAVING")
+  protected val IN = Keyword("IN")
+  protected val INNER = Keyword("INNER")
+  protected val INSERT = Keyword("INSERT")
+  protected val INTERSECT = Keyword("INTERSECT")
+  protected val INTO = Keyword("INTO")
+  protected val IS = Keyword("IS")
+  protected val JOIN = Keyword("JOIN")
+  protected val LEFT = Keyword("LEFT")
+  protected val LIKE = Keyword("LIKE")
+  protected val LIMIT = Keyword("LIMIT")
+  protected val NOT = Keyword("NOT")
+  protected val ON = Keyword("ON")
+  protected val OR = Keyword("OR")
+  protected val ORDER = Keyword("ORDER")
+  protected val SORT = Keyword("SORT")
+  protected val OUTER = Keyword("OUTER")
+  protected val OVERWRITE = Keyword("OVERWRITE")
+  protected val REGEXP = Keyword("REGEXP")
+  protected val RIGHT = Keyword("RIGHT")
+  protected val RLIKE = Keyword("RLIKE")
+  protected val SELECT = Keyword("SELECT")
+  protected val SEMI = Keyword("SEMI")
+  protected val TABLE = Keyword("TABLE")
+  protected val THEN = Keyword("THEN")
+  protected val UNION = Keyword("UNION")
+  protected val WHEN = Keyword("WHEN")
+  protected val WHERE = Keyword("WHERE")
+  protected val WITH = Keyword("WITH")
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")
@@ -76,29 +131,26 @@ private[sql] object SapDQLParser extends BackportedSqlParser
 
   /** Parses the content of OPTIONS and puts the result in a case insensitive map */
   protected lazy val options: Parser[Map[String, String]] =
-    "(" ~> repsep(pair, ",") <~ ")" ^^ {
-      case s: Seq[(String, String)] => new CaseInsensitiveMap(s.toMap)
-    }
+    "(" ~> repsep(pair, ",") <~ ")" ^^ (s => new CaseInsensitiveMap(s.toMap))
 
   /**
    * This is copied from [[projection]] but extended to allow annotations
    * on the attributes.
    */
-  override protected lazy val projection: Parser[Expression] =
-    (expression ~ (AS ~> ident) ~ metadata ^^ {
+  protected lazy val projection: Parser[Expression] =
+    expression ~ (AS ~> ident) ~ metadata ^^ {
       case e ~ a ~ k => AnnotatedAttribute(Alias(e, a)())(k)
-    }
-    | expression ~ metadataFilter ^^ {
+    } |
+    expression ~ metadataFilter ^^ {
       case e ~ f => AnnotationFilter(e)(f)
-    }
-    | rep1sep(ident, ".") ~ metadata ^^ {
+    } |
+    rep1sep(ident, ".") ~ metadata ^^ {
       case e ~ k =>
         AnnotatedAttribute(Alias(UnresolvedAttribute(e), e.last)())(k)
-    }
-    | expression ~ (AS.? ~> ident.?) ^^ {
+    } |
+    expression ~ (AS.? ~> ident.?) ^^ {
       case e ~ a => a.fold(e)(Alias(e, _)())
     }
-    )
 
   /**
    * This is the starting rule from, where parsing always starts.
@@ -113,18 +165,50 @@ private[sql] object SapDQLParser extends BackportedSqlParser
     *
     * Overridden to hook [[selectUsing]] parser.
     */
-  override protected lazy val start1: Parser[LogicalPlan] =
-    (selectUsing | select | ("(" ~> select <~ ")")) *
-      ( UNION ~ ALL        ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2) }
-        | INTERSECT          ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Intersect(q1, q2) }
-        | EXCEPT             ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)}
-        | UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2)) }
-        )
+  protected lazy val start1: Parser[LogicalPlan] =
+  (selectUsing | select | ("(" ~> select <~ ")")) *
+    (UNION ~ ALL        ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Union(q1, q2) } |
+     INTERSECT          ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Intersect(q1, q2) } |
+     EXCEPT             ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Except(q1, q2)} |
+     UNION ~ DISTINCT.? ^^^ { (q1: LogicalPlan, q2: LogicalPlan) => Distinct(Union(q1, q2))})
+
+  protected lazy val select: Parser[LogicalPlan] =
+    SELECT ~> DISTINCT.? ~
+      repsep(projection, ",") ~
+      (FROM   ~> relations).? ~
+      (WHERE  ~> expression).? ~
+      (GROUP  ~  BY ~> rep1sep(expression, ",")).? ~
+      (HAVING ~> expression).? ~
+      sortType.? ~
+      (LIMIT  ~> expression).? ^^ {
+      case d ~ p ~ r ~ f ~ g ~ h ~ o ~ l =>
+        val base = r.getOrElse(OneRowRelation)
+        val withFilter = f.map(Filter(_, base)).getOrElse(base)
+        val withProjection = g
+          .map(Aggregate(_, p.map(UnresolvedAlias), withFilter))
+          .getOrElse(Project(p.map(UnresolvedAlias), withFilter))
+        val withDistinct = d.map(_ => Distinct(withProjection)).getOrElse(withProjection)
+        val withHaving = h.map(Filter(_, withDistinct)).getOrElse(withDistinct)
+        val withOrder = o.map(_(withHaving)).getOrElse(withHaving)
+        val withLimit = l.map(Limit(_, withOrder)).getOrElse(withOrder)
+        withLimit
+    }
+
+  protected lazy val insert: Parser[LogicalPlan] =
+    INSERT ~> (OVERWRITE ^^^ true | INTO ^^^ false) ~ (TABLE ~> relation) ~ select ^^ {
+      case o ~ r ~ s =>
+        InsertIntoTable(r, Map.empty[String, Option[String]], s, o, ifNotExists = false)
+    }
+
+  protected lazy val cte: Parser[LogicalPlan] =
+    WITH ~> rep1sep(ident ~ (AS ~ "(" ~> start1 <~ ")"), ",") ~ (start1 | insert) ^^ {
+      case r ~ s => With(s, r.map({case n ~ i => (n, Subquery(n, i))}).toMap)
+    }
 
   /**
    * Overriden to hook [[hierarchy]] parser.
    */
-  override protected lazy val relation: Parser[LogicalPlan] =
+  protected lazy val relation: Parser[LogicalPlan] =
     hierarchy | joinedRelation | relationFactor
 
   /**
@@ -135,7 +219,7 @@ private[sql] object SapDQLParser extends BackportedSqlParser
    *       syntax should be registered with [[SQLContext.functionRegistry]].
    *       See [[RegisterCustomFunctions]].
    */
-  override protected lazy val function: Parser[Expression] =
+  protected lazy val function: Parser[Expression] =
     extract | originalFunction | dataSourceFunctions
 
   /** Hierarchy parser. */
@@ -147,17 +231,17 @@ private[sql] object SapDQLParser extends BackportedSqlParser
 
   protected lazy val hierarchySpec: Parser[LogicalPlan] =
     (adjacencyListHierarchy ~ (SET ~> ident) ^^ {
-      case (lp, child, exp, start, sort) ~ ident =>
+      case (lp, child, exp, st, sort) ~ ident =>
         Hierarchy(
           AdjacencyListHierarchySpec(source = lp, childAlias = child, parenthoodExp = exp,
-            startWhere = start, orderBy = sort),
+            startWhere = st, orderBy = sort),
           node = UnresolvedAttribute(ident))
     }
       | levelBasedHierarchy ~ (SET ~> ident) ^^ {
-      case (lp, levels, matcher, start, sort) ~ ident =>
+      case (lp, levels, matcher, st, sort) ~ ident =>
         Hierarchy(
           LevelBasedHierarchySpec(source = lp, levels = levels, matcher = matcher,
-            startWhere = start, orderBy = sort),
+            startWhere = st, orderBy = sort),
           node = UnresolvedAttribute(ident))
     })
 
@@ -203,8 +287,8 @@ private[sql] object SapDQLParser extends BackportedSqlParser
     }
 
   protected lazy val identifiers: Parser[Seq[Expression]] =
-    "(" ~> rep1sep(ident, ",") <~ ")" ^^ {
-      case seq => seq.map(UnresolvedAttribute(_))
+    "(" ~> rep1sep(ident, ",") <~ ")" ^^ { seq =>
+      seq.map(UnresolvedAttribute(_))
     }
 
   protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
@@ -243,8 +327,7 @@ private[sql] object SapDQLParser extends BackportedSqlParser
     }
 
   protected lazy val fileType: Parser[FileType] =
-    PARQUET ^^^ Parquet |
-    ORC ^^^ Orc
+    PARQUET ^^^ Parquet | ORC ^^^ Orc
 
   /** EXTRACT function. */
   protected lazy val extract: Parser[Expression] =
@@ -252,39 +335,35 @@ private[sql] object SapDQLParser extends BackportedSqlParser
 
   /** @see [[extract]] */
   protected lazy val extractPart: Parser[Expression => Expression] =
-    (
-      "(?i)DAY".r ^^^ { e: Expression => DayOfMonth(e) }
-        | "(?i)MONTH".r ^^^ { e: Expression => Month(e) }
-        | "(?i)YEAR".r ^^^ { e: Expression => Year(e) }
-        | "(?i)HOUR".r ^^^  { e: Expression => Hour(e) }
-        | "(?i)MINUTE".r ^^^ { e: Expression => Minute(e) }
-        | "(?i)SECOND".r ^^^ { e: Expression => Second(e) }
-      )
+    "(?i)DAY".r ^^^ { e: Expression => DayOfMonth(e) } |
+    "(?i)MONTH".r ^^^ { e: Expression => Month(e) } |
+    "(?i)YEAR".r ^^^ { e: Expression => Year(e) } |
+    "(?i)HOUR".r ^^^  { e: Expression => Hour(e) } |
+    "(?i)MINUTE".r ^^^ { e: Expression => Minute(e) } |
+    "(?i)SECOND".r ^^^ { e: Expression => Second(e) }
 
-  override protected lazy val relationFactor: Parser[LogicalPlan] =
+  protected lazy val relationFactor: Parser[LogicalPlan] =
     sysTable |
     ident ~ ("(" ~> repsep(start1, ",") <~ ")") ^^ {
       case name ~ arguments =>
         UnresolvedTableFunction(name, arguments)
     } |
-      ( tableIdentifier ~ (opt(AS) ~> opt(ident)) ^^ {
-        case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
-    } |
-    ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) })
+    (
+      tableIdentifier ~ (opt(AS) ~> opt(ident)) ^^ {
+          case tableIdent ~ alias => UnresolvedRelation(tableIdent, alias)
+      } |
+      ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) }
+    )
 
   /**
     * Parser for system table name. A system table name can be:
     * 1. qualified name starting with SYS (e.g. SYS.TABLES).
     * 2. table name starting with SYS_ (e.g. SYS_TABLES).
     */
-  protected lazy val sysTableName: Parser[String] = {
+  protected lazy val sysTableName: Parser[String] =
     // case-insensitive SYS_ followed by identifier.
-    """(?i:SYS)_([a-zA-Z][a-zA-Z_0-9]*)""".r ^^ {
-      case col => col.drop("SYS_".length)
-    } | SYS ~> "." ~> ident ^^ {
-      case name => name
-    }
-  }
+    """(?i:SYS)_([a-zA-Z][a-zA-Z_0-9]*)""".r ^^ { col => col.drop("SYS_".length) } |
+    SYS ~> "." ~> ident ^^ { name => name }
 
   protected lazy val sysTable: Parser[UnresolvedSystemTable] =
     sysTableName ~ ((USING ~> repsep(ident, ".")) ~ (OPTIONS ~> options).?).? ^^ {
@@ -303,15 +382,16 @@ private[sql] object SapDQLParser extends BackportedSqlParser
    * source as they are.
    */
   protected lazy val dataSourceFunctions: Parser[Expression] =
-    "$" ~> ident ~ ("(" ~> repsep(expression, ",") <~ ")") ^^
-      { case udf ~ expr => DataSourceExpression(udf.toLowerCase, expr) }
+    "$" ~> ident ~ ("(" ~> repsep(expression, ",") <~ ")") ^^ {
+      case udf ~ expr => DataSourceExpression(udf.toLowerCase, expr)
+    }
 
   /*
    * TODO: Remove in Spark 1.4.1/1.5.0. This fixes NOT operator precendence, which we
    *       need for some SqlLogicTest queries.
    *       https://issues.apache.org/jira/browse/SPARK-6740
    */
-  override protected lazy val andExpression: Parser[Expression] =
+  protected lazy val andExpression: Parser[Expression] =
     booleanFactor * (AND ^^^ { (e1: Expression, e2: Expression) => And(e1, e2) })
 
   protected lazy val booleanFactor: Parser[Expression] =
@@ -319,40 +399,38 @@ private[sql] object SapDQLParser extends BackportedSqlParser
       case notOpt ~ expr => notOpt.map(s => Not(expr)).getOrElse(expr)
     }
 
-  override protected lazy val comparisonExpression: Parser[Expression] =
-    (termExpression ~ ("="  ~> termExpression) ^^ { case e1 ~ e2 => EqualTo(e1, e2) }
-      | termExpression ~ ("<"  ~> termExpression) ^^ { case e1 ~ e2 => LessThan(e1, e2) }
-      | termExpression ~ ("<=" ~> termExpression) ^^ { case e1 ~ e2 => LessThanOrEqual(e1, e2) }
-      | termExpression ~ (">"  ~> termExpression) ^^ { case e1 ~ e2 => GreaterThan(e1, e2) }
-      | termExpression ~ (">=" ~> termExpression) ^^ { case e1 ~ e2 => GreaterThanOrEqual(e1, e2) }
-      | termExpression ~ ("!=" ~> termExpression) ^^ { case e1 ~ e2 => Not(EqualTo(e1, e2)) }
-      | termExpression ~ ("<>" ~> termExpression) ^^ { case e1 ~ e2 => Not(EqualTo(e1, e2)) }
-      | termExpression ~ ("<=>" ~> termExpression) ^^ { case e1 ~ e2 => EqualNullSafe(e1, e2) }
-      | termExpression ~ NOT.? ~ (BETWEEN ~> termExpression) ~ (AND ~> termExpression) ^^ {
+  protected lazy val comparisonExpression: Parser[Expression] =
+    termExpression ~ ("="  ~> termExpression) ^^ { case e1 ~ e2 => EqualTo(e1, e2) } |
+    termExpression ~ ("<"  ~> termExpression) ^^ { case e1 ~ e2 => LessThan(e1, e2) } |
+    termExpression ~ ("<=" ~> termExpression) ^^ { case e1 ~ e2 => LessThanOrEqual(e1, e2) } |
+    termExpression ~ (">"  ~> termExpression) ^^ { case e1 ~ e2 => GreaterThan(e1, e2) } |
+    termExpression ~ (">=" ~> termExpression) ^^ { case e1 ~ e2 => GreaterThanOrEqual(e1, e2) } |
+    termExpression ~ ("!=" ~> termExpression) ^^ { case e1 ~ e2 => Not(EqualTo(e1, e2)) } |
+    termExpression ~ ("<>" ~> termExpression) ^^ { case e1 ~ e2 => Not(EqualTo(e1, e2)) } |
+    termExpression ~ ("<=>" ~> termExpression) ^^ { case e1 ~ e2 => EqualNullSafe(e1, e2) } |
+    termExpression ~ NOT.? ~ (BETWEEN ~> termExpression) ~ (AND ~> termExpression) ^^ {
       case e ~ not ~ el ~ eu =>
         val betweenExpr: Expression = And(GreaterThanOrEqual(e, el), LessThanOrEqual(e, eu))
         not.fold(betweenExpr)(f => Not(betweenExpr))
-    }
-      | termExpression ~ (RLIKE  ~> termExpression) ^^ { case e1 ~ e2 => RLike(e1, e2) }
-      | termExpression ~ (REGEXP ~> termExpression) ^^ { case e1 ~ e2 => RLike(e1, e2) }
-      | termExpression ~ (LIKE   ~> termExpression) ^^ { case e1 ~ e2 => Like(e1, e2) }
-      | termExpression ~ (NOT ~ LIKE ~> termExpression) ^^ { case e1 ~ e2 => Not(Like(e1, e2)) }
-      | termExpression ~ (IN ~ "(" ~> rep1sep(termExpression, ",")) <~ ")" ^^ {
+    } |
+    termExpression ~ (RLIKE  ~> termExpression) ^^ { case e1 ~ e2 => RLike(e1, e2) } |
+    termExpression ~ (REGEXP ~> termExpression) ^^ { case e1 ~ e2 => RLike(e1, e2) } |
+    termExpression ~ (LIKE   ~> termExpression) ^^ { case e1 ~ e2 => Like(e1, e2) } |
+    termExpression ~ (NOT ~ LIKE ~> termExpression) ^^ { case e1 ~ e2 => Not(Like(e1, e2)) } |
+    termExpression ~ (IN ~ "(" ~> rep1sep(termExpression, ",")) <~ ")" ^^ {
       case e1 ~ e2 => In(e1, e2)
-    }
-      | termExpression ~ (NOT ~ IN ~ "(" ~> rep1sep(termExpression, ",")) <~ ")" ^^ {
+    } |
+    termExpression ~ (NOT ~ IN ~ "(" ~> rep1sep(termExpression, ",")) <~ ")" ^^ {
       case e1 ~ e2 => Not(In(e1, e2))
-    }
-      | termExpression <~ IS ~ NULL ^^ { case e => IsNull(e) }
-      | termExpression <~ IS ~ NOT ~ NULL ^^ { case e => IsNotNull(e) }
-      /* XXX: | NOT ~> termExpression ^^ {e => Not(e)} */
-      | termExpression
-      )
+    } |
+    termExpression <~ IS ~ NULL ^^ IsNull |
+    termExpression <~ IS ~ NOT ~ NULL ^^ IsNotNull |
+    termExpression
 
   /**
     * For special engine integration syntax
     */
-  protected lazy val className: Parser[String] = repsep(ident, ".") ^^ { case s => s.mkString(".")}
+  protected lazy val className: Parser[String] = repsep(ident, ".") ^^ (_.mkString("."))
 
   /** A parser which matches a raw sql literal */
   def rawSqlLit: Parser[String] =
@@ -392,14 +470,175 @@ private[sql] object SapDQLParser extends BackportedSqlParser
       StructField(columnName, typ, nullable = true, meta)
     }
 
+  // Based very loosely on the MySQL Grammar.
+  // http://dev.mysql.com/doc/refman/5.0/en/join.html
+  protected lazy val relations: Parser[LogicalPlan] =
+    relation ~ rep1("," ~> relation) ^^ {
+      case r1 ~ joins => joins.foldLeft(r1) {
+        case (lhs, r) => Join(lhs, r, Inner, None)
+      }
+    } | relation
+
+  protected lazy val joinedRelation: Parser[LogicalPlan] =
+    relationFactor ~ rep1(joinType.? ~ (JOIN ~> relationFactor) ~ joinConditions.?) ^^ {
+      case r1 ~ joins =>
+        joins.foldLeft(r1) { case (lhs, jt ~ rhs ~ cond) =>
+          Join(lhs, rhs, joinType = jt.getOrElse(Inner), cond)
+        }
+    }
+
+  protected lazy val joinConditions: Parser[Expression] =
+    ON ~> expression
+
+  protected lazy val joinType: Parser[JoinType] =
+    INNER ^^^ Inner |
+    LEFT  ~ SEMI ^^^ LeftSemi |
+    LEFT  ~ OUTER.? ^^^ LeftOuter |
+    RIGHT ~ OUTER.? ^^^ RightOuter |
+    FULL  ~ OUTER.? ^^^ FullOuter
+
+  protected lazy val sortType: Parser[LogicalPlan => LogicalPlan] =
+    ORDER ~ BY ~> ordering ^^ (o => (l: LogicalPlan) => Sort(o, global = true, l)) |
+    SORT ~ BY ~> ordering ^^ (o => (l: LogicalPlan) => Sort(o, global = false, l))
+
+  protected lazy val ordering: Parser[Seq[SortOrder]] =
+    rep1sep(expression ~ direction.? , ",") ^^ { exps =>
+      exps.map {
+        case child ~ directionOpt => SortOrder(child, directionOpt.getOrElse(Ascending))
+      }
+    }
+
+  protected lazy val direction: Parser[SortDirection] =
+    ASC ^^^ Ascending | DESC ^^^ Descending
+
+  protected lazy val expression: Parser[Expression] =
+    orExpression
+
+  protected lazy val orExpression: Parser[Expression] =
+    andExpression * (OR ^^^ { (e1: Expression, e2: Expression) => Or(e1, e2) })
+
+  protected lazy val notExpression: Parser[Expression] =
+    NOT.? ~ comparisonExpression ^^ { case maybeNot ~ e => maybeNot.map(_ => Not(e)).getOrElse(e) }
+
+  protected lazy val termExpression: Parser[Expression] =
+    productExpression *
+      ("+" ^^^ { (e1: Expression, e2: Expression) => Add(e1, e2) } |
+       "-" ^^^ { (e1: Expression, e2: Expression) => Subtract(e1, e2) })
+
+  protected lazy val productExpression: Parser[Expression] =
+    baseExpression *
+      ("*" ^^^ { (e1: Expression, e2: Expression) => Multiply(e1, e2) } |
+       "/" ^^^ { (e1: Expression, e2: Expression) => Divide(e1, e2) } |
+       "%" ^^^ { (e1: Expression, e2: Expression) => Remainder(e1, e2) } |
+       "&" ^^^ { (e1: Expression, e2: Expression) => BitwiseAnd(e1, e2) } |
+       "|" ^^^ { (e1: Expression, e2: Expression) => BitwiseOr(e1, e2) } |
+       "^" ^^^ { (e1: Expression, e2: Expression) => BitwiseXor(e1, e2) })
+
+  /* XXX: RENAMED function to originalFunction */
+  protected lazy val originalFunction: Parser[Expression] =
+    ident <~ ("(" ~ "*" ~ ")") ^^ { udfName =>
+      if (lexical.normalizeKeyword(udfName) == "count") {
+        AggregateExpression(Count(Literal(1)), mode = Complete, isDistinct = false)
+      } else {
+        throw new AnalysisException(s"invalid expression $udfName(*)")
+      }
+    } |
+    ident ~ ("(" ~> repsep(expression, ",")) <~ ")" ^^ {
+      case udfName ~ exprs => UnresolvedFunction(udfName, exprs, isDistinct = false)
+    } |
+    ident ~ ("(" ~ DISTINCT ~> repsep(expression, ",")) <~ ")" ^^ {
+      case udfName ~ exprs =>
+        lexical.normalizeKeyword(udfName) match {
+          case "count" =>
+            aggregate.Count(exprs).toAggregateExpression(isDistinct = true)
+          case _ => UnresolvedFunction(udfName, exprs, isDistinct = true)
+        }
+    } |
+    APPROXIMATE ~> ident ~ ("(" ~ DISTINCT ~> expression <~ ")") ^^ {
+      case udfName ~ exp =>
+        if (lexical.normalizeKeyword(udfName) == "count") {
+          AggregateExpression(new HyperLogLogPlusPlus(exp), mode = Complete, isDistinct = false)
+        } else {
+          throw new AnalysisException(s"invalid function approximate $udfName")
+        }
+    } |
+    APPROXIMATE ~> "(" ~> unsignedFloat ~ ")" ~ ident ~ "(" ~ DISTINCT ~ expression <~ ")" ^^ {
+      case s ~ _ ~ udfName ~ _ ~ _ ~ exp =>
+        if (lexical.normalizeKeyword(udfName) == "count") {
+          AggregateExpression(
+            HyperLogLogPlusPlus(exp, s.toDouble, 0, 0),
+            mode = Complete,
+            isDistinct = false)
+        } else {
+          throw new AnalysisException(s"invalid function approximate($s) $udfName")
+        }
+    } |
+    CASE ~> whenThenElse ^^ CaseWhen |
+    CASE ~> expression ~ whenThenElse ^^ {
+      case keyPart ~ branches => CaseKeyWhen(keyPart, branches)
+    }
+
+  protected lazy val whenThenElse: Parser[List[Expression]] =
+    rep1(WHEN ~> expression ~ (THEN ~> expression)) ~ (ELSE ~> expression).? <~ END ^^ {
+      case altPart ~ elsePart =>
+        altPart.flatMap { case whenExpr ~ thenExpr =>
+          Seq(whenExpr, thenExpr)
+        } ++ elsePart
+    }
+
+  protected lazy val cast: Parser[Expression] =
+    CAST ~ "(" ~> expression ~ (AS ~> dataType) <~ ")" ^^ {
+      case exp ~ t => Cast(exp, t)
+    }
+
+
+  protected lazy val baseExpression: Parser[Expression] =
+    "*" ^^^ UnresolvedStar(None) |
+    rep1(ident <~ ".") <~ "*" ^^ (target => UnresolvedStar(Option(target))) |
+    primary
+
+  protected lazy val signedPrimary: Parser[Expression] =
+    sign ~ primary ^^ { case s ~ e => if (s == "-") UnaryMinus(e) else e }
+
+  protected lazy val attributeName: Parser[String] = acceptMatch("attribute name", {
+    case lexical.Identifier(str) => str
+    case lexical.Keyword(str) if !lexical.delimiters.contains(str) => str
+  })
+
+  protected lazy val primary: PackratParser[Expression] =
+    literal |
+    expression ~ ("[" ~> expression <~ "]") ^^ {
+      case base ~ ordinal => UnresolvedExtractValue(base, ordinal)
+    } |
+    (expression <~ ".") ~ ident ^^ {
+      case base ~ fieldName => UnresolvedExtractValue(base, Literal(fieldName))
+    } |
+    cast |
+    "(" ~> expression <~ ")" |
+    function |
+    dotExpressionHeader |
+    signedPrimary |
+    "~" ~> expression ^^ BitwiseNot |
+    attributeName ^^ UnresolvedAttribute.quoted
+
+  protected lazy val dotExpressionHeader: Parser[Expression] =
+    (ident <~ ".") ~ ident ~ rep("." ~> ident) ^^ {
+      case i1 ~ i2 ~ rest => UnresolvedAttribute(Seq(i1, i2) ++ rest)
+    }
+
+  protected lazy val tableIdentifier: Parser[TableIdentifier] =
+    (ident <~ ".").? ~ ident ^^ {
+      case maybeDbName ~ tableName => TableIdentifier(tableName, maybeDbName)
+    }
+
   /**
-   * Main entry point for the parser.
-   *
-   * Overriden to control error handling.
-   *
-   * @param input Query to be parsed.
-   * @return A [[LogicalPlan]].
-   */
+    * Main entry point for the parser.
+    *
+    * Overriden to control error handling.
+    *
+    * @param input Query to be parsed.
+    * @return A [[LogicalPlan]].
+    */
   override def parse(input: String): LogicalPlan = {
     /*
      * This is a workaround to a race condition in AbstractSparkSQLParser:
