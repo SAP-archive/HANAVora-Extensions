@@ -1,9 +1,9 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.parser
 
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.sources.{RawDDLStatementType, RawDDLObjectType}
 import org.apache.spark.sql.sources.commands.RawDDLCommand
+import org.apache.spark.sql.sources.{RawDDLObjectType, RawDDLStatementType}
 import org.apache.spark.sql.types._
 
 /**
@@ -11,7 +11,7 @@ import org.apache.spark.sql.types._
   * Contains rules for partition functions, partition schemes, graph, document (collection), and
   * timeseries DDL.
   */
-private[sql] trait EngineDDLParsingRules extends BackportedSapSqlParser {
+private[sql] trait EngineDDLParser extends BackportedSapSqlParser {
 
   protected val DROP = Keyword("DROP")
   protected val APPEND = Keyword("APPEND")

@@ -1,6 +1,7 @@
 package org.apache.spark.sql;
 
 import org.apache.spark.SparkContext;
+import org.apache.spark.sql.SapSQLContext;
 
 /**
  * This singleton allows the SapSQLContext to be accessed from the SPARK interpreter

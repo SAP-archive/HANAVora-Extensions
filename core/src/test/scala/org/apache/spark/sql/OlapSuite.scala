@@ -4,6 +4,7 @@ import com.sap.spark.dstest.DefaultSource
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.parser.SapParserException
 import org.apache.spark.util.DummyRelationUtils._
 import org.scalatest.FunSuite
 

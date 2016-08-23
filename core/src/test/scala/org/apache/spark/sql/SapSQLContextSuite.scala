@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 
+import org.apache.spark.sql.parser.SapParserException
 import org.mockito.Mockito
 import org.scalatest.FunSuite
 

@@ -8,6 +8,7 @@ import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableF
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.execution.datasources.{CreateNonPersistentViewCommand, CreatePersistentViewCommand}
+import org.apache.spark.sql.parser.{SapDQLParser, SapParserDialect, SapParserException}
 import org.apache.spark.sql.sources.commands.{Orc, Parquet, UnresolvedInferSchemaCommand}
 import org.apache.spark.sql.sources.sql.{Dimension, Plain, Cube => CubeKind}
 import org.apache.spark.sql.types._
@@ -70,7 +71,7 @@ class SapSqlParserSuite
   val className = "class.name"
 
   test("CREATE VIEW with RAW SQL") {
-    val parsed = SapSqlParser.parse(
+    val parsed = SapDQLParser.parse(
       """CREATE VIEW v AS
         |``SELECT * FROM foo`` USING com.sap.spark.engines
       """.stripMargin)
@@ -84,7 +85,7 @@ class SapSqlParserSuite
   }
 
   test("CREATE VIEW with RAW SQL in Subquery") {
-    val parsed = SapSqlParser.parse(
+    val parsed = SapDQLParser.parse(
       """CREATE VIEW v AS SELECT * FROM
         |(``SELECT * FROM foo`` USING com.sap.spark.engines) AS t
       """.stripMargin)
@@ -103,7 +104,7 @@ class SapSqlParserSuite
 
   test ("RAW SQL: ``select ....`` USING class.name") {
     // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
-    assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className")
+    assert(SapDQLParser.parse(s"``$rawSqlString`` USING $className")
       .equals(UnresolvedSelectUsing(rawSqlString, className)))
   }
 
@@ -112,19 +113,19 @@ class SapSqlParserSuite
     val schemaFields = StructType(Seq(StructField("a", IntegerType), StructField("b", DoubleType)))
 
     // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
-    assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className AS $schema")
+    assert(SapDQLParser.parse(s"``$rawSqlString`` USING $className AS $schema")
       .equals(UnresolvedSelectUsing(rawSqlString, className, Some(schemaFields))))
   }
 
   test ("RAW SQL: ``select ....`` USING class.name AS () - empty schema") {
     // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
-    assert(SapSqlParser.parse(s"``$rawSqlString`` USING $className AS ()")
+    assert(SapDQLParser.parse(s"``$rawSqlString`` USING $className AS ()")
       .equals(UnresolvedSelectUsing(rawSqlString, className, Some(StructType(Seq.empty)))))
   }
 
   test ("RAW SQL: ``select ....`` USING class.name OPTIONS ... ()") {
     assertResult(UnresolvedSelectUsing(rawSqlString, className, None, Map("foo" -> "bar")))(
-      SapSqlParser.parse(
+      SapDQLParser.parse(
         s"""``$rawSqlString``
            |USING $className
            |OPTIONS (
@@ -135,11 +136,11 @@ class SapSqlParserSuite
   }
 
   test("RawSQL with only one ` should fail!") {
-    intercept[SapParserException](SapSqlParser.parse(s"""`select ...` USING $className AS ()"""))
+    intercept[SapParserException](SapDQLParser.parse(s"""`select ...` USING $className AS ()"""))
   }
 
   test("parse system table") {
-    val parsed = SapSqlParser.parse("SELECT * FROM SYS.TABLES USING com.sap.spark")
+    val parsed = SapDQLParser.parse("SELECT * FROM SYS.TABLES USING com.sap.spark")
 
     assertResult(Project(                               // SELECT
       Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
@@ -154,7 +155,7 @@ class SapSqlParserSuite
       "SELECT * FROM sys_TABLES USING com.sap.spark" ::
       "SELECT * FROM SyS_TABLES USING com.sap.spark" :: Nil
 
-    val parsedStatements = statements.map(SapSqlParser.parse)
+    val parsedStatements = statements.map(SapDQLParser.parse)
 
     parsedStatements.foreach { parsed =>
       assertResult(Project(                               // SELECT
@@ -166,7 +167,7 @@ class SapSqlParserSuite
   }
 
   test("parse system table with options") {
-    val parsed = SapSqlParser.parse("SELECT * FROM SYS.TABLES " +
+    val parsed = SapDQLParser.parse("SELECT * FROM SYS.TABLES " +
       "USING com.sap.spark OPTIONS (foo \"bar\")")
 
     assertResult(Project(                               // SELECT
@@ -177,7 +178,7 @@ class SapSqlParserSuite
   }
 
   test("parse table function") {
-    val parsed = SapSqlParser.parse("SELECT * FROM describe_table(SELECT * FROM persons)")
+    val parsed = SapDQLParser.parse("SELECT * FROM describe_table(SELECT * FROM persons)")
 
     assert(parsed == Project(                           // SELECT
       Seq(UnresolvedAlias(UnresolvedStar(None))),       // *
@@ -191,7 +192,7 @@ class SapSqlParserSuite
   test("fail on incorrect table function") {
     // This should fail since a projection statement is required
     intercept[SapParserException] {
-      SapSqlParser.parse("SELECT * FROM describe_table(persons)")
+      SapDQLParser.parse("SELECT * FROM describe_table(persons)")
     }
   }
 
@@ -597,7 +598,7 @@ class SapSqlParserSuite
   }
 
   test("IF function can be used") {
-    val parsed = SapSqlParser.parse("SELECT IF(1 = 1) FROM baz")
+    val parsed = SapDQLParser.parse("SELECT IF(1 = 1) FROM baz")
     assertResult(
       Project(
         Seq(
@@ -607,15 +608,15 @@ class SapSqlParserSuite
   }
 
   test("Infer schema command with explicit types") {
-    val parsed1 = SapSqlParser.parse("""INFER SCHEMA OF "foo" AS orc""")
-    val parsed2 = SapSqlParser.parse("""INFER SCHEMA OF "foo" AS parquet""")
+    val parsed1 = SapDQLParser.parse("""INFER SCHEMA OF "foo" AS orc""")
+    val parsed2 = SapDQLParser.parse("""INFER SCHEMA OF "foo" AS parquet""")
 
     assertResult(UnresolvedInferSchemaCommand("foo", Some(Orc)))(parsed1)
     assertResult(UnresolvedInferSchemaCommand("foo", Some(Parquet)))(parsed2)
   }
 
   test("Infer schema command without explicit type") {
-    val parsed = SapSqlParser.parse("""INFER SCHEMA OF "foo"""")
+    val parsed = SapDQLParser.parse("""INFER SCHEMA OF "foo"""")
 
     assertResult(UnresolvedInferSchemaCommand("foo", None))(parsed)
   }

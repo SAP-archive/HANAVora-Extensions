@@ -1,9 +1,10 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.parser
 
+import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis._
-import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.commands._
@@ -20,9 +21,9 @@ import scala.util.parsing.input.Position
  * This parser covers only SELECT and CREATE [TEMPORARY] VIEW statements.
  * For DML statements see [[SapDDLParser]].
  */
-private object SapSqlParser extends BackportedSqlParser
-  with AnnotationParsingRules
-  with WithConsumedInputRules {
+private[sql] object SapDQLParser extends BackportedSqlParser
+  with AnnotationParser
+  with WithConsumedInputParser {
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")

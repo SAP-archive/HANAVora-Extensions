@@ -1,8 +1,8 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.parser
 
 import scala.util.parsing.combinator.Parsers
 
-trait WithConsumedInputRules {
+trait WithConsumedInputParser {
   this: Parsers =>
 
   /**

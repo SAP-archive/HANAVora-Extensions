@@ -1,4 +1,4 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.parser
 
 import org.apache.spark.sql.catalyst.SqlLexical
 

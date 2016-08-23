@@ -3,14 +3,12 @@ package org.apache.spark.sql.execution.datasources
 import com.sap.spark.util.TestUtils
 import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
-import org.apache.spark.sql.catalyst.expressions.Literal
-import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.sources.{RawDDLObjectType, View}
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.parser.{SapDDLParser, SapParserDialect, SapParserException}
+import org.apache.spark.sql.sources.View
 import org.apache.spark.sql.sources.commands._
-import org.apache.spark.sql.sources.sql.{Dimension, Plain, Cube => CubeKind}
+import org.apache.spark.sql.sources.sql.{Cube => CubeKind}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{SapParserDialect, SapParserException}
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FunSuite, GivenWhenThen}

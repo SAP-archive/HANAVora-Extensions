@@ -1,14 +1,13 @@
 package org.apache.spark.sql.extension
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.{ParserDialect, SimpleCatalystConf}
 import org.apache.spark.sql.execution.ExtractPythonUDFs
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.catalyst.analysis.SimpleFunctionRegistry
+import org.apache.spark.sql._
 
 /**
   * An [[SQLContext]] that eases extensions by mixin [[SQLContextExtension]].

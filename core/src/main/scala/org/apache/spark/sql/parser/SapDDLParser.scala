@@ -1,27 +1,26 @@
-package org.apache.spark.sql.execution.datasources
+package org.apache.spark.sql.parser
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{Cube => _, _}
-import org.apache.spark.sql.sources.sql._
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.{AnnotationParsingRules, SapParserException}
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
+import org.apache.spark.sql.execution.datasources.{CaseInsensitiveMap => _, _}
 import org.apache.spark.sql.sources.RelationKind
 import org.apache.spark.sql.sources.commands._
+import org.apache.spark.sql.sources.sql._
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.util.CollectionUtils._
 
 import scala.util.parsing.input.Position
-import org.apache.spark.sql.util.CollectionUtils._
 
 // scalastyle: off file.size.limit
 
 class SapDDLParser(parseQuery: String => LogicalPlan)
   extends BackportedSapSqlParser(parseQuery)
-  with AnnotationParsingRules
-  with EngineDDLParsingRules
-  with WithConsumedInputRules {
+  with AnnotationParser
+  with EngineDDLParser
+  with WithConsumedInputParser {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
       dropViewUsing |

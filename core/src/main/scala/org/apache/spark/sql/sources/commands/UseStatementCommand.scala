@@ -2,6 +2,7 @@ package org.apache.spark.sql.sources.commands
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.RunnableCommand
+import org.apache.spark.sql.parser.SapParserException
 
 /**
  * Returned for "USE xyz" statements.

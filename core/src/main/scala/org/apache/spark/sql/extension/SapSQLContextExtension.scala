@@ -10,6 +10,7 @@ import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.tablefunctions.TableFunctionsStrategy
 import org.apache.spark.sql.execution.{SapDDLStrategy, SelfJoinStrategy}
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
+import org.apache.spark.sql.parser.{SapDDLParser, SapParserDialect}
 
 /**
   * Provides every SAP Spark extension ready to be mixed in with contexts.
