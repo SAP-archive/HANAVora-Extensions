@@ -219,7 +219,13 @@ class SqlBuilder {
   }
 
   // scalastyle:off cyclomatic.complexity
-  protected def filterToSql(f: src.Filter): String =
+  /**
+    * Converts a given filter to the corresponding SQL string.
+    *
+    * @param f The [[src.Filter]] to convert.
+    * @return The corresponding SQL string.
+    */
+  def filterToSql(f: src.Filter): String =
     f match {
       case src.EqualTo(name, value) => s""""$name" = ${literalToSql(value)}"""
       case src.GreaterThan(name, value) => s""""$name" > $value"""
