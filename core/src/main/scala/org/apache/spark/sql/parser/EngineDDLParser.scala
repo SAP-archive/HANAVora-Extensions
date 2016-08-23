@@ -2,6 +2,7 @@ package org.apache.spark.sql.parser
 
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.execution.datasources.DDLParser
 import org.apache.spark.sql.sources.commands.RawDDLCommand
 import org.apache.spark.sql.sources.{RawDDLObjectType, RawDDLStatementType}
 import org.apache.spark.sql.types._
@@ -11,7 +12,8 @@ import org.apache.spark.sql.types._
   * Contains rules for partition functions, partition schemes, graph, document (collection), and
   * timeseries DDL.
   */
-private[sql] trait EngineDDLParser extends BackportedSapSqlParser {
+private[sql] trait EngineDDLParser extends LiteralParser {
+  this: DDLParser =>
 
   protected val DROP = Keyword("DROP")
   protected val APPEND = Keyword("APPEND")
@@ -64,6 +66,13 @@ private[sql] trait EngineDDLParser extends BackportedSapSqlParser {
   protected val ANY = Keyword("ANY")
   protected val NONE = Keyword("NONE")
   protected val ERROR = Keyword("ERROR")
+  protected val WITH = Keyword("WITH")
+  protected val BY = Keyword("BY")
+  protected val ON = Keyword("ON")
+  protected val START = Keyword("START")
+  protected val END = Keyword("END")
+  protected val AND = Keyword("AND")
+  protected val BETWEEN = Keyword("BETWEEN")
 
   /**
     * needed to parse column names with ellipsis

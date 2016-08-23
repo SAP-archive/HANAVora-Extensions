@@ -17,7 +17,7 @@ import scala.util.parsing.input.Position
 // scalastyle: off file.size.limit
 
 class SapDDLParser(parseQuery: String => LogicalPlan)
-  extends BackportedSapSqlParser(parseQuery)
+  extends DDLParser(parseQuery)
   with AnnotationParser
   with EngineDDLParser
   with WithConsumedInputParser {
@@ -68,6 +68,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val CLOSED = Keyword("CLOSED")
   protected val STRIDE = Keyword("STRIDE")
   protected val PARTS = Keyword("PARTS")
+  protected val ALL = Keyword("ALL")
+  protected val RIGHT = Keyword("RIGHT")
 
   /* VIEW Keyword */
   protected val VIEW = Keyword("VIEW")
@@ -492,26 +494,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         throw new SapParserException(input, pos.line, pos.column, failureOrError.toString)
     }
   }
-
-  /**
-   * This is copied from [[projection]] but extended to allow annotations
-   * on the attributes.
-   */
-  override protected lazy val projection: Parser[Expression] =
-    (expression ~ (AS ~> ident) ~ metadata ^^ {
-      case e ~ a ~ k => AnnotatedAttribute(Alias(e, a)())(k)
-    }
-      | expression ~ metadataFilter ^^ {
-      case e ~ f => AnnotationFilter(e)(f)
-    }
-      | rep1sep(ident, ".") ~ metadata ^^ {
-      case e ~ k =>
-        AnnotatedAttribute(Alias(UnresolvedAttribute(e), e.last)())(k)
-    }
-      | expression ~ (AS.? ~> ident.?) ^^ {
-      case e ~ a => a.fold(e)(Alias(e, _)())
-    }
-      )
 
   /**
    * Overridden to allow the user to add annotations on the table columns.
