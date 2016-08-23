@@ -2,8 +2,7 @@ package org.apache.spark.sql.parser
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.{Cube => _, _}
 import org.apache.spark.sql.execution.datasources.{CaseInsensitiveMap => _, _}
 import org.apache.spark.sql.sources.RelationKind
@@ -20,6 +19,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   extends DDLParser(parseQuery)
   with AnnotationParser
   with EngineDDLParser
+  with TableColumnsParser
   with WithConsumedInputParser {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
@@ -90,6 +90,10 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       case tableName =>
         UnresolvedDeepDescribe(new UnresolvedRelation(TableIdentifier(tableName)))
     }
+
+  override protected lazy val tableCols: Parser[Seq[StructField]] = tableColumns
+
+  override protected def commentIndicator: Keyword = COMMENT
 
   override protected lazy val createTable: Parser[LogicalPlan] =
     withConsumedInput((CREATE ~> TEMPORARY.? <~ TABLE) ~ (IF ~> NOT <~ EXISTS).? ~ tableIdentifier ~
@@ -414,7 +418,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
 
   protected lazy val datatypes: Parser[Seq[DataType]] = "(" ~> repsep(primitiveType, ",") <~ ")"
 
-  protected lazy val colsNames: Parser[Seq[String]] = "(" ~> repsep(ident, ",") <~ ")"
+  protected lazy val colsNames: Parser[Seq[String]] = "(" ~> repsep(columnName, ",") <~ ")"
 
   protected lazy val numbers: Parser[Seq[String]] = "(" ~> repsep(numericLit, ",") <~ ")"
 
@@ -494,26 +498,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         throw new SapParserException(input, pos.line, pos.column, failureOrError.toString)
     }
   }
-
-  /**
-   * Overridden to allow the user to add annotations on the table columns.
-   */
-  override lazy val tableCols: Parser[Seq[StructField]] = "(" ~> repsep(annotatedCol, ",") <~ ")"
-
-  protected lazy val annotatedCol: Parser[StructField] =
-    (ident ~ metadata ~ dataType ^^ {
-      case columnName ~ md ~ typ =>
-        StructField(columnName, typ, nullable = true, metadata = toTableMetadata(md))
-    }
-    |ident ~ dataType ~ (COMMENT ~> stringLit).?  ^^ { case columnName ~ typ ~ cm =>
-      val meta = cm match {
-        case Some(comment) =>
-          new MetadataBuilder().putString(COMMENT.str.toLowerCase, comment).build()
-        case None => Metadata.empty
-      }
-
-      StructField(columnName, typ, nullable = true, meta)
-    })
 }
 
 // scalastyle: on

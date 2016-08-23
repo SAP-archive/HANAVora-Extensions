@@ -844,5 +844,30 @@ OPTIONS (
         }
     }
   }
+
+  test("Table with COMMENT as column name is allowed") {
+    val statement = "CREATE TABLE foo (name string, comment string) USING com.sap.spark.vora"
+    val parsed =
+      ddlParser.parse(statement)
+
+    assertResult(
+      CreateTableUsing(
+        TableIdentifier("foo"),
+        Some(
+          StructType(
+            StructField("name", StringType) ::
+            StructField("comment", StringType) :: Nil)),
+        "com.sap.spark.vora",
+        temporary = false,
+        Map("table_ddl" -> statement),
+        allowExisting = false,
+        managedIfNoPath = false))(parsed)
+  }
+
+  test("It is not possible to create a table with a reserved word as column name") {
+    intercept[SapParserException] {
+      ddlParser.parse("CREATE TABLE foo (null string, all string) USING com.sap.spark.vora")
+    }
+  }
 }
 // scalastyle:on

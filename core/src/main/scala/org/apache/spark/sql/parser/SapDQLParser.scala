@@ -29,6 +29,7 @@ private[sql] object SapDQLParser
   with DataTypeParser
   with LiteralParser
   with AnnotationParser
+  with TableColumnsParser
   with WithConsumedInputParser {
 
   // Keyword is a convention with AbstractSparkSQLParser, which will scan all of the `Keyword`
@@ -79,6 +80,7 @@ private[sql] object SapDQLParser
   protected val WHEN = Keyword("WHEN")
   protected val WHERE = Keyword("WHERE")
   protected val WITH = Keyword("WITH")
+  protected val COMMENT = Keyword("COMMENT")
 
   /* Hierarchies keywords */
   protected val HIERARCHY = Keyword("HIERARCHY")
@@ -443,7 +445,7 @@ private[sql] object SapDQLParser
     *
      */
   protected lazy val selectUsing: Parser[LogicalPlan] =
-    rawSqlLit ~ (USING ~> className) ~ (OPTIONS ~> options).? ~ (AS ~> tableCols).? ^^ {
+    rawSqlLit ~ (USING ~> className) ~ (OPTIONS ~> options).? ~ (AS ~> tableColumns).? ^^ {
       case command ~ provider ~ optionsOpt ~ columnsOpt =>
         UnresolvedSelectUsing(
           command,
@@ -452,23 +454,8 @@ private[sql] object SapDQLParser
           optionsOpt.getOrElse(Map.empty))
   }
 
-  /**
-    * Copied from Spark DDL Parser
-    */
-  protected lazy val tableCols: Parser[Seq[StructField]] = "(" ~> repsep(column, ",") <~ ")"
 
-  protected val COMMENT = Keyword("COMMENT")
-
-  protected lazy val column: Parser[StructField] =
-    ident ~ dataType ~ (COMMENT ~> stringLit).?  ^^ { case columnName ~ typ ~ cm =>
-      val meta = cm match {
-        case Some(comment) =>
-          new MetadataBuilder().putString(COMMENT.str.toLowerCase, comment).build()
-        case None => Metadata.empty
-      }
-
-      StructField(columnName, typ, nullable = true, meta)
-    }
+  override protected def commentIndicator: Keyword = COMMENT
 
   // Based very loosely on the MySQL Grammar.
   // http://dev.mysql.com/doc/refman/5.0/en/join.html
