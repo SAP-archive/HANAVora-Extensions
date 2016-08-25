@@ -2,6 +2,7 @@
 *.iml
 **/target/*
 *.log
+*.out
 dependency-reduced-pom.xml
 scalastyle-output.xml
 .project
