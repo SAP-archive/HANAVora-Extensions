@@ -1,4 +1,5 @@
 package org.apache.spark.sql.execution.tablefunctions
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.SparkPlan
 
@@ -12,7 +13,7 @@ case class SimpleTableFunctionOutput(data: Seq[Seq[Any]], output: Seq[Attribute]
   extends PhysicalTableFunction {
 
   /** @inheritdoc */
-  override protected def run(): Seq[Seq[Any]] = data
+  override protected def run(sqlContext: SQLContext): Seq[Seq[Any]] = data
 
   /** @inheritdoc */
   override def children: Seq[SparkPlan] = Seq.empty

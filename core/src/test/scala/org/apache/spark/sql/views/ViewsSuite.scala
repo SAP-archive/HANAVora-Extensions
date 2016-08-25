@@ -24,6 +24,7 @@ import org.apache.spark.sql.execution.tablefunctions.TPCHTables
 import org.apache.spark.sql.types._
 import org.mockito.internal.stubbing.answers.Returns
 import org.apache.spark.util.DummyRelationUtils._
+import org.apache.spark.util.SqlContextConfigurationUtils
 
 import scala.util.Random
 

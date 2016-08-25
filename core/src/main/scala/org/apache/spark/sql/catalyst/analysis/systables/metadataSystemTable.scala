@@ -6,8 +6,7 @@ import org.apache.spark.sql.execution.tablefunctions.OutputFormatter
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
-import org.apache.spark.sql.util.CollectionUtils._
-import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 /** A provider for the metadata system table. */
 object MetadataSystemTableProvider
@@ -50,8 +49,7 @@ case class SparkLocalMetadataSystemTable(sqlContext: SQLContext)
       val nonEmptyMetadata = if (metadata.isEmpty) Map((null, null)) else metadata
       nonEmptyMetadata.map {
         case (key, value) =>
-          val correctlyCasedName = alterByCatalystSettings(sqlContext.catalog, name)
-          Row(correctlyCasedName, key, value)
+          Row(sqlContext.fixCase(name), key, value)
       }
     }
   }

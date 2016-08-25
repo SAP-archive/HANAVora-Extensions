@@ -14,6 +14,14 @@ trait AbstractViewCommand extends RunnableCommand {
   val kind: ViewKind
   /** The identifier of the view. */
   val identifier: TableIdentifier
+
+  /**
+    * Returns a copy of this command with the identifier set to the given one.
+    *
+    * @param tableIdentifier The new [[TableIdentifier]].
+    * @return A copy of this command with the new [[TableIdentifier]].
+    */
+  def withIdentifier(tableIdentifier: TableIdentifier): AbstractViewCommand
 }
 
 /**

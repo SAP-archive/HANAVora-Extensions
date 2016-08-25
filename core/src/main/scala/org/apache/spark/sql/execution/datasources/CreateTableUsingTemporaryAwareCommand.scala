@@ -6,6 +6,7 @@ import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, DatasourceResolver, Row, SQLContext}
 import org.apache.spark.sql.catalyst.TableIdentifierUtils._
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 /**
  * This command is used to register persistent tables if the datasource is capable of reporting
@@ -26,8 +27,6 @@ case class CreateTableUsingTemporaryAwareCommand(
 
   def run(sqlContext: SQLContext): Seq[Row] = {
     // Convert the table name according to the case-sensitivity settings
-    val tableId = alterByCatalystSettings(sqlContext.catalog, tableIdentifier)
-
     val resolver = DatasourceResolver.resolverFor(sqlContext)
     val dataSource: Any = resolver.newInstanceOf(provider)
 
@@ -37,11 +36,17 @@ case class CreateTableUsingTemporaryAwareCommand(
     dataSource match {
       case _: TemporaryAndPersistentNature =>
         // make sure we register that properly in the catalog
-        checkCreateTable(sqlContext, tableId)
+        checkCreateTable(sqlContext, tableIdentifier)
 
-        val resolved: ResolvedDataSource = resolveDataSource(sqlContext, dataSource, tableId)
+        val resolved = resolveDataSource(sqlContext, dataSource, tableIdentifier)
+        sqlContext.validatedSchema(resolved.relation.schema).recover {
+          case d: DuplicateFieldsException =>
+            throw new RuntimeException(
+              s"Provider '$provider' returned a relation that has duplicate fields.",
+              d)
+        }.get
         sqlContext.registerDataFrameAsTable(
-          DataFrame(sqlContext, LogicalRelation(resolved.relation)), tableId.table)
+          DataFrame(sqlContext, LogicalRelation(resolved.relation)), tableIdentifier.table)
 
         Seq.empty
 
@@ -69,10 +74,6 @@ case class CreateTableUsingTemporaryAwareCommand(
   private def resolveDataSource(sqlContext: SQLContext,
                                 dataSource: Any,
                                 tableId: TableIdentifier): ResolvedDataSource = {
-    // Convert the partitioning function according to the case-sensitivity settings
-    val partitioningFunctionId = partitioningFunction
-      .map(n => alterByCatalystSettings(sqlContext.catalog, n))
-
     dataSource match {
       case drp: PartitionedRelationProvider =>
         if (userSpecifiedSchema.isEmpty) {
@@ -81,7 +82,7 @@ case class CreateTableUsingTemporaryAwareCommand(
               sqlContext,
               tableId.toSeq,
               new CaseInsensitiveMap(options),
-              partitioningFunctionId,
+              partitioningFunction,
               partitioningColumns,
               isTemporary,
               allowExisting))
@@ -92,7 +93,7 @@ case class CreateTableUsingTemporaryAwareCommand(
               tableId.toSeq,
               new CaseInsensitiveMap(options),
               userSpecifiedSchema.get,
-              partitioningFunctionId,
+              partitioningFunction,
               partitioningColumns,
               isTemporary,
               allowExisting))

@@ -1,7 +1,7 @@
 package org.apache.spark.sql.execution.tablefunctions
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.types.StructType
@@ -13,16 +13,17 @@ trait PhysicalTableFunction extends SparkPlan {
 
   /** Executes the function
     *
+    * @param sqlContext The Spark [[SQLContext]].
     * @return The produced rows.
     */
-  protected def run(): Seq[Seq[Any]]
+  protected def run(sqlContext: SQLContext): Seq[Seq[Any]]
 
   /** Executes the run function, then converts them to [[org.apache.spark.rdd.RDD]]s
     *
     * @return The created [[RDD]]s
     */
   override protected def doExecute(): RDD[InternalRow] = {
-    val values = this.run()
+    val values = this.run(sqlContext)
 
     // This step makes sure that values corresponding to the schema are returned.
     val rows = values.map(Row.fromSeq)

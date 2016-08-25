@@ -1,9 +1,9 @@
 package org.apache.spark.sql.execution.tablefunctions
 
-import org.apache.spark.sql.execution.datasources.alterByCatalystSettings
 import org.apache.spark.sql.hierarchy.HierarchyTestUtils
 import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 class RunDescribeTableSuite
   extends FunSuite
@@ -98,14 +98,11 @@ class RunDescribeTableSuite
     // scalastyle:off magic.number
     val expected =
       Set(
-        List("", alterByCatalystSettings(sqlc.catalog, "V1"), "YEAH",
-          alterByCatalystSettings(sqlc.catalog, "sales"), "YEAH", 1, true,
+        List("", sqlc.fixCase("V1"), "YEAH", sqlc.fixCase("sales"), "YEAH", 1, true,
           "INTEGER", 32, 2, 0, "Semantics.type", "date"),
-        List("", alterByCatalystSettings(sqlc.catalog, "V1"), "_c1",
-          alterByCatalystSettings(sqlc.catalog, "sales"), "REVENUE", 2, true,
+        List("", sqlc.fixCase("V1"), "_c1", sqlc.fixCase("sales"), "REVENUE", 2, true,
           "BIGINT", 64, 2, 0, null, null),
-        List("", alterByCatalystSettings(sqlc.catalog, "V1"), "CUSTOMER_ID",
-          alterByCatalystSettings(sqlc.catalog, "sales"), "CUSTOMER_ID", 3, true,
+        List("", sqlc.fixCase("V1"), "CUSTOMER_ID", sqlc.fixCase("sales"), "CUSTOMER_ID", 3, true,
           "INTEGER", 32, 2, 0, null, null))
     // scalastyle:on magic.number
 
@@ -121,7 +118,7 @@ class RunDescribeTableSuite
 
     val expected =
       Set(
-        List("", "hv", "name", alterByCatalystSettings(sqlc.catalog, "animalsTbl"), "name",
+        List("", "hv", "name", "animalsTbl", "name",
           1, true, "VARCHAR(*)", null, null, null, null, null),
         List("", "hv", "node", "H", "node", 2, false, "<INTERNAL>", null, null, null, null, null))
 
@@ -191,14 +188,11 @@ class RunDescribeTableSuite
 
     assertResult(
       Set(
-        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "CustomerName",
-          "CUSTOMER", "C_NAME"),
-        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "NationName",
-          "NATION", "N_NAME"),
-        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "NewDate",
-          "LINEITEM", "L_SHIPDATE"),
-        Row(alterByCatalystSettings(sqlc.catalog, "RASH_REVENUE_1995_2005"), "L_SHIPDATE",
-          "LINEITEM", "L_SHIPDATE")))(values)
+        Row(sqlc.fixCase("RASH_REVENUE_1995_2005"), "CustomerName", "CUSTOMER", "C_NAME"),
+        Row(sqlc.fixCase("RASH_REVENUE_1995_2005"), "NationName", "NATION", "N_NAME"),
+        Row(sqlc.fixCase("RASH_REVENUE_1995_2005"), "NewDate", "LINEITEM", "L_SHIPDATE"),
+        Row(sqlc.fixCase("RASH_REVENUE_1995_2005"), "L_SHIPDATE", "LINEITEM", "L_SHIPDATE")))(
+      values)
   }
 }
 

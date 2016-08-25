@@ -14,7 +14,7 @@ class DescribeTableIfExistsTableFunction extends DescribeTableFunctionBase {
   override def apply(planner: ExtendedPlanner)
                     (arguments: Seq[Any]): Seq[SparkPlan] = arguments match {
     case Seq(Some(plan: LogicalPlan)) =>
-      execute(plan)
+      execute(planner.sqlContext, plan)
 
     case Seq(None) =>
       createOutputPlan(Nil) :: Nil

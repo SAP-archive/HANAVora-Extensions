@@ -8,7 +8,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.execution.aggregate.TungstenAggregate
 import org.apache.spark.sql.types.{DecimalType, DoubleType}
-import org.apache.spark.sql.util.CollectionUtils.RichSeq
+import org.apache.spark.sql.util.CollectionUtils.RichIterable
 
 /**
   *

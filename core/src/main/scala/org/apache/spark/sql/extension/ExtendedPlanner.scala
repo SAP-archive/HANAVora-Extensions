@@ -1,10 +1,9 @@
 package org.apache.spark.sql.extension
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{SparkPlan, SparkPlanner}
 
 /**
   * Our planner exposes some methods that are needed for 3rd party strategies.
@@ -12,9 +11,7 @@ import org.apache.spark.sql.execution.SparkPlan
   *
   * @see [[ExtendableSQLContext]]
   */
-private[sql] trait ExtendedPlanner extends Logging {
-  self: SQLContext#SparkPlanner =>
-
+private[sql] trait ExtendedPlanner extends SparkPlanner with Logging {
   /**
     * Calls the planner on a subtree. This is to be used by strategies
     * internally.
@@ -22,12 +19,12 @@ private[sql] trait ExtendedPlanner extends Logging {
     * @param p Subtree.
     * @return Planned subtree.
     */
-  def planLaterExt(p: LogicalPlan): SparkPlan = self.planLater(p)
+  def planLaterExt(p: LogicalPlan): SparkPlan = planLater(p)
 
-  def optimizedPlan(p: LogicalPlan): LogicalPlan = self.sqlContext.executePlan(p).optimizedPlan
+  def optimizedPlan(p: LogicalPlan): LogicalPlan = sqlContext.executePlan(p).optimizedPlan
 
   def optimizedRelationLookup(u: UnresolvedRelation): Option[LogicalPlan] = {
-    if (self.sqlContext.catalog.tableExists(u.tableIdentifier)) {
+    if (sqlContext.catalog.tableExists(u.tableIdentifier)) {
       Some(optimizedPlan(u))
     } else {
       None
@@ -35,7 +32,7 @@ private[sql] trait ExtendedPlanner extends Logging {
   }
 
   // TODO (AC) Remove this once table-valued function are rebased on top.
-  def analyze(p: LogicalPlan): LogicalPlan = self.sqlContext.analyzer.execute(p)
+  def analyze(p: LogicalPlan): LogicalPlan = sqlContext.analyzer.execute(p)
 
   override def plan(p: LogicalPlan): Iterator[SparkPlan] = {
     val iter = strategies.view.flatMap({ strategy =>

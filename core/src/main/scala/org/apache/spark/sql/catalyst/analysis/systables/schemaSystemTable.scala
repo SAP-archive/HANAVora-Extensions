@@ -1,11 +1,11 @@
 package org.apache.spark.sql.catalyst.analysis.systables
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.tablefunctions._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 import scala.util.Try
 
@@ -45,8 +45,7 @@ case class SparkLocalSchemaSystemTable(sqlContext: SQLContext)
     sqlContext
       .tableNames()
       .flatMap { name =>
-        val tableIdent = TableIdentifier(alterByCatalystSettings(sqlContext.catalog, name))
-        val unresolvedPlan = sqlContext.catalog.lookupRelation(tableIdent)
+        val unresolvedPlan = sqlContext.catalog.lookupRelation(TableIdentifier(name))
         // TODO(AC): This should be removed once the new view implementation lands
         Try(sqlContext.analyzer.execute(unresolvedPlan)).map { plan =>
           val extractor = LogicalPlanExtractor(plan)
@@ -55,10 +54,10 @@ case class SparkLocalSchemaSystemTable(sqlContext: SQLContext)
             val formatter =
               new OutputFormatter(
                 null,
-                column.tableName,
-                column.name,
-                column.originalTableName,
-                column.originalName,
+                sqlContext.fixCase(column.tableName),
+                sqlContext.fixCase(column.name),
+                sqlContext.fixCase(column.originalTableName),
+                sqlContext.fixCase(column.originalName),
                 column.index,
                 column.isNullable,
                 column.dataType.simpleString,

@@ -6,9 +6,26 @@ import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.execution.RunnableCommand
 
 /**
+  * Base class for partitioning function related commands.
+  */
+private[sql] sealed trait PartitioningFunctionCommand extends RunnableCommand {
+
+  /** The name of the affected partitioning function */
+  def name: String
+
+  /**
+    * Returns a copy of this command with the given name instead of the current one.
+    *
+    * @param name The name value of the copy.
+    * @return A copy of this command with the given name.
+    */
+  def withName(name: String): PartitioningFunctionCommand
+}
+
+/**
   * Base class for partitioning function creation commands.
   */
-private[sql] sealed abstract class CreatePartitioningFunctionCommand extends RunnableCommand
+private[sql] sealed trait CreatePartitioningFunctionCommand extends PartitioningFunctionCommand
 
 /**
  * This command creates a hash partitioning function according to the provided arguments.
@@ -27,12 +44,11 @@ private[sql] case class CreateHashPartitioningFunctionCommand(parameters: Map[St
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.createHashPartitioningFunction(sqlContext, parameters, functionId, datatypes,
+        pfp.createHashPartitioningFunction(sqlContext, parameters, name, datatypes,
           partitionsNo)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
@@ -40,6 +56,8 @@ private[sql] case class CreateHashPartitioningFunctionCommand(parameters: Map[St
     }
   }
 
+  /** @inheritdoc */
+  override def withName(name: String): PartitioningFunctionCommand = copy(name = name)
 }
 
 /**
@@ -61,12 +79,11 @@ private[sql] case class CreateRangeSplitPartitioningFunctionCommand(parameters: 
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.createRangeSplitPartitioningFunction(sqlContext, parameters, functionId, datatype,
+        pfp.createRangeSplitPartitioningFunction(sqlContext, parameters, name, datatype,
           splitters, rightClosed)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
@@ -74,6 +91,8 @@ private[sql] case class CreateRangeSplitPartitioningFunctionCommand(parameters: 
     }
   }
 
+  /** @inheritdoc */
+  override def withName(name: String): PartitioningFunctionCommand = copy(name = name)
 }
 
 /**
@@ -94,12 +113,11 @@ private[sql] case class CreateRangeIntervalPartitioningFunctionCommand
   extends CreatePartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.createRangeIntervalPartitioningFunction(sqlContext, parameters, functionId,
+        pfp.createRangeIntervalPartitioningFunction(sqlContext, parameters, name,
           datatype, start, end, strideParts)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
@@ -107,6 +125,8 @@ private[sql] case class CreateRangeIntervalPartitioningFunctionCommand
     }
   }
 
+  /** @inheritdoc */
+  override def withName(name: String): PartitioningFunctionCommand = copy(name = name)
 }
 
 /**
@@ -118,21 +138,25 @@ private[sql] case class CreateRangeIntervalPartitioningFunctionCommand
  *                         be thrown when the function does not exist
  * @param provider The datasource provider (has to implement [[PartitioningFunctionProvider]])
  */
-private[sql] case class DropPartitioningFunctionCommand
-(parameters: Map[String, String], name: String, allowNotExisting: Boolean, provider: String)
-  extends RunnableCommand {
+private[sql] case class DropPartitioningFunctionCommand(
+    parameters: Map[String, String],
+    name: String,
+    allowNotExisting: Boolean,
+    provider: String)
+  extends PartitioningFunctionCommand {
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
-    val functionId = alterByCatalystSettings(sqlContext.catalog, name)
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {
       case pfp: PartitioningFunctionProvider =>
-        pfp.dropPartitioningFunction(sqlContext, parameters, functionId, allowNotExisting)
+        pfp.dropPartitioningFunction(sqlContext, parameters, name, allowNotExisting)
         Seq.empty
       case _ => throw new RuntimeException("The provided datasource does not support " +
         "definition of partitioning functions.")
     }
   }
 
+  /** @inheritdoc */
+  override def withName(name: String): PartitioningFunctionCommand = copy(name = name)
 }

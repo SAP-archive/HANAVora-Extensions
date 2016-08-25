@@ -13,7 +13,7 @@ class DescribeTableFunction extends DescribeTableFunctionBase {
   override def apply(planner: ExtendedPlanner)
                     (arguments: Seq[Any]): Seq[SparkPlan] = arguments match {
     case Seq(plan: LogicalPlan) =>
-      execute(plan)
+      execute(planner.sqlContext, plan)
 
     case _ => throw new IllegalArgumentException("Wrong number of arguments given (1 required)")
   }

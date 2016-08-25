@@ -7,6 +7,7 @@ import org.apache.spark.sql.sources.commands.WithOrigin
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 object TablesSystemTableProvider extends SystemTableProvider with LocalSpark with ProviderBound {
   /** @inheritdoc */
@@ -42,7 +43,11 @@ case class SparkLocalTablesSystemTable(sqlContext: SQLContext)
         val origin = relationOpt.collect {
           case w: WithOrigin => w.provider
         }
-        Row(table, isTemporary.toString.toUpperCase, kind.toUpperCase, origin.orNull)
+        Row(
+          sqlContext.fixCase(table),
+          isTemporary.toString.toUpperCase,
+          kind.toUpperCase,
+          origin.orNull)
       }
   }
 }

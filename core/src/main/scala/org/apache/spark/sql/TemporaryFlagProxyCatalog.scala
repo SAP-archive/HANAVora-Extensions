@@ -15,10 +15,12 @@ trait TemporaryFlagProxyCatalog extends OverrideCatalog{
     val tables = super.getTables(databaseName)
     val proxiedTables = tables.map {
       case (tableName: String , isTemporary: Boolean) =>
-        lookupRelation(TableIdentifier(tableName)) match {
+        val tableIdentifier = TableIdentifier(tableName)
+        val fixedTableName = getTableName(tableIdentifier)
+        lookupRelation(tableIdentifier) match {
           case sq @ Subquery(_, IsLogicalRelation(br: Relation)) =>
-            (tableName, br.isTemporary)
-          case _ => (tableName, isTemporary)
+            (fixedTableName, br.isTemporary)
+          case _ => (fixedTableName, isTemporary)
         }
       }
     proxiedTables

@@ -1,6 +1,6 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.util.CollectionUtils.RichSeq
+import org.apache.spark.sql.util.CollectionUtils.RichIterable
 import org.apache.spark.sql.{AnalysisException, Row}
 
 /**

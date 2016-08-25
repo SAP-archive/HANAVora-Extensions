@@ -4,8 +4,9 @@ import com.sap.spark.dstest.{DefaultSource, DummyRelationWithTempFlag}
 import com.sap.spark.util.TestUtils._
 import org.apache.spark.sql.catalyst.plans.logical.Subquery
 import org.apache.spark.sql.execution.datasources.{IsLogicalRelation, LogicalRelation, ResolvedDataSource}
-import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.{CatalogAccessor, GlobalSapSQLContext, Row}
+import org.apache.spark.sql.hive.{HiveContext, SapHiveContext}
+import org.apache.spark.sql._
+import org.apache.spark.util.SqlContextConfigurationUtils
 import org.scalatest.{BeforeAndAfterEach, FunSuite, Inside}
 
 /**
@@ -15,6 +16,7 @@ class CreatePersistentTableSuite
   extends FunSuite
   with GlobalSapSQLContext
   with BeforeAndAfterEach
+  with SqlContextConfigurationUtils
   with Inside {
 
   lazy val tableNotTemp = tableName("tableNotTemp")
@@ -23,6 +25,39 @@ class CreatePersistentTableSuite
   lazy val notExistingYet = tableName("notExistingYet")
   lazy val twiceTest = tableName("twiceTest")
 
+  test("Create two tables differing only in case should fail on case insensitive") {
+    withConf(SQLConf.CASE_SENSITIVE.key, "false") {
+      sqlContext.sql("CREATE TABLE foo (a int) USING com.sap.spark.dstest")
+
+      intercept[RuntimeException] {
+        sqlContext.sql("CREATE TABLE FOO (a int) USING com.sap.spark.dstest")
+      }
+    }
+  }
+
+  test("Create two tables differing only in case should work on case sensitive") {
+    withConf(SQLConf.CASE_SENSITIVE.key, "true") {
+      sqlContext.sql("CREATE TABLE foo (a int) USING com.sap.spark.dstest")
+      sqlContext.sql("CREATE TABLE FOO (a int) USING com.sap.spark.dstest")
+
+      assertResult(Set("foo", "FOO"))(sqlContext.tableNames().toSet)
+    }
+  }
+
+  test("Create table with column names only differing in case should fail on case insensitive") {
+    withConf(SQLConf.CASE_SENSITIVE.key, "false") {
+      intercept[RuntimeException] {
+        sqlContext.sql("CREATE TABLE foo (a int, A int) USING com.sap.spark.dstest")
+      }
+    }
+  }
+
+  test("Create table with column names only differing in case should work on case sensitive") {
+    withConf(SQLConf.CASE_SENSITIVE.key, "true") {
+      sqlContext.sql("CREATE TABLE foo (a int, A int) USING com.sap.spark.dstest")
+      assert(sqlContext.tableNames().contains("foo"))
+    }
+  }
 
   test("Create table keeps the table identifier") {
     sqlContext.sql(

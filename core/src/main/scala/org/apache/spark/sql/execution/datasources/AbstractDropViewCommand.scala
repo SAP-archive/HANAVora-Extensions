@@ -4,6 +4,7 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.sources.sql.ViewKind
 import org.apache.spark.sql.sources.{AbstractViewProvider, DropViewInput}
 import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 /**
   * A command to drop a view.
@@ -15,10 +16,9 @@ trait AbstractDropViewCommand extends AbstractViewCommand {
     */
   def dropFromSpark(sqlContext: SQLContext): Unit = {
     val catalog = sqlContext.catalog
-    val relationId = alterByCatalystSettings(catalog, identifier)
 
-    if (catalog.tableExists(relationId)) {
-      catalog.unregisterTable(relationId)
+    if (catalog.tableExists(identifier)) {
+      catalog.unregisterTable(identifier)
     }
   }
 }
@@ -38,8 +38,7 @@ trait UnPersisting extends ProviderBound {
     * @param viewProvider The provider to execute the drop on.
     */
   def dropFromProvider(sqlContext: SQLContext, viewProvider: AbstractViewProvider[_]): Unit = {
-    val relationId = alterByCatalystSettings(sqlContext.catalog, identifier)
-    viewProvider.drop(DropViewInput(sqlContext, options, relationId, allowNotExisting))
+    viewProvider.drop(DropViewInput(sqlContext, options, identifier, allowNotExisting))
   }
 }
 
@@ -66,4 +65,8 @@ case class DropPersistentViewCommand(
       dropFromProvider(sqlContext, provider)
       Seq.empty
     }
+
+  /** @inheritdoc */
+  override def withIdentifier(tableIdentifier: TableIdentifier): AbstractViewCommand =
+    copy(identifier = tableIdentifier)
 }

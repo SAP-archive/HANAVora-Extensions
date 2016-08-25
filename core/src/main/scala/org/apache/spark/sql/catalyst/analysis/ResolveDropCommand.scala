@@ -1,6 +1,7 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.AnalysisException
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
@@ -21,14 +22,12 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformDown {
     case UnresolvedDropCommand(kind, allowNotExisting, tableIdent, cascade) =>
-      val tableId = alterByCatalystSettings(catalog, tableIdent)
-      val plan = resolvePlan(kind, tableId, allowNotExisting)
+      val plan = resolvePlan(kind, tableIdent, allowNotExisting)
 
       val affected = plan.map { lp =>
-        val targetKind =
-          RelationKind.kindOf(lp, Table)
-        checkValidKind(kind, tableId, targetKind)
-        buildDependentsMap(catalog, tableId)
+        val targetKind = RelationKind.kindOf(lp, Table)
+        checkValidKind(kind, tableIdent, targetKind)
+        buildDependentsMap(catalog, tableIdent)
       }
 
       affected.foreach(checkAllowedToDrop(cascade))
@@ -46,8 +45,10 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
     Try(catalog.lookupRelation(tableIdent)).toOption match {
       case Some(plan) => Some(plan)
       case None if allowNotExisting => None
-      case None => failAnalysis(s"${kind.name} ${tableIdent.unquotedString} does not exist. To " +
-        s"DROP a ${kind.name} regardless if it exists of not, use DROP ${kind.name} IF EXISTS.")
+      case None => failAnalysis(
+        s"""${kind.name} ${tableIdent.unquotedString} does not exist. To "
+          |DROP a ${kind.name} regardless if it exists of not, use
+          |DROP ${kind.name} IF EXISTS.""".stripMargin)
     }
   }
 
@@ -70,10 +71,10 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
     }
   }
 
-  private def buildDependentsMap(catalog: Catalog, identifier: TableIdentifier)
-  : Map[String, Option[DropRelation]] = {
+  private def buildDependentsMap(catalog: Catalog,
+                                 identifier: TableIdentifier): Map[String, Option[DropRelation]] = {
     val tables = getTables(catalog, identifier.database)
-    val tablesAndDependents = buildDependentsMap(tables)
+    val tablesAndDependents = buildDependentsMap(tables, catalog)
 
     def aggregate(acc: Set[TableIdentifier],
                   next: List[TableIdentifier]): Set[TableIdentifier] = next match {

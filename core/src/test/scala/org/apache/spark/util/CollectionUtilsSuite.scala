@@ -54,4 +54,14 @@ class CollectionUtilsSuite extends FunSuite {
     assert(withRemoval.isInstanceOf[CaseInsensitiveMap[_]])
     assert(withAddition.isInstanceOf[CaseInsensitiveMap[_]])
   }
+
+  test("Duplicates returns all duplicate values in an iterable") {
+    val withDuplicates = Seq("a", "b", "c", "a", "d", "b")
+    assertResult(Set("a", "b"))(withDuplicates.duplicates)
+  }
+
+  test("Duplicates returns an empty set in case there are no duplicates in an iterable") {
+    val withoutDuplicates = Seq("a", "b", "c")
+    assertResult(Set.empty)(withoutDuplicates.duplicates)
+  }
 }

@@ -1,11 +1,12 @@
 package org.apache.spark.sql.execution.datasources
 
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.execution.ProviderUtils._
 import org.apache.spark.sql.execution.RunnableCommand
+import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 import org.apache.spark.sql.sources.RegisterAllTableRelations
-import org.apache.spark.sql.{Row, SQLContext}
-import SqlContextAccessor._
+import org.apache.spark.sql.util.CollectionUtils._
+import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
 /**
   * Provides execution for REGISTER ALL TABLES statements. A data source
@@ -21,11 +22,12 @@ private[sql] case class RegisterAllTablesCommand(
     options: Map[String, String],
     ignoreConflicts: Boolean)
   extends RunnableCommand {
-  override def run(sqlContext: SQLContext): Seq[Row] = {
 
+  // scalastyle:off method.length
+  override def run(sqlContext: SQLContext): Seq[Row] = {
     /** Provider instantiation. */
-    val resolvedProvider: RegisterAllTableRelations =
-      instantiateProvider(provider, "register all tables action")
+    val resolver = DatasourceResolver.resolverFor(sqlContext)
+    val resolvedProvider = resolver.newInstanceOfTyped[RegisterAllTableRelations](provider)
 
     /** Get all relations known to the provider with a given set of options. */
     val relations = resolvedProvider.getAllTableRelations(sqlContext, options)
@@ -36,19 +38,45 @@ private[sql] case class RegisterAllTablesCommand(
         case (name, relation) => sqlContext.catalog.tableExists(new TableIdentifier(name))
       })
 
+    val duplicateNames = relations.keys.toList.map(sqlContext.fixCase).duplicates
+
     /** If [[ignoreConflicts]] is false, throw if there are existing relations */
-    if (!ignoreConflicts && existingRelations.nonEmpty) {
-      sys.error(s"Some tables already exists: ${existingRelations.keys.mkString(", ")}")
+    if (!ignoreConflicts && (existingRelations.nonEmpty || duplicateNames.nonEmpty)) {
+      val errorMsg = Seq(
+        existingRelations.nonEmptyOpt.map { existing =>
+          s"Some tables already exists: ${existingRelations.keys.mkString(", ")}"
+        },
+        duplicateNames.nonEmptyOpt.map { duplicates =>
+          s"Duplicate relation name(s): ${duplicates.mkString(",")}"
+        }
+      ).flatten.mkString("There were some errors: ", "\n", "")
+
+      sys.error(errorMsg)
     }
 
     /** Register new relations */
-    newRelations.foreach({
+    newRelations.map {
       case (name, source) =>
         val lp = source.logicalPlan(sqlContext)
-        sqlContext.registerRawPlan(lp, name)
-    })
+        if (lp.resolved) {
+          sqlContext.validatedSchema(lp.schema).recover {
+            case d: DuplicateFieldsException =>
+              throw new RuntimeException(
+                s"Provider '$provider' returned a relation that has duplicate fields.",
+                d)
+          }.get
+        } else {
+          // TODO(AC): With the new view interface, this can be checked
+          logWarning(s"Adding relation $name with potentially unreachable fields.")
+        }
+        name -> lp
+    }.foreach {
+      case (name, plan) =>
+        sqlContext.registerRawPlan(plan, name)
+    }
 
     // XXX: This could return the list of registered relations
     Seq.empty
   }
+  // scalastyle:on method.length
 }

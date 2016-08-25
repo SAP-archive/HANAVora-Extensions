@@ -6,12 +6,16 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode}
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
-import org.apache.spark.sql.hive.SapHiveContext
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.util.SqlContextConfigurationUtils
 import org.scalatest.FunSuite
 
-class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
+class DropCommandSuite
+  extends FunSuite
+  with SqlContextConfigurationUtils
+  with GlobalSapSQLContext {
+
   val persons =
     Person("John", 20) :: Person("Bill", 30) :: Nil // scalastyle:ignore magic.number
 
@@ -136,26 +140,36 @@ class DropCommandSuite extends FunSuite with GlobalSapSQLContext {
     assert(result2.contains(Row(someTable2, true)))
   }
 
-  test("Drop a Spark table is case-insensitive when SapHiveContext is being used (bug 113693)") {
-    val tableName = "casetest"
-    sqlContext.sql(s"""CREATE TABLE $tableName (id string)
-                      |USING com.sap.spark.dstest
-                      |OPTIONS ()""".stripMargin)
+  test("DROP TABLE drops a table regardless of case if case insensitive (bug 113693)") {
+    withConf(SQLConf.CASE_SENSITIVE.key, "false") {
+      val tableName = "casetest"
+      sqlContext.sql(s"""CREATE TABLE $tableName (id string)
+                         |USING com.sap.spark.dstest
+                         |OPTIONS ()""".stripMargin)
 
-    // Sanity check
-    assert(sqlContext.sql("SHOW TABLES").collect().length == 1)
+      // Sanity check
+      assertResult(Set(tableName.toLowerCase))(sqlContext.tableNames.toSet)
+      sqlc.sql(s"DROP TABLE ${tableName.toUpperCase}")
 
-    sqlContext match {
-      case _: SapSQLContext =>
-        val ex = intercept[AnalysisException](
-        sqlContext.sql(s"DROP TABLE ${tableName.toUpperCase}"))
-        assert(ex.getMessage().contains("Table CASETEST does not exist."))
+      assert(sqlc.tableNames.isEmpty)
+    }
+  }
 
-        assert(sqlContext.sql("SHOW TABLES").collect().length == 1)
-      case _: SapHiveContext =>
-        sqlContext.sql(s"DROP TABLE ${tableName.toUpperCase}")
+  test("DROP TABLE will fail if case sensitive and target is different by case (bug 113693)") {
+    withConf(SQLConf.CASE_SENSITIVE.key, "true") {
+      val tableName = "casetest"
+      sqlContext.sql(s"""CREATE TABLE $tableName (id string)
+                         |USING com.sap.spark.dstest
+                         |OPTIONS ()""".stripMargin)
 
-        assert(sqlContext.sql("SHOW TABLES").collect().length == 0)
+      // Sanity check
+      assertResult(Set(tableName.toLowerCase))(sqlContext.tableNames.toSet)
+
+      intercept[AnalysisException] {
+        sqlc.sql(s"DROP TABLE ${tableName.toUpperCase}")
+      }
+
+      assertResult(Set(tableName.toLowerCase))(sqlContext.tableNames.toSet)
     }
   }
 

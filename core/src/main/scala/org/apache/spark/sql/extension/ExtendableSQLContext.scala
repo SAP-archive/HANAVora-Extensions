@@ -27,8 +27,6 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
   @transient
   override protected[sql] val ddlParser: DDLParser = extendedDdlParser(sqlParser.parse)
 
-  private def catalystConf = new SimpleCatalystConf(caseSensitiveAnalysis = false)
-
   /**
     * Use a [[org.apache.spark.sql.catalyst.analysis.SimpleFunctionRegistry]]
     * (the default one) with any extra functions already registered by using

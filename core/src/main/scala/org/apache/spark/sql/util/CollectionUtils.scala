@@ -5,18 +5,40 @@ package org.apache.spark.sql.util
   */
 object CollectionUtils {
 
-  implicit class RichSeq[A](val seq: Seq[A]) {
+  implicit class RichIterable[A, B <: Iterable[A]](val seq: B with Iterable[A]) {
 
     /**
-      * @return [[None]] if the given [[Seq]] was empty, else [[Some]] of the given sequence.
+      * Retrieves a set of all values that have duplicates in this sequence.
+      *
+      * @return Set of all duplicate values.
       */
-    def nonEmptyOpt: Option[Seq[A]] =
+    def duplicates: Set[A] = {
+      def inner(seen: Set[A], duplicates: Set[A], remaining: Iterable[A]): Set[A] = {
+        if (remaining.isEmpty) {
+          duplicates
+        } else {
+          val head = remaining.head
+          if (seen.contains(head)) {
+            inner(seen, duplicates + head, remaining.tail)
+          } else {
+            inner(seen + head, duplicates, remaining.tail)
+          }
+        }
+      }
+
+      inner(Set.empty, Set.empty, seq)
+    }
+
+    /**
+      * @return [[None]] if the given [[Iterable]] was empty, else [[Some]] of the given iterable.
+      */
+    def nonEmptyOpt: Option[B] =
       if (seq.nonEmpty) Some(seq) else None
 
     /**
-      * @return [[Some]] of the given [[Seq]] if it was empty, else [[None]]
+      * @return [[Some]] of the given [[Iterable]] if it was empty, else [[None]]
       */
-    def emptyOpt: Option[Seq[A]] =
+    def emptyOpt: Option[B] =
       if (seq.isEmpty) Some(seq) else None
   }
 

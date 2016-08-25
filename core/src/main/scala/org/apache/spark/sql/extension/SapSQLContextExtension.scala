@@ -24,6 +24,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
   protected def catalog: Catalog
 
   override protected def resolutionRules(analyzer: Analyzer): List[Rule[LogicalPlan]] =
+    FixCaseSensitivity(analyzer) ::
     ResolveViews(analyzer) ::
     ResolveSystemTables(analyzer, this) ::
     ResolveReferencesWithHierarchies(analyzer) ::

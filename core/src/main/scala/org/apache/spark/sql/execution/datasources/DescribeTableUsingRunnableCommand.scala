@@ -1,13 +1,13 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.sources.{DatasourceCatalog, RelationInfo}
-import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.catalyst.TableIdentifierUtils._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.RunnableCommand
+import org.apache.spark.sql.sources.{DatasourceCatalog, RelationInfo}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.catalyst.TableIdentifierUtils._
+import org.apache.spark.sql.{Row, SQLContext}
 
 /**
   * The execution of ''DESCRIBE TABLES ... USING '' in the data source.
@@ -42,7 +42,7 @@ case class DescribeTableUsingRunnableCommand(name: TableIdentifier,
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     // Convert the table name according to the case-sensitivity settings
-    val tableId = alterByCatalystSettings(sqlContext.catalog, name).toSeq
+    val tableId = name.toSeq
     val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
 
     dataSource match {

@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.PlanUtils._
-import org.apache.spark.sql.util.CollectionUtils.RichSeq
+import org.apache.spark.sql.util.CollectionUtils.RichIterable
 
 import scala.collection.immutable.Queue
 
