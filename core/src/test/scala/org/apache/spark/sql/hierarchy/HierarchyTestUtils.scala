@@ -205,8 +205,9 @@ trait HierarchyTestUtils {
     sc.createDataFrame[A](rdd)(implicitly[TypeTag[A]]).cache().registerTempTable(name)
   }
 
-  def adjacencyListHierarchySQL(table: String, projectionColumns: String = "*"): String = {
-    s"""|(SELECT $projectionColumns
+  def adjacencyListHierarchySQL(table: String, projectionColumns: String*): String = {
+    require(projectionColumns.nonEmpty, "Projection columns cannot be empty")
+    s"""|(SELECT ${projectionColumns.mkString(", ")}
         | FROM HIERARCHY
         | (USING $table AS v JOIN PRIOR u ON v.pred = u.succ
         | ORDER SIBLINGS BY ord ASC

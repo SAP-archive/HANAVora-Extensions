@@ -23,7 +23,8 @@ class HierarchyViewsSuite
   }
 
   test("I can create an adjacency-list hierarchy view") {
-    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl)}")
+    sqlContext
+      .sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl, "name", "node")}")
 
     val result = sqlContext.sql(s"""| SELECT A.name, B.address, LEVEL(A.node)
                                     | FROM HV A FULL OUTER JOIN $addressesTable B
@@ -43,7 +44,8 @@ class HierarchyViewsSuite
   }
 
   test("I can create an level-based hierarchy view") {
-    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl)}")
+    sqlContext
+      .sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl, "name", "node")}")
 
     val result = sqlContext.sql(s"""| SELECT A.name, B.address, LEVEL(A.node)
                                     | FROM HV A FULL OUTER JOIN $addressesTable B
@@ -63,7 +65,8 @@ class HierarchyViewsSuite
   }
 
   test("I can self-join a hierarchy view") {
-    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl)}")
+    sqlContext
+      .sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl, "name", "node")}")
 
     val result = sqlContext.sql(
       s"""SELECT A.name, B.name
@@ -88,7 +91,7 @@ class HierarchyViewsSuite
     sqlContext.sql(s"CREATE TEMPORARY VIEW AnimalsView AS SELECT * FROM $animalsTable")
 
     sqlContext.sql(
-      s"""CREATE TEMPORARY VIEW HV AS SELECT * FROM HIERARCHY (
+      s"""CREATE TEMPORARY VIEW HV AS SELECT name, node FROM HIERARCHY (
          | USING AnimalsView AS v
          | JOIN PRIOR u ON v.pred = u.succ
          | START WHERE pred IS NULL
@@ -104,7 +107,8 @@ class HierarchyViewsSuite
   }
 
   test("I can reuse hierarchy view") {
-    sqlContext.sql(s"CREATE TEMPORARY VIEW HV1 AS ${adjacencyListHierarchySQL(orgTbl)}")
+    sqlContext
+      .sql(s"CREATE TEMPORARY VIEW HV1 AS ${adjacencyListHierarchySQL(orgTbl, "node", "name")}")
 
     sqlContext.sql(
       s"""| CREATE TEMPORARY VIEW HV2 AS SELECT A.name AS childName, B.name AS parentName
@@ -127,8 +131,9 @@ class HierarchyViewsSuite
     createAnimalsTable(sqlContext)
 
     sqlContext.sql(s"CREATE TEMPORARY VIEW AnimalsView AS " +
-       adjacencyListHierarchySQL(animalsTable))
-    sqlContext.sql(s"CREATE TEMPORARY VIEW OrgView AS ${adjacencyListHierarchySQL(orgTbl)}")
+       adjacencyListHierarchySQL(animalsTable, "name", "node"))
+    sqlContext.sql(s"CREATE TEMPORARY VIEW OrgView AS " +
+      adjacencyListHierarchySQL(orgTbl, "name", "node"))
     val ex = intercept[AnalysisException] {
       sqlContext.sql(
         s"""SELECT A.name, B.name
@@ -191,7 +196,7 @@ class HierarchyViewsSuite
   }
 
   test("Implicit exclusion of Node column from top-level select works (bug 116471)") {
-    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl)}")
+    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl, "*")}")
     val result = sqlContext.sql(s"SELECT * FROM HV").collect().toSet
     val expected = Set(
       Row("Senior Developer", 2, 4, 1),
@@ -206,31 +211,10 @@ class HierarchyViewsSuite
   }
 
   test("Explicit selection of the hierarchy node column works (bug 116471)") {
-    sqlContext.sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl)}")
+    sqlContext
+      .sql(s"CREATE TEMPORARY VIEW HV AS ${adjacencyListHierarchySQL(orgTbl, "node", "name")}")
     val result = sqlContext.sql(s"SELECT node FROM HV WHERE name='Minion 1'").collect().toSet
     val expected = Set(Row(Node(Seq(1, 2, 5), "\"long\"", 6, 4, true, null)))
-    assertResult(expected)(result)
-  }
-
-  test("Implicit exclusion of Node column from top-level select with sub-query works " +
-    "(bug 116471)") {
-    val result = sqlContext.sql(
-      s"""
-        |SELECT * FROM
-        |(${adjacencyListHierarchySQL(orgTbl)}) a,
-        |(${adjacencyListHierarchySQL(orgTbl)}) b
-        | WHERE IS_CHILD(a.node, b.node)
-      """.stripMargin).collect.toSet
-
-    val expected = Set(
-      Row("Senior Developer", 2, 4, 1, "The Middle Manager", 1, 2, 1),
-      Row("Minion 3", 4, 7, 2, "Senior Developer", 2, 4, 1),
-      Row("Minion 2", 4, 6, 1, "Senior Developer", 2, 4, 1),
-      Row("The Other Middle Manager", 1, 3, 2, "THE BOSS", null, 1, 1),
-      Row("The Middle Manager", 1, 2, 1, "THE BOSS", null, 1, 1),
-      Row("Minion 1", 2, 5, 2, "The Middle Manager", 1, 2, 1)
-    )
-
     assertResult(expected)(result)
   }
 }

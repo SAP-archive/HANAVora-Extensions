@@ -9,6 +9,8 @@ import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 case class ResolveViews(analyzer: Analyzer) extends Rule[LogicalPlan] {
   override def apply(plan: LogicalPlan): LogicalPlan = plan.transformDown {
     case a: AbstractView =>
-      analyzer.ResolveRelations(a.plan)
+      val withRelations = analyzer.ResolveRelations(a.plan)
+      val withHierarchies = ResolveHierarchy(analyzer)(withRelations)
+      ExcludeHierarchyNodeFromSelectStar(analyzer)(withHierarchies)
   }
 }

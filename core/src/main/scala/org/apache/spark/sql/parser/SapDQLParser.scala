@@ -92,10 +92,10 @@ private[sql] object SapDQLParser
   protected val MATCH = Keyword("MATCH")
 
   /* Context-based keywords */
-  protected val CTX_LEVELS = "levels"
-  protected val CTX_PATH = "path"
-  protected val CTX_NAME = "name"
-  protected val CTX_LEVEL = "level"
+  protected val CTX_LEVELS = ident.filter(lexical.normalizeKeyword(_) == "levels")
+  protected val CTX_PATH = ident.filter(lexical.normalizeKeyword(_) == "path")
+  protected val CTX_NAME = ident.filter(lexical.normalizeKeyword(_) == "name")
+  protected val CTX_LEVEL = ident.filter(lexical.normalizeKeyword(_) == "level")
 
   /* Describe table keyword */
   protected val OLAP_DESCRIBE = Keyword("OLAP_DESCRIBE")
@@ -226,46 +226,32 @@ private[sql] object SapDQLParser
 
   /** Hierarchy parser. */
   protected lazy val hierarchy: Parser[LogicalPlan] =
-    (HIERARCHY ~> "(" ~> hierarchySpec <~ ")") ~ (AS ~> ident) ^^ {
-      case lp ~ ident => Subquery(ident, lp)
+    (HIERARCHY ~> "(" ~> hierarchySpec) ~ (SET ~> ident <~ ")") ~ (AS ~> ident) ^^ {
+      case spec ~ ident ~ hierarchyName =>
+        Subquery(
+          hierarchyName,
+          Hierarchy(spec, UnresolvedAttribute(ident)))
     }
 
 
-  protected lazy val hierarchySpec: Parser[LogicalPlan] =
-    (adjacencyListHierarchy ~ (SET ~> ident) ^^ {
-      case (lp, child, exp, st, sort) ~ ident =>
-        Hierarchy(
-          AdjacencyListHierarchySpec(source = lp, childAlias = child, parenthoodExp = exp,
-            startWhere = st, orderBy = sort),
-          node = UnresolvedAttribute(ident))
-    }
-      | levelBasedHierarchy ~ (SET ~> ident) ^^ {
-      case (lp, levels, matcher, st, sort) ~ ident =>
-        Hierarchy(
-          LevelBasedHierarchySpec(source = lp, levels = levels, matcher = matcher,
-            startWhere = st, orderBy = sort),
-          node = UnresolvedAttribute(ident))
-    })
+  protected lazy val hierarchySpec: Parser[HierarchySpec] =
+    adjacencyListHierarchy | levelBasedHierarchy
 
-  protected lazy val adjacencyListHierarchy: Parser[(LogicalPlan, String, Expression,
-    Option[Expression], Seq[SortOrder])] = {
+  protected lazy val adjacencyListHierarchy: Parser[AdjacencyListHierarchySpec] = {
     (USING ~> relationFactor) ~ (JOIN ~> PRIOR ~> ident) ~ (ON ~> expression) ~
-      hierarchySpecOptions ^^ {
-      case source ~ child ~ expr ~ ((searchBy, startWhere)) =>
-        (source, child, expr, searchBy, startWhere)
+        hierarchySpecOptions ^^ {
+        case source ~ child ~ expr ~ ((startWhere, orderBy)) =>
+          AdjacencyListHierarchySpec(source, child, expr, startWhere, orderBy)
+      }
     }
-  }
 
-  protected lazy val levelBasedHierarchy: Parser[(LogicalPlan, Seq[Expression],
-    LevelMatcher, Option[Expression], Seq[SortOrder])] = {
-    (USING ~> relationFactor) ~ (WITH ~> ident ~ identifiers) ~
+  protected lazy val levelBasedHierarchy: Parser[LevelBasedHierarchySpec] = {
+    (USING ~> relationFactor) ~ (WITH ~> CTX_LEVELS ~ identifiers) ~
       matchExpression ~ hierarchySpecOptions ^^ {
-      case source ~ (levelsKeyword ~ levels) ~ matcher ~
-        ((searchBy, startWhere)) if lexical.normalizeKeyword(
-        levelsKeyword) == CTX_LEVELS =>
-        (source, levels, matcher, searchBy, startWhere)
+        case source ~ (levelsKeyword ~ levels) ~ matcher ~ ((startWhere, orderBy)) =>
+          LevelBasedHierarchySpec(source, levels, startWhere, orderBy, matcher)
+      }
     }
-  }
 
   /**
     * Parser of the 'MATCH' clause. Here a small trick is done to parse specific keywords
@@ -274,14 +260,9 @@ private[sql] object SapDQLParser
     * rules of case-sensitivity by using the lexical and not the implied ''String'' parser.
     */
   protected lazy val matchExpression: Parser[LevelMatcher] =
-    MATCH ~> ident ^^ {
-      case name if lexical.normalizeKeyword(name) == CTX_PATH => MatchPath
-      case name if lexical.normalizeKeyword(name) == CTX_NAME => MatchName
-    }|MATCH ~> (ident ~ ident) ^^ {
-      case name1 ~ name2 if lexical.normalizeKeyword(name1) == CTX_LEVEL &&
-        lexical.normalizeKeyword(name2) == CTX_NAME =>
-        MatchLevelName
-    }
+    MATCH ~ CTX_PATH ^^^ MatchPath |
+    MATCH ~ CTX_NAME ^^^ MatchName |
+    MATCH ~ CTX_LEVEL ~ CTX_NAME ^^^ MatchLevelName
 
   protected lazy val hierarchySpecOptions: Parser[(Option[Expression], Seq[SortOrder])] =
     (ORDER ~> SIBLINGS ~> BY ~> ordering).? ~ (START ~> WHERE ~> expression).? ^^ {
@@ -289,9 +270,7 @@ private[sql] object SapDQLParser
     }
 
   protected lazy val identifiers: Parser[Seq[Expression]] =
-    "(" ~> rep1sep(ident, ",") <~ ")" ^^ { seq =>
-      seq.map(UnresolvedAttribute(_))
-    }
+    "(" ~> rep1sep(ident, ",") <~ ")" ^^ (_.map(UnresolvedAttribute.apply))
 
   protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
     case ViewKind(kind) => kind
