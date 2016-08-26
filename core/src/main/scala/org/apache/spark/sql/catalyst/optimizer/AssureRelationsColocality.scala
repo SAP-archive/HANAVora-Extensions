@@ -51,17 +51,6 @@ object AssureRelationsColocality extends Rule[LogicalPlan] {
 
         rotateJoinsIfConditionMatches(left, right, cond,
           rotationConditionsSatisfied(leftRelations, rightRelations))
-      case p: BinaryNode =>
-        p.withNewChildren(Seq(apply(p.left), apply(p.right)))
-      /**
-       * In case of an unary node we check the condition for the child,
-       * passing the current node as the parent.
-       */
-      case p: UnaryNode => p.withNewChildren(Seq(apply(p.child)))
-      // This catches leaf nodes
-      case p: LeafNode => p.withNewChildren(p.children.map(c => apply(c)))
-      // Catch the other types of nodes
-      case p => p
     }
 
   /**
