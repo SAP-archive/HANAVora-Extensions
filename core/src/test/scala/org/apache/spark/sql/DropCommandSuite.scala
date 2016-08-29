@@ -8,11 +8,15 @@ import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.util.DummyRelationUtils._
 import org.apache.spark.util.SqlContextConfigurationUtils
+import org.mockito.Mockito._
 import org.scalatest.FunSuite
+import org.scalatest.mock.MockitoSugar
 
 class DropCommandSuite
   extends FunSuite
+  with MockitoSugar
   with SqlContextConfigurationUtils
   with GlobalSapSQLContext {
 
@@ -312,6 +316,19 @@ class DropCommandSuite
     sqlc.sql(s"DROP TABLE $someTable")
 
     assert(!sqlContext.catalog.tableExists(TableIdentifier(someTable)))
+  }
+
+  test("Drop table will drop all target tables although there are errors in a provider") {
+    abstract class DummyDropRelation extends BaseRelation with Table with DropRelation
+    val dummy = mock[DummyDropRelation]
+    when(dummy.dropTable()).thenThrow(new RuntimeException("foo"))
+    when(dummy.schema).thenReturn('a.string)
+    sqlc.baseRelationToDataFrame(dummy).registerTempTable("foo")
+
+    sqlc.sql("DROP TABLE foo")
+
+    assert(sqlc.tableNames().isEmpty)
+    verify(dummy, times(1)).dropTable()
   }
 }
 
