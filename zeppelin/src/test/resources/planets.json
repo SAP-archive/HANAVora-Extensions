@@ -1,7 +1,0 @@
-{"name": "sun", "number" : 1, "pred" : 0}
-{"name": "mercury", "number" : 2, "pred" : 1}
-{"name": "venus", "number" : 3, "pred" : 1}
-{"name": "earth", "number" : 4, "pred" : 1}
-{"name": "jupiter", "number" : 5, "pred" : 1}
-{"name": "saturn", "number" : 6, "pred" : 1}
-{"name": "moon", "number" : 10, "pred" : 4}
