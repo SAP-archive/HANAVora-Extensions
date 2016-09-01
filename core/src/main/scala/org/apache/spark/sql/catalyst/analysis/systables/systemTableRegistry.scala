@@ -62,7 +62,7 @@ trait SystemTableRegistry {
   * An implementation of the [[SystemTableRegistry]] trait.
   */
 class SimpleSystemTableRegistry extends SystemTableRegistry {
-  private val tables = new mutable.HashMap[String, SystemTableProvider]
+  private val tables = new collection.concurrent.TrieMap[String, SystemTableProvider]
 
   /**
     * Registers the system table class with the given name case insensitive.
@@ -91,4 +91,6 @@ object SystemTableRegistry extends SimpleSystemTableRegistry {
   register("table_metadata", MetadataSystemTableProvider)
   register("schemas", SchemaSystemTableProvider)
   register("session_context", SessionSystemTableProvider)
+  register("partition_functions", PartitionFunctionSystemTableProvider)
+  register("partition_schemes", PartitionSchemeSystemTableProvider)
 }

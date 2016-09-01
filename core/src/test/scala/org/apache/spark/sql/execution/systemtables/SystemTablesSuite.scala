@@ -499,6 +499,90 @@ class SystemTablesSuite
     }
   }
 
+  test("Select from partition scheme system table") {
+    val catalog = mock[PartitionCatalog]
+    when(catalog.partitionSchemes)
+      .thenReturn(
+        Seq(
+          PartitionScheme(
+            "PS1",
+            BlockPartitionFunction("PF1", Seq.empty, 1, 0),
+            autoColocation = false),
+          PartitionScheme(
+            "PS2",
+            BlockPartitionFunction("PF1", Seq.empty, 1, 0),
+          autoColocation = true)))
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[PartitionCatalog]("foo"))
+      .thenReturn(catalog)
+
+    withResolver(sqlContext, resolver) {
+      val values =
+        sqlc.sql(
+          """SELECT ID, PARTITION_FUNCTION_ID, AUTO_COLOCATION
+            |FROM SYS.PARTITION_SCHEMES
+            |USING foo""".stripMargin)
+          .collect()
+          .toSet
+
+      assertResult(
+        Set(
+          Row("PS1", "PF1", false),
+          Row("PS2", "PF1", true)))(values)
+    }
+  }
+
+  test("Select from partition function system table") {
+    val catalog = mock[PartitionCatalog]
+    when(catalog.partitionFunctions)
+      .thenReturn(
+        Seq(
+          RangePartitionFunction(
+            id = "a",
+            columns = Seq(
+              PartitionColumn("c1", "string"),
+              PartitionColumn("c2", "int")),
+            boundary = Some("boundary"),
+            minPartitions = Some(1),
+            maxPartitions = None),
+          BlockPartitionFunction(
+            id = "b",
+            columns = Seq(
+              PartitionColumn("c1", "float")),
+            blockSize = 1,
+            partitions = 0),
+          HashPartitionFunction(
+            id = "c",
+            columns = Seq(
+              PartitionColumn("c1", "timestamp")),
+            minPartitions = None,
+            maxPartitions = Some(1))
+        )
+      )
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[PartitionCatalog]("foo"))
+      .thenReturn(catalog)
+
+    withResolver(sqlContext, resolver) {
+      val values =
+        sqlc.sql(
+          """SELECT
+            |  ID, TYPE, COLUMN_NAME, COLUMN_TYPE,
+            |  BOUNDARIES, BLOCK_SIZE, PARTITIONS,
+            |  MIN_PARTITIONS, MAX_PARTITIONS
+            |FROM SYS.PARTITION_FUNCTIONS
+            |USING foo""".stripMargin)
+          .collect()
+          .toSet
+
+      assertResult(
+        Set(
+          Row("a", "RANGE", "c1", "string", "boundary", null, null, 1, null),
+          Row("a", "RANGE", "c2", "int", "boundary", null, null, 1, null),
+          Row("b", "BLOCK", "c1", "float", null, 1, 0, null, null),
+          Row("c", "HASH", "c1", "timestamp", null, null, null, null, 1)))(values)
+    }
+  }
 }
 
 object SystemTablesSuite {

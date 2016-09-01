@@ -38,5 +38,15 @@ class OutputFormatterSuite extends FunSuite {
     val formatter = new OutputFormatter(Seq(1, 2), Map(1 -> 2, 3 -> 4))
     assertResult(Seq(Seq(1, 1, 2), Seq(2, 1, 2), Seq(1, 3, 4), Seq(2, 3, 4)))(formatter.format())
   }
+
+  test("Formatting a nested sequence will return a flattened result") {
+    val formatter = new OutputFormatter(Seq(Seq(1, Seq(2, Seq(3), 4), 5)))
+    assertResult(Seq(Seq(1, 2, 3, 4, 5)))(formatter.format())
+  }
+
+  test("Formatting with a nested sequence fill flatten it and append new values") {
+    val formatter = new OutputFormatter(Seq(Seq(1, 2)), Seq(3))
+    assertResult(Seq(Seq(1, 2, 3)))(formatter.format())
+  }
   // scalastyle:on magic.number
 }
