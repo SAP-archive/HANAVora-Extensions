@@ -27,19 +27,6 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
   @transient
   override protected[sql] val ddlParser: DDLParser = extendedDdlParser(sqlParser.parse)
 
-  /**
-    * Use a [[org.apache.spark.sql.catalyst.analysis.SimpleFunctionRegistry]]
-    * (the default one) with any extra functions already registered by using
-    * [[SQLContextExtension.registerFunctions]].
-    */
-  @transient
-  override protected[sql] lazy val functionRegistry = {
-    val registry = new SimpleFunctionRegistry()
-    registerBuiltins(registry)
-    registerFunctions(registry)
-    registry
-  }
-
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
     RecursiveViewAnalysis.apply _ ::
       PreWriteCheck(catalog) ::

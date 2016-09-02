@@ -1,8 +1,8 @@
 package org.apache.spark.sql.extension
 
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.{TableIdentifier, ParserDialect}
-import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
+import org.apache.spark.sql.catalyst.{ParserDialect, TableIdentifier}
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry, SimpleFunctionRegistry}
 import org.apache.spark.sql.catalyst.errors.DialectException
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
@@ -29,6 +29,19 @@ private[sql] trait SQLContextExtensionBase extends SQLContextExtension {
   override def dropTempTable(tableName: String): Unit = {
     Try(cacheManager.tryUncacheQuery(table(tableName)))
     catalog.unregisterTable(TableIdentifier(tableName))
+  }
+
+  /**
+    * Use a [[org.apache.spark.sql.catalyst.analysis.SimpleFunctionRegistry]]
+    * (the default one) with any extra functions already registered by using
+    * [[SQLContextExtension.registerFunctions]].
+    */
+  @transient
+  override protected[sql] lazy val functionRegistry = {
+    val registry = new SimpleFunctionRegistry()
+    registerBuiltins(registry)
+    registerFunctions(registry)
+    registry
   }
 
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[LogicalPlan => Unit] = Nil

@@ -3,10 +3,21 @@ package org.apache.spark.sql
 import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 
 import org.apache.spark.sql.parser.SapParserException
+import org.apache.spark.util.DummyRelationUtils._
 import org.mockito.Mockito
 import org.scalatest.FunSuite
 
 class SapSQLContextSuite extends FunSuite with GlobalSapSQLContext {
+
+  test("SQL contexts do not support hive functions") {
+    val rdd = sc.parallelize(Seq(Row("1"), Row("2")))
+    sqlc.createDataFrame(rdd, 'a.string, needsConversion = false)
+      .registerTempTable("foo")
+
+    intercept[AnalysisException] {
+      sqlc.sql("SELECT int(a) FROM foo")
+    }
+  }
 
   test ("Check Spark Version"){
      val sap_sqlc = sqlContext.asInstanceOf[CommonSapSQLContext]
