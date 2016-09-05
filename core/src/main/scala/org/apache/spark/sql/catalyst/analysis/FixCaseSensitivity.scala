@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.sources.commands.UnresolvedDropCommand
+import org.apache.spark.sql.sources.commands.{DescribeTableUsingCommand, UnresolvedDropCommand}
 import org.apache.spark.sql.types.StructType
 
 /**
@@ -39,7 +39,7 @@ case class FixCaseSensitivity[A: CaseSensitivitySource](source: A)
     case c: PartitioningFunctionCommand =>
       c.withName(source.fixCase(c.name))
 
-    case d@DescribeTableUsingRunnableCommand(name, _, _) =>
+    case d@DescribeTableUsingCommand(name, _, _) =>
       d.copy(source.fixCase(name))
 
     case r@RegisterTableCommand(tableName, _, _, _) =>

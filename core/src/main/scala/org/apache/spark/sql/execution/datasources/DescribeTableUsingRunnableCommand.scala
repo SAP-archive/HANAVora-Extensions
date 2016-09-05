@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.sources.{DatasourceCatalog, RelationInfo}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
 /**
   * The execution of ''DESCRIBE TABLES ... USING '' in the data source.
@@ -43,19 +43,14 @@ case class DescribeTableUsingRunnableCommand(name: TableIdentifier,
   override def run(sqlContext: SQLContext): Seq[Row] = {
     // Convert the table name according to the case-sensitivity settings
     val tableId = name.toSeq
-    val dataSource: Any = ResolvedDataSource.lookupDataSource(provider).newInstance()
+    val resolver = DatasourceResolver.resolverFor(sqlContext)
+    val catalog = resolver.newInstanceOfTyped[DatasourceCatalog](provider)
 
-    dataSource match {
-      case describableRelation: DatasourceCatalog =>
-        Seq(describableRelation
-          .getRelation(sqlContext, tableId, new CaseInsensitiveMap(options)) match {
-            case None => Row("", "")
-            case Some(RelationInfo(relName, _, _, ddl, _)) => Row(
-              relName, ddl.getOrElse(""))
-        })
-      case _ =>
-        throw new RuntimeException(s"The provided data source $provider does not support" +
-          "describing its relations.")
-    }
+    Seq(catalog
+      .getRelation(sqlContext, tableId, new CaseInsensitiveMap(options)) match {
+        case None => Row("", "")
+        case Some(RelationInfo(relName, _, _, ddl, _)) => Row(
+          relName, ddl.getOrElse(""))
+    })
   }
 }
