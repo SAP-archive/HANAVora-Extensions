@@ -1,18 +1,17 @@
-package org.apache.spark.sql;
+package sap.zeppelin.spark.treeview;
 
 import java.util.LinkedList;
 import java.util.List;
 
 /**
- * This class is used by SAP sql interpreter
- * to build a tree
+ * Represents a node in the hierarchical view provided in the UI
  */
-public class SqlInterpreterNode {
+public class TreeViewNode {
     private String id;
     private String name;
-    private List<SqlInterpreterNode> children;
+    private List<TreeViewNode> children;
 
-    SqlInterpreterNode(String id, String name) {
+    TreeViewNode(String id, String name) {
         this.id = id;
         this.name = name;
         this.children = new LinkedList<>();
@@ -34,11 +33,11 @@ public class SqlInterpreterNode {
         this.name = name;
     }
 
-    public List<SqlInterpreterNode> getChildren() {
+    public List<TreeViewNode> getChildren() {
         return children;
     }
 
-    public void setChildren(List<SqlInterpreterNode> children) {
+    public void setChildren(List<TreeViewNode> children) {
         this.children = children;
     }
 
