@@ -6,9 +6,9 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.execution.SelfJoinStrategy
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.tablefunctions.TableFunctionsStrategy
-import org.apache.spark.sql.execution.{SapDDLStrategy, SelfJoinStrategy}
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
 import org.apache.spark.sql.parser.{SapDDLParser, SapParserDialect}
 
@@ -38,6 +38,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveSelectUsing(this) ::
     ResolveDropCommand(analyzer, catalog) ::
     ResolveInferSchemaCommand(this) ::
+    ResolveAppendCommand(analyzer) ::
     Nil
 
   override protected def optimizerEarlyBatches: List[ExtendableOptimizerBatch] =
@@ -59,7 +60,6 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
 
 
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] =
-    SapDDLStrategy(planner) ::
     CreateTableStrategy(this) ::
     CatalystSourceStrategy ::
     HierarchyStrategy(planner) ::

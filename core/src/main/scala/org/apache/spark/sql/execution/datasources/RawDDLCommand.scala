@@ -19,7 +19,7 @@ import org.apache.spark.sql.execution.RunnableCommand
   * @param provider The provider for execution
   * @param options The options to be sent to the provider
   */
-private[sql] case class RawDDLRunnableCommand(
+private[sql] case class RawDDLCommand(
     identifier: String,
     objectType: RawDDLObjectType,
     statementType: RawDDLStatementType,

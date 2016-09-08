@@ -7,7 +7,6 @@ import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.parser.{SapDDLParser, SapParserDialect, SapParserException}
 import org.apache.spark.sql.sources.View
 import org.apache.spark.sql.sources.commands._
-import org.apache.spark.sql.sources.sql.{Cube => CubeKind}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -81,18 +80,17 @@ class SapDDLParserSuite
     )
 
     forAll(optionsPermutations) { (opts) =>
-      val statement = s"SHOW DATASOURCETABLES USING com.provider OPTIONS $opts"
+      val statement = s"SHOW TABLES USING com.provider OPTIONS $opts"
       Given(s"statement $statement")
 
-      val parsed = ddlParser.parse(statement).asInstanceOf[ShowDatasourceTablesCommand]
-      val options = parsed.options
-
-      Then("The resulting options map will have lower-cased keys")
-      assert(options == Map(
-        "a" -> "a",
-        "b" -> "b",
-        "c" -> "c"
-      ))
+      val parsed = ddlParser.parse(statement)
+      assertResult(
+        ShowTablesUsingCommand(
+          "com.provider",
+          Map(
+            "a" -> "a",
+            "b" -> "b",
+            "c" -> "c")))(parsed)
     }
   }
 
@@ -103,31 +101,6 @@ class SapDDLParserSuite
       "com.provider", Map("key" -> "value"), false),
     ("SHOW DATASOURCETABLES", "", Map.empty[String, String], true)
   )
-
-  test("SHOW DATASOURCETABLES command") {
-    forAll(showDatasourceTablesPermutations) { (sql, provider, options, willFail) =>
-
-      Given(s"provider: $provider, options: $options, sql: $sql, willFail: $willFail")
-
-      if (willFail) {
-        intercept[SapParserException] {
-          ddlParser.parse(sql)
-        }
-      } else {
-        val result = ddlParser.parse(sql)
-
-        Then("it will be an instance of ShowDatasourceTablesCommand class")
-        assert(result.isInstanceOf[ShowDatasourceTablesCommand])
-
-        val instancedResult = result.asInstanceOf[ShowDatasourceTablesCommand]
-
-        Then("options will be equals")
-        assert(instancedResult.options == options)
-        Then("provider will be equals")
-        assert(instancedResult.classIdentifier == provider)
-      }
-    }
-  }
 
   val registerAllTablesCommandPermutations =
     Table(
@@ -148,17 +121,7 @@ class SapDDLParserSuite
         Given(s"provider: $provider, options: $options, ignoreConflicts: $ignoreConflicts")
         val result = ddlParser.parse(sql)
 
-        Then("the result will be a instance of RegisterAllTablesUsing")
-        assert(result.isInstanceOf[RegisterAllTablesUsing])
-
-        val convertedResult = result.asInstanceOf[RegisterAllTablesUsing]
-
-        Then("the ignoreConflicts will be correct")
-        assert(convertedResult.ignoreConflicts == ignoreConflicts)
-        Then("the options will be correct")
-        assert(convertedResult.options == options)
-        Then("the provider name will be correct")
-        assert(convertedResult.provider == provider)
+        assertResult(RegisterAllTablesCommand(provider, options, ignoreConflicts))(result)
     }
   }
 
@@ -181,20 +144,7 @@ class SapDDLParserSuite
        ignoreConflict: Boolean) =>
         Given(s"provider: $provider, options: $options, ignoreConflicts: $ignoreConflict")
         val result = ddlParser.parse(sql)
-
-        Then("the result will be a instance of RegisterAllTablesUsing")
-        assert(result.isInstanceOf[RegisterTableUsing])
-
-        val convertedResult = result.asInstanceOf[RegisterTableUsing]
-
-        Then("the table name is correct")
-        assert(convertedResult.tableName == table)
-        Then("the ignoreConflicts will be correct")
-        assert(convertedResult.ignoreConflict == ignoreConflict)
-        Then("the options will be correct")
-        assert(convertedResult.options == options)
-        Then("the provider name will be correct")
-        assert(convertedResult.provider == provider)
+        assertResult(RegisterTableCommand(table, provider, options, ignoreConflict))(result)
     }
   }
 
@@ -416,14 +366,13 @@ OPTIONS (
         |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
-    assert(ddlParser.parse(testTable).isInstanceOf[CreateHashPartitioningFunction])
-
-    val cpf = parsedStmt.asInstanceOf[CreateHashPartitioningFunction]
-    assert(cpf.parameters.contains("discovery"))
-    assert(cpf.parameters("discovery") == "1.1.1.1")
-    assert(cpf.name == "test")
-    assert(cpf.datatypes == Seq(IntegerType, StringType))
-    assert(cpf.provider == "com.sap.spark.vora")
+    assertResult(
+        CreateHashPartitioningFunctionCommand(
+        Map("discovery" -> "1.1.1.1"),
+        "test",
+        Seq(IntegerType, StringType),
+        None,
+        "com.sap.spark.vora"))(parsedStmt)
   }
 
   test("Parse a correct CREATE PARTITION FUNCTION HASH statement with the PARTITIONS clause") {
@@ -434,16 +383,14 @@ OPTIONS (
         |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
-    assert(ddlParser.parse(testTable).isInstanceOf[CreateHashPartitioningFunction])
 
-    val cpf = parsedStmt.asInstanceOf[CreateHashPartitioningFunction]
-    assert(cpf.parameters.contains("discovery"))
-    assert(cpf.parameters("discovery") == "1.1.1.1")
-    assert(cpf.name == "test")
-    assert(cpf.datatypes == Seq(IntegerType, StringType))
-    assert(cpf.partitionsNo.isDefined)
-    assert(cpf.partitionsNo.get == 7)
-    assert(cpf.provider == "com.sap.spark.vora")
+    assertResult(
+      CreateHashPartitioningFunctionCommand(
+        Map("discovery" -> "1.1.1.1"),
+        "test",
+        Seq(IntegerType, StringType),
+        Some(7), // scalastyle:ignore magic.number
+        "com.sap.spark.vora"))(parsedStmt)
   }
 
   // scalastyle:off magic.number
@@ -455,16 +402,14 @@ OPTIONS (
         |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt1 = ddlParser.parse(testTable1)
-    assert(ddlParser.parse(testTable1).isInstanceOf[CreateRangeSplittersPartitioningFunction])
-
-    val cpf1 = parsedStmt1.asInstanceOf[CreateRangeSplittersPartitioningFunction]
-    assert(cpf1.parameters.contains("discovery"))
-    assert(cpf1.parameters("discovery") == "1.1.1.1")
-    assert(cpf1.name == "test")
-    assert(cpf1.datatype == IntegerType)
-    assert(!cpf1.rightClosed)
-    assert(cpf1.splitters == Seq(5, 10, 15))
-    assert(cpf1.provider == "com.sap.spark.vora")
+    assertResult(
+      CreateRangeSplitPartitioningFunctionCommand(
+        Map("discovery" -> "1.1.1.1"),
+        "test",
+        IntegerType,
+        Seq(5, 10, 15),
+        rightClosed = false,
+        "com.sap.spark.vora"))(parsedStmt1)
 
     val testTable2 =
       """CREATE PARTITION FUNCTION test (integer) AS RANGE SPLITTERS RIGHT CLOSED (5, 20)
@@ -473,16 +418,14 @@ OPTIONS (
         |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt2 = ddlParser.parse(testTable2)
-    assert(ddlParser.parse(testTable2).isInstanceOf[CreateRangeSplittersPartitioningFunction])
-
-    val cpf2 = parsedStmt2.asInstanceOf[CreateRangeSplittersPartitioningFunction]
-    assert(cpf2.parameters.contains("discovery"))
-    assert(cpf2.parameters("discovery") == "1.1.1.1")
-    assert(cpf2.name == "test")
-    assert(cpf2.datatype == IntegerType)
-    assert(cpf2.rightClosed)
-    assert(cpf2.splitters == Seq(5, 20))
-    assert(cpf2.provider == "com.sap.spark.vora")
+    assertResult(
+      CreateRangeSplitPartitioningFunctionCommand(
+        Map("discovery" -> "1.1.1.1"),
+        "test",
+        IntegerType,
+        Seq(5, 20),
+        rightClosed = true,
+        "com.sap.spark.vora"))(parsedStmt2)
   }
 
   test("Parse a correct CREATE PARTITION FUNCTION RANGE statement with START/END") {
@@ -493,17 +436,15 @@ OPTIONS (
         |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt1 = ddlParser.parse(testTable1)
-    assert(ddlParser.parse(testTable1).isInstanceOf[CreateRangeIntervalPartitioningFunction])
-
-    val cpf1 = parsedStmt1.asInstanceOf[CreateRangeIntervalPartitioningFunction]
-    assert(cpf1.parameters.contains("discovery"))
-    assert(cpf1.parameters("discovery") == "1.1.1.1")
-    assert(cpf1.name == "test")
-    assert(cpf1.datatype == IntegerType)
-    assert(cpf1.start == 5)
-    assert(cpf1.end == 20)
-    assert(cpf1.strideParts == Left(2))
-    assert(cpf1.provider == "com.sap.spark.vora")
+    assertResult(
+      CreateRangeIntervalPartitioningFunctionCommand(
+        Map("discovery" -> "1.1.1.1"),
+        "test",
+        IntegerType,
+        5,
+        20,
+        Left(2),
+        "com.sap.spark.vora"))(parsedStmt1)
 
     val testTable2 =
       """CREATE PARTITION FUNCTION test (integer) AS RANGE START 5 END 25 PARTS 3
@@ -512,17 +453,15 @@ OPTIONS (
         |discovery "1.1.1.1")
       """.stripMargin
     val parsedStmt2 = ddlParser.parse(testTable2)
-    assert(ddlParser.parse(testTable2).isInstanceOf[CreateRangeIntervalPartitioningFunction])
-
-    val cpf2 = parsedStmt2.asInstanceOf[CreateRangeIntervalPartitioningFunction]
-    assert(cpf2.parameters.contains("discovery"))
-    assert(cpf2.parameters("discovery") == "1.1.1.1")
-    assert(cpf2.name == "test")
-    assert(cpf2.datatype == IntegerType)
-    assert(cpf2.start == 5)
-    assert(cpf2.end == 25)
-    assert(cpf2.strideParts == Right(3))
-    assert(cpf2.provider == "com.sap.spark.vora")
+    assertResult(
+      CreateRangeIntervalPartitioningFunctionCommand(
+        Map("discovery" -> "1.1.1.1"),
+        "test",
+        IntegerType,
+        5,
+        25,
+        Right(3),
+        "com.sap.spark.vora"))(parsedStmt2)
   }
   // scalastyle:on magic.number
 
@@ -683,14 +622,12 @@ OPTIONS (
         |discovery "local")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
-    assert(ddlParser.parse(testTable).isInstanceOf[DropPartitioningFunction])
-
-    val dpf = parsedStmt.asInstanceOf[DropPartitioningFunction]
-    assert(dpf.parameters.contains("discovery"))
-    assert(dpf.parameters("discovery") == "local")
-    assert(dpf.name == "test")
-    assert(!dpf.allowNotExisting)
-    assert(dpf.provider == "com.sap.spark.vora")
+    assertResult(
+      DropPartitioningFunctionCommand(
+        Map("discovery" -> "local"),
+        "test",
+        allowNotExisting = false,
+        "com.sap.spark.vora"))(parsedStmt)
   }
 
   test("Parse a correct DROP PARTITION FUNCTION IF EXISTS statement") {
@@ -701,14 +638,12 @@ OPTIONS (
         |discovery "local")
       """.stripMargin
     val parsedStmt = ddlParser.parse(testTable)
-    assert(ddlParser.parse(testTable).isInstanceOf[DropPartitioningFunction])
-
-    val dpf = parsedStmt.asInstanceOf[DropPartitioningFunction]
-    assert(dpf.parameters.contains("discovery"))
-    assert(dpf.parameters("discovery") == "local")
-    assert(dpf.name == "test")
-    assert(dpf.allowNotExisting)
-    assert(dpf.provider == "com.sap.spark.vora")
+    assertResult(
+      DropPartitioningFunctionCommand(
+        Map("discovery" -> "local"),
+        "test",
+        allowNotExisting = true,
+        "com.sap.spark.vora"))(parsedStmt)
   }
 
   test("Do not parse incorrect DROP PARTITION FUNCTION statements") {

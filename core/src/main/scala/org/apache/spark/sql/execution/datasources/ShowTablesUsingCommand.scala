@@ -23,7 +23,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
   * @param options The options map.
   */
 private[sql]
-case class ShowTablesUsingRunnableCommand(provider: String, options: Map[String, String])
+case class ShowTablesUsingCommand(provider: String, options: Map[String, String])
   extends LogicalPlan
   with RunnableCommand {
 

@@ -9,7 +9,7 @@ import org.scalatest.mock.MockitoSugar
 
 /**
   * Defines a set of tests for
-  * [[org.apache.spark.sql.execution.datasources.DescribeTableUsingRunnableCommand]]
+  * [[org.apache.spark.sql.execution.datasources.DescribeTableUsingCommand]]
   */
 class DescribeTableUsingSuite
   extends FunSuite
