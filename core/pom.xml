@@ -5,7 +5,7 @@
   <parent>
     <artifactId>spark-sap-parent</artifactId>
     <groupId>com.sap.spark</groupId>
-    <version>1.3.78</version>
+    <version>1.3.79</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
