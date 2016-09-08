@@ -1,14 +1,20 @@
 package org.apache.spark.sql.execution.tablefunctions
 
-import org.apache.spark.sql.hierarchy.HierarchyTestUtils
-import org.apache.spark.sql.{GlobalSapSQLContext, Row}
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
+import org.apache.spark.sql.hierarchy.HierarchyTestUtils
+import org.apache.spark.sql.sources.{RawSqlExecution, RawSqlSourceProvider}
+import org.apache.spark.sql.{DatasourceResolver, GlobalSapSQLContext, Row}
+import org.scalatest.mock.MockitoSugar
+import org.mockito.Mockito._
+import DatasourceResolver.withResolver
+import org.apache.spark.util.DummyRelationUtils._
+import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 class RunDescribeTableSuite
   extends FunSuite
   with GlobalSapSQLContext
   with HierarchyTestUtils
+  with MockitoSugar
   with BeforeAndAfterEach {
 
   // scalastyle:off magic.number
@@ -193,6 +199,30 @@ class RunDescribeTableSuite
         Row(sqlc.fixCase("RASH_REVENUE_1995_2005"), "NewDate", "LINEITEM", "L_SHIPDATE"),
         Row(sqlc.fixCase("RASH_REVENUE_1995_2005"), "L_SHIPDATE", "LINEITEM", "L_SHIPDATE")))(
       values)
+  }
+
+  test("describe table works on raw sql (bug 121755)") {
+    val execution = mock[RawSqlExecution]
+    val provider = mock[RawSqlSourceProvider]
+    val resolver = mock[DatasourceResolver]
+
+    val output = 'a.string.toAttributes
+
+    when(execution.output)
+      .thenReturn(output)
+
+    when(provider.executionOf(sqlc, Map.empty, "SELECT * FROM foo", None))
+      .thenReturn(execution)
+
+    when(resolver.newInstanceOfTyped[RawSqlSourceProvider]("rawsqlprovider"))
+      .thenReturn(provider)
+
+    withResolver(sqlContext, resolver) {
+      val values = sqlc.sql("SELECT TABLE_NAME, ORIGINAL_TABLE_NAME FROM describe_table(" +
+        "``SELECT * FROM foo`` USING rawsqlprovider)").collect().toSet
+
+      assertResult(Set(Row("", "")))(values)
+    }
   }
 }
 

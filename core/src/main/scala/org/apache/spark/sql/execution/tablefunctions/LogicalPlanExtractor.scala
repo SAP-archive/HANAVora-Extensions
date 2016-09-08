@@ -1,14 +1,10 @@
 package org.apache.spark.sql.execution.tablefunctions
 
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, AggregateFunction}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.sources.sql.SqlLikeRelation
 import org.apache.spark.sql.util.PlanUtils._
-import org.codehaus.groovy.ast.expr.AttributeExpression
-
-import scala.collection.immutable.Queue
 
 /** Extracts information from a given logical plan.
   *
@@ -82,7 +78,7 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
           attr
     }
 
-    val originalTableName = extractName(originalAttribute, preOrderSeq.reverse).get
+    val originalTableName = extractName(originalAttribute, preOrderSeq.reverse).getOrElse("")
     val tableName = extractName(attribute, preOrderSeq).getOrElse("")
 
     (tableName, attribute.name, originalTableName, originalAttribute.name)
