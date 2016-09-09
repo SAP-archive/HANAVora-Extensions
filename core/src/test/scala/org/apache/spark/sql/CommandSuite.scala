@@ -153,4 +153,71 @@ class CommandSuite
       sqlc.sql("USE foo bar")
     }
   }
+
+  test("CREATE RANGE SPLIT PARTITION FUNCTION command is case sensitive") {
+    val provider = mock[PartitioningFunctionProvider]
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[PartitioningFunctionProvider]("bar"))
+      .thenReturn(provider)
+
+    withResolver(sqlc, resolver) {
+      sqlc.sql(
+        """CREATE PARTITION FUNCTION FoO (integer)
+          |AS RANGE
+          |SPLITTERS (5, 10, 15)
+          |USING bar""".stripMargin)
+    }
+
+    verify(provider, times(1))
+      .createRangeSplitPartitioningFunction(
+        sqlc,
+        Map.empty,
+        "FoO",
+        IntegerType,
+        Seq(5, 10, 15), // scalastyle:ignore magic.number
+        rightClosed = false)
+  }
+
+  test("CREATE RANGE INTERVAL PARTITION FUNCTION command is case sensitive") {
+    val provider = mock[PartitioningFunctionProvider]
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[PartitioningFunctionProvider]("bar"))
+      .thenReturn(provider)
+
+    withResolver(sqlc, resolver) {
+      sqlc.sql(
+        """CREATE PARTITION FUNCTION FoO (integer)
+          |AS RANGE
+          |START 5
+          |END 25
+          |PARTS 3
+          |USING bar""".stripMargin)
+    }
+
+    verify(provider, times(1))
+      .createRangeIntervalPartitioningFunction(
+        sqlc,
+        Map.empty,
+        "FoO",
+        IntegerType,
+        start = 5, // scalastyle:ignore magic.number
+        end = 25, // scalastyle:ignore magic.number
+        Right(3))
+  }
+
+  test("DROP PARTITION FUNCTION command is case sensitive") {
+    val provider = mock[PartitioningFunctionProvider]
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[PartitioningFunctionProvider]("bar"))
+      .thenReturn(provider)
+
+    withResolver(sqlc, resolver) {
+      sqlc.sql(
+        """DROP PARTITION FUNCTION FoO
+          |USING bar""".stripMargin)
+    }
+
+    verify(provider, times(1))
+      .dropPartitioningFunction(sqlc, Map.empty, "FoO", allowNotExisting = false)
+  }
 }

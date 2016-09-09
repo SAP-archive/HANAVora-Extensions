@@ -14,12 +14,14 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.apache.spark.sql.DatasourceResolver._
+import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.catalyst.plans.logical.view.NonPersistedView
 import org.apache.spark.sql.execution.tablefunctions.DataTypeExtractor
 import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
 import org.mockito.internal.stubbing.answers.Returns
 import org.scalatest.mock.MockitoSugar
 import org.apache.spark.util.DummyRelationUtils._
+import org.apache.spark.util.SqlContextConfigurationUtils
 
 /**
   * Test suites for system tables.
@@ -27,7 +29,8 @@ import org.apache.spark.util.DummyRelationUtils._
 class SystemTablesSuite
   extends FunSuite
   with GlobalSapSQLContext
-  with MockitoSugar {
+  with MockitoSugar
+  with SqlContextConfigurationUtils {
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -61,6 +64,16 @@ class SystemTablesSuite
       dataTypeExtractor.numericScale,
       MetadataAccessor.metadataToMap(structField.metadata).mapValues(_.toString),
       Some(customComment))
+  }
+
+  private def assertSameResultRegardlessOfCaseSensitivity(query: String)
+                                                         (expected: Set[Row]): Unit = {
+    def runQuery(): Set[Row] = sqlc.sql(query).collect().toSet
+    val caseInsensitiveValues = withConf(SQLConf.CASE_SENSITIVE.key, "false")(runQuery())
+    val caseSensitiveValues = withConf(SQLConf.CASE_SENSITIVE.key, "true")(runQuery())
+
+    assertResult(expected)(caseSensitiveValues)
+    assertResult(caseSensitiveValues)(caseInsensitiveValues)
   }
 
   val schemaFields = schema.map { field =>
@@ -582,6 +595,67 @@ class SystemTablesSuite
           Row("a", "RANGE", "c2", "int", "boundary", null, null, 1, null),
           Row("b", "BLOCK", "c1", "float", null, 1, 0, null, null),
           Row("c", "HASH", "c1", "timestamp", null, null, null, null, 1)))(values)
+    }
+  }
+
+  test("Select from TABLE_METADATA system table preserves casing of everything") {
+    withMock { dataSource =>
+      when(dataSource.getTableMetadata(any[SQLContext], any[Map[String, String]]))
+        .thenReturn(Seq(TableMetadata("Foo", Map("bar" -> "baZ", "qUx" -> "bang"))))
+
+      assertSameResultRegardlessOfCaseSensitivity(
+        "SELECT * FROM SYS.TABLE_METADATA USING com.sap.spark.dsmock")(
+        Set(Row("Foo", "bar", "baZ"), Row("Foo", "qUx", "bang")))
+    }
+  }
+
+  test("SELECT from RELATION_SQL_NAME system table returns correct mappings") {
+    val rows = sc.parallelize(Seq(Row("foo"), Row("bar")))
+    sqlContext.createDataFrame(rows, StructType('a.string :: Nil)).registerTempTable("t1")
+    sqlContext.catalog.registerTable(
+      TableIdentifier("t2"),
+      LogicalRelation(SqlLikeDummyRelation("sqlName", 'a.string)(sqlc)))
+
+    val values =
+      sqlContext
+        .sql("SELECT RELATION_NAME, SQL_NAME FROM SYS.RELATION_SQL_NAME")
+        .collect()
+        .toSet
+
+    assertResult(Set(Row("t1", null), Row("t2", "sqlName")))(values)
+  }
+
+  test("SELECT FROM TABLES system table preserves casing") {
+    withMock { dataSource =>
+      val relations = Seq("Foo", "baR", "baz").map { name =>
+        RelationInfo(name, isTemporary = false, "TABLE", None, "com.sap.spark.dsmock")
+      }
+      when(dataSource.getRelations(sqlContext, Map.empty))
+        .thenReturn(relations)
+
+      assertSameResultRegardlessOfCaseSensitivity(
+        "SELECT TABLE_NAME FROM SYS.TABLES USING com.sap.spark.dsmock")(
+        Set(Row("Foo"), Row("baR"), Row("baz")))
+    }
+  }
+
+  test("SELECT FROM SCHEMAS system table preserves casing") {
+    withMock { dataSource =>
+      val names = "Foo" -> "fOo" :: "Bar" -> "baR" :: Nil
+      val keys = names.map {
+        case (name, originalName) => RelationKey(name, originalName)
+      }
+      val schema = SchemaDescription(Seq(toSchemaField('a.string, "foo", "bar")))
+      val map: Map[RelationKey, SchemaDescription] = keys.map { key =>
+        key -> schema
+      }(collection.breakOut)
+
+      when(dataSource.getSchemas(sqlContext, Map.empty))
+        .thenReturn(map)
+
+      assertSameResultRegardlessOfCaseSensitivity(
+        "SELECT TABLE_NAME, ORIGINAL_TABLE_NAME FROM SYS.SCHEMAS USING com.sap.spark.dsmock")(
+        Set(Row("Foo", "fOo"), Row("Bar", "baR")))
     }
   }
 }

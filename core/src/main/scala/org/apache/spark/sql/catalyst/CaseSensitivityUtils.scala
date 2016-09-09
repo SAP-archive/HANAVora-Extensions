@@ -97,7 +97,7 @@ object CaseSensitivityUtils {
       if (duplicates.nonEmpty) {
         Failure(DuplicateFieldsException(schema, fixedSchema, duplicates))
       } else {
-        Success(fixedSchema)
+        Success(schema)
       }
     }
 

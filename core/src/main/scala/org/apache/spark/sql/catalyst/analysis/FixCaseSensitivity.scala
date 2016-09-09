@@ -22,32 +22,23 @@ case class FixCaseSensitivity[A: CaseSensitivitySource](source: A)
   extends Rule[LogicalPlan] {
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transform {
+    /**
+      * For both the [[CreateTableUsing]] and the [[CreateTablePartitionedByUsing]]
+      * we have to validate whether the given schema can be correctly queried from within
+      * the current SQLContext. If not, we will throw an exception here. Otherwise,
+      * we will leave the schema unchanged and proceed.
+      */
     case c@CreateTableUsing(tableIdent, schema, _, _, _, _, _) =>
       /** If a schema is set, it is validated to be correct within the current casing */
-      c.copy(
-        tableIdent = source.fixCase(tableIdent),
-        userSpecifiedSchema = schema.map(schema => source.validatedSchema(schema).get))
-
+      c.copy(userSpecifiedSchema = schema.map(schema => source.validatedSchema(schema).get))
     case c@CreateTablePartitionedByUsing(tableIdent, schema, _, pFun, pColumns, _, _, _, _) =>
       /** If a schema is set, it is validated to be correct within the current casing */
-      c.copy(
-        tableIdent = source.fixCase(tableIdent),
-        userSpecifiedSchema = schema.map(schema => source.validatedSchema(schema).get),
-        partitioningFunc = source.fixCase(pFun),
-        partitioningColumns = pColumns.map(source.fixCase))
+      c.copy(userSpecifiedSchema = schema.map(schema => source.validatedSchema(schema).get))
 
-    case c: PartitioningFunctionCommand =>
-      c.withName(source.fixCase(c.name))
-
-    case d@DescribeTableUsingCommand(name, _, _) =>
-      d.copy(source.fixCase(name))
-
-    case r@RegisterTableCommand(tableName, _, _, _) =>
-      r.copy(source.fixCase(tableName))
-
-    case c: AbstractViewCommand =>
-      c.withIdentifier(source.fixCase(c.identifier))
-
+    /**
+      * For the [[UnresolvedDropCommand]], we should change the table name here
+      * since the analysis inside is case sensitive.
+      */
     case d@UnresolvedDropCommand(_, _, tableIdentifier, _) =>
       d.copy(tableIdentifier = source.fixCase(tableIdentifier))
   }

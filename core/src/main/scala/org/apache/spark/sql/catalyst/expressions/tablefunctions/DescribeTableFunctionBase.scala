@@ -6,7 +6,6 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.tablefunctions.{LogicalPlanExtractor, OutputFormatter}
-import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 /**
   * Base implementation of describe table functionality.
@@ -22,11 +21,11 @@ trait DescribeTableFunctionBase extends TableFunction {
           Map((null, null))
         } else column.annotations
       new OutputFormatter(
-        sqlContext.fixCase(extractor.tableSchema),
-        sqlContext.fixCase(column.tableName),
-        sqlContext.fixCase(column.name),
-        sqlContext.fixCase(column.originalTableName),
-        sqlContext.fixCase(column.originalName),
+        extractor.tableSchema,
+        column.tableName,
+        column.name,
+        column.originalTableName,
+        column.originalName,
         column.index,
         column.isNullable,
         column.inferredSqlType,

@@ -31,7 +31,7 @@ case class DependenciesSystemTable(sqlContext: SQLContext)
   /** @inheritdoc */
   override def execute(): Seq[Row] = {
     val tables = getTables(sqlContext.catalog)
-    val dependentsMap = buildDependentsMap(tables, sqlContext)
+    val dependentsMap = buildDependentsMap(tables)
 
     dependentsMap.flatMap {
       case (tableIdent, dependents) =>

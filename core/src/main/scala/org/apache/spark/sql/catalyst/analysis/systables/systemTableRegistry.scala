@@ -4,10 +4,6 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.analysis.ResolveSystemTables
 import org.apache.spark.sql.catalyst.plans.logical.{UnresolvedProviderBoundSystemTable, UnresolvedSparkLocalSystemTable, UnresolvedSystemTable}
 
-import scala.collection.mutable
-import scala.reflect.ClassTag
-import scala.util.Try
-
 /**
   * A registry for system tables.
   */
@@ -93,4 +89,5 @@ object SystemTableRegistry extends SimpleSystemTableRegistry {
   register("session_context", SessionSystemTableProvider)
   register("partition_functions", PartitionFunctionSystemTableProvider)
   register("partition_schemes", PartitionSchemeSystemTableProvider)
+  register("relation_sql_name", RelationMappingSystemTableProvider)
 }

@@ -5,7 +5,6 @@ import org.apache.spark.sql.execution.tablefunctions._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
-import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 import scala.util.Try
 
@@ -54,10 +53,10 @@ case class SparkLocalSchemaSystemTable(sqlContext: SQLContext)
             val formatter =
               new OutputFormatter(
                 null,
-                sqlContext.fixCase(column.tableName),
-                sqlContext.fixCase(column.name),
-                sqlContext.fixCase(column.originalTableName),
-                sqlContext.fixCase(column.originalName),
+                column.tableName,
+                column.name,
+                column.originalTableName,
+                column.originalName,
                 column.index,
                 column.isNullable,
                 column.dataType.simpleString,
