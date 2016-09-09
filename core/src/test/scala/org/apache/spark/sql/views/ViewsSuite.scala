@@ -5,7 +5,7 @@ import com.sap.spark.dsmock.DefaultSource.withMock
 import org.apache.spark.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation, UnresolvedStar}
+import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.{Ascending, SortOrder}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.{CreatePersistentViewCommand, ProviderException}
@@ -19,12 +19,11 @@ import org.mockito.Matchers._
 import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.mock.MockitoSugar
 import DatasourceResolver._
-import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.plans.logical.view.{NoOutput, PersistedView}
 import org.apache.spark.sql.execution.tablefunctions.TPCHTables
 import org.apache.spark.sql.types._
 import org.mockito.internal.stubbing.answers.Returns
 import org.apache.spark.util.DummyRelationUtils._
-import org.apache.spark.util.SqlContextConfigurationUtils
 
 import scala.util.Random
 
@@ -41,6 +40,7 @@ class ViewsSuite extends FunSuite
     override def createView(createViewInput: CreateViewInput): ViewHandle =
       new ViewHandle {
         override def drop(): Unit = ()
+        override def name: String = "dummy"
       }
   }
 
@@ -95,7 +95,7 @@ class ViewsSuite extends FunSuite
 
   test("Create view with min/max works (bug 116822)") {
     val customerTable = new TPCHTables(sqlc).customerTable
-    sqlc.baseRelationToDataFrame(customerTable).registerTempTable(customerTable.tableName)
+    sqlc.baseRelationToDataFrame(customerTable).registerTempTable(customerTable.relationName)
 
     sqlc.sql(
       """CREATE VIEW RASH_AGGR_1 AS

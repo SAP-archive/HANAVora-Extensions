@@ -1,7 +1,8 @@
 package org.apache.spark.sql.catalyst.analysis
 
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan}
-import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.view.AbstractView
+import org.apache.spark.sql.catalyst.rules.Rule
 
 /**
   * Resolves view plans.

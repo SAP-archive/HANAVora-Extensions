@@ -56,7 +56,7 @@ object ChangeQualifiersToTableNames extends Rule[LogicalPlan] {
 
       /** If the node is a [[SqlLikeRelation]], use its table name. */
       case lr@IsLogicalRelation(r: SqlLikeRelation) =>
-        lr.output.map({ attr => (attr.exprId, r.tableName) })
+        lr.output.map({ attr => (attr.exprId, r.relationName) })
 
       /**
         * If the node is a [[AdjacencyListHierarchySpec]], use child alias name for attributes

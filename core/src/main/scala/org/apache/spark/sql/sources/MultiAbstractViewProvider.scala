@@ -1,6 +1,6 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.plans.logical.view._
 
 sealed trait MultiAbstractViewProvider
 

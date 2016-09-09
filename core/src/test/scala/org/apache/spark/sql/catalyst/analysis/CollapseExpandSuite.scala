@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Literal}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.sources.sql.SqlLikeRelation
-import org.apache.spark.sql.sources.{BaseRelation, CatalystSource}
+import org.apache.spark.sql.sources.{BaseRelation, CatalystSource, Table}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.util.PlanComparisonUtils._
 import org.apache.spark.sql.{GlobalSapSQLContext, Row}
@@ -60,7 +60,7 @@ class CollapseExpandSuite extends FunSuite with MockitoSugar with GlobalSapSQLCo
       .thenReturn(true)
     when(relation.schema)
       .thenReturn(StructType(StructField("foo", StringType) :: Nil))
-    when(relation.tableName)
+    when(relation.relationName)
       .thenReturn("t")
     when(relation.logicalPlanToRDD(any[LogicalPlan]))
       .thenReturn(sc.parallelize(Seq(Row("a", 1), Row("b", 1), Row("a", 1))))
@@ -77,6 +77,7 @@ class CollapseExpandSuite extends FunSuite with MockitoSugar with GlobalSapSQLCo
 object CollapseExpandSuite {
   abstract class SqlLikeCatalystSourceRelation
     extends BaseRelation
+    with Table
     with SqlLikeRelation
     with CatalystSource
 }

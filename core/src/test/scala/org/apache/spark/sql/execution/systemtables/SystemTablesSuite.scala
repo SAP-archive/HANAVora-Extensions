@@ -14,6 +14,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.apache.spark.sql.DatasourceResolver._
+import org.apache.spark.sql.catalyst.plans.logical.view.NonPersistedView
 import org.apache.spark.sql.execution.tablefunctions.DataTypeExtractor
 import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
 import org.mockito.internal.stubbing.answers.Returns

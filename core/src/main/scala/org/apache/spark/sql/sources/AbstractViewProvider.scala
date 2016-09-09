@@ -2,7 +2,8 @@ package org.apache.spark.sql.sources
 
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan, Persisted}
+import org.apache.spark.sql.catalyst.plans.logical.view.{AbstractView, Persisted}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.sql.ViewKind
 
 import scala.reflect._
@@ -20,7 +21,11 @@ trait AbstractViewProvider[A <: AbstractView with Persisted] {
   * Via this handle, the view can be dropped on provider side.
   */
 trait ViewHandle {
+  /** Drops the view from provider side. */
   def drop(): Unit
+
+  /** The name of the view on provider side. */
+  def name: String
 }
 
 abstract class BaseAbstractViewProvider[A <: AbstractView with Persisted: ClassTag]

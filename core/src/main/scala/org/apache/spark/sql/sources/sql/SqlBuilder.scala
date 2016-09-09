@@ -28,7 +28,7 @@ class SqlBuilder {
     formatAttributeWithQualifiers(namespace.toSeq, tableName)
 
   protected def formatRelation(relation: SqlLikeRelation): String =
-    formatTableName(relation.nameSpace, relation.tableName)
+    formatTableName(relation.nameSpace, relation.relationName)
 
   /**
    * Builds a SELECT query with optional WHERE and GROUP BY clauses.

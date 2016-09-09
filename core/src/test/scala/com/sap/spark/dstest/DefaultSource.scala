@@ -257,7 +257,7 @@ object DefaultSource {
   def getAllPartitioningFunctions: Seq[PartitioningFunction] =
     partitioningFunctions.values.toSeq
 
-  case class DropViewHandle(viewName: String, viewKind: String) extends ViewHandle {
-    override def drop(): Unit = dropView(viewName, viewKind)
+  case class DropViewHandle(name: String, viewKind: String) extends ViewHandle {
+    override def drop(): Unit = dropView(name, viewKind)
   }
 }

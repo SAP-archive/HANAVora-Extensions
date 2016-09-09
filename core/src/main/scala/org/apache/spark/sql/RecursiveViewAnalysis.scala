@@ -2,7 +2,8 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.view.AbstractView
 import org.apache.spark.sql.execution.datasources.AbstractCreateViewCommand
 
 /**

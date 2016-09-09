@@ -1,10 +1,11 @@
-package org.apache.spark.sql.catalyst.plans.logical
+package org.apache.spark.sql.catalyst.plans.logical.view
 
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode}
 import org.apache.spark.sql.sources
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.commands.WithOrigin
-import org.apache.spark.sql.sources.sql.ViewKind
+import org.apache.spark.sql.sources.sql.{SqlLikeRelation, ViewKind}
 
 /**
   * A logical plan of a view.
@@ -24,6 +25,7 @@ trait AbstractView extends UnaryNode with sources.View {
   */
 trait Persisted
   extends DropRelation
+  with SqlLikeRelation
   with WithOrigin {
 
   this: AbstractView with Relation =>
@@ -33,6 +35,9 @@ trait Persisted
   override val provider: String
 
   override def isTemporary: Boolean = false
+
+  /** @inheritdoc */
+  override def relationName: String = handle.name
 
   /** @inheritdoc */
   override def dropTable(): Unit = handle.drop()

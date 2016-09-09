@@ -7,21 +7,23 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.LogicalRelation
-import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.sources.{BaseRelation, Table}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SQLContext, sources}
 import org.mockito.Mockito
 import org.scalatest.FunSuite
+import org.apache.spark.util.DummyRelationUtils._
 
 // scalastyle:off magic.number
 // scalastyle:off multiple.string.literals
 class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
 
   override val sqlBuilder = new SqlBuilder
-  import sqlBuilder._ // scalastyle:ignore
+  val _sqlContext = Mockito.mock(classOf[SQLContext])
 
-  val simpleTable = TestSqlLikeRelation(None, "t")
-  val simpleTableWithNamespace = TestSqlLikeRelation(Some("ns"), "t")
+  val simpleTable = SqlLikeDummyRelation("t", 'c1.ofType.string)(_sqlContext)
+  val simpleTableWithNamespace =
+    SqlLikeDummyRelation("t", 'c1.ofType.string, nameSpace = Some("ns"))(_sqlContext)
 
   testBuildSelect("SELECT * FROM \"t\"")(simpleTable, Nil, Nil)
   testBuildSelect("SELECT * FROM \"ns\".\"t\"")(simpleTableWithNamespace, Nil, Nil)
@@ -100,27 +102,18 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   testExpressionToSql("\"a\" LIKE '%b'")(Like('a, "%b"))
   testExpressionToSql("POWER(1, 3)")(Pow(1, 3))
 
-  val _sqlContext = Mockito.mock(classOf[SQLContext])
-  val t1 = LogicalRelation(new BaseRelation with SqlLikeRelation {
-    override def sqlContext: SQLContext = _sqlContext
-    override def schema: StructType = StructType(Seq(
-      StructField("c1", StringType),
-      StructField("c2", StringType)
-    ))
-    override def tableName: String = "t1"
-
-  })
+  val t1 =
+    LogicalRelation(
+      SqlLikeDummyRelation(
+        "t1",
+        StructType('c1.ofType.string :: 'c2.ofType.string :: Nil))(_sqlContext))
   val t1c1 = t1.output.find(_.name == "c1").get
   val t1c2 = t1.output.find(_.name == "c2").get
-  val t2 = LogicalRelation(new BaseRelation with SqlLikeRelation {
-    override def sqlContext: SQLContext = _sqlContext
-    override def schema: StructType = StructType(Seq(
-      StructField("c1", StringType),
-      StructField("c2", StringType)
-    ))
-    override def tableName: String = "t2"
-
-  })
+  val t2 =
+    LogicalRelation(
+      SqlLikeDummyRelation(
+        "t2",
+        StructType('c1.ofType.string :: 'c2.ofType.string :: Nil))(_sqlContext))
   val t2c1 = t2.output.find(_.name == "c1").get
   val t2c2 = t2.output.find(_.name == "c2").get
   val t1c1Ref = AttributeReference(t1c1.name, t1c1.dataType, t1c1.nullable, t1c1.metadata)()
