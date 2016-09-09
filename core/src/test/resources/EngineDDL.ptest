@@ -625,6 +625,13 @@ $expect:
 valid
 
 $query:
+drop partition scheme ps using test.data.source
+$parsed:
+RawDDLCommand ps, partition scheme, Drop, None, drop partition scheme ps, test.data.source, Map()
+$expect:
+valid
+
+$query:
 drop series table t
 $parsed:
 RawDDLCommand t, table, Drop, None, drop table t, test.data.source, Map()

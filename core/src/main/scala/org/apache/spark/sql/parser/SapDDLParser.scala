@@ -41,6 +41,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       useStatement |
       enginePartitionFunction |
       enginePartitionScheme |
+      engineDropPartitionScheme |
       engineGraphDefinition |
       engineCollectionDefinition |
       engineSeriesDefinition |

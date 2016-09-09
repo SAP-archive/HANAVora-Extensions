@@ -154,6 +154,19 @@ private[sql] trait EngineDDLParser extends LiteralParser {
             opts.getOrElse(Map.empty[String, String]))
       }
 
+  protected lazy val engineDropPartitionScheme: Parser[LogicalPlan] =
+    DROP ~ PARTITION ~ SCHEME ~ identOptQuotes ~ (USING ~> className) ^^ {
+    case drop ~ partition ~ scheme ~ ident ~ clazz =>
+      RawDDLCommand(
+        ident,
+        RawDDLObjectType.PartitionScheme,
+        RawDDLStatementType.Drop,
+        None,
+        s"$drop $partition $scheme $ident",
+        clazz,
+        Map.empty[String, String])
+   }
+
   protected lazy val engineDropGraph: Parser[LogicalPlan] =
     DROP ~ GRAPH ~ identOptQuotes ~ (USING ~> className) ^^ {
       case drop ~ graph ~ identifier ~ clazz =>
