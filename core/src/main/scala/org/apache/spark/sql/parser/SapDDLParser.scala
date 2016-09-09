@@ -23,7 +23,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   with WithConsumedInputParser {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
-      dropViewUsing |
       describeTableUsing |
       createTable |
       createHashPartitionFunction |
@@ -284,18 +283,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
     case ViewKind(kind) => kind
   }
-
-  /**
-    * Resolves a DROP VIEW ... USING statement. For more information about the rationale behind
-    * this command please take a look at [[DropPersistentViewCommand]]
-    */
-  protected lazy val dropViewUsing: Parser[LogicalPlan] =
-    DROP ~> viewKind ~ (IF ~> EXISTS).? ~ tableIdentifier ~ (USING ~> className) ~
-      (OPTIONS ~> options).? ^^ {
-      case kind ~ allowNotExisting ~ identifier ~ provider ~ opts =>
-        DropPersistentViewCommand(kind, identifier, provider,
-          opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
-    }
 
   protected lazy val relationKind: Parser[RelationKind] =
     TABLE ^^^ sources.Table | VIEW ^^^ sources.View

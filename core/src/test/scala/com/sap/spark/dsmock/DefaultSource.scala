@@ -1,11 +1,8 @@
 package com.sap.spark.dsmock
 
-import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.sources.RawDDLObjectType.RawDDLObjectType
 import org.apache.spark.sql.sources.RawDDLStatementType.RawDDLStatementType
-import org.apache.spark.sql.{Row, SQLContext}
-import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.catalyst.plans.logical.{PersistedDimensionView, PersistedView}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{DataType, StructType}
 import org.mockito.Mockito._
@@ -110,17 +107,11 @@ class DefaultSource
     : Map[String, LogicalPlanSource] =
     underlying.getAllTableRelations(sqlContext, options)
 
-  override def dropView(dropViewInput: DropViewInput): Unit =
-    underlying.dropView(dropViewInput)
-
   override def createView(createViewInput: CreateViewInput): ViewHandle =
     underlying.createView(createViewInput)
 
   override def createDimensionView(createViewInput: CreateViewInput): ViewHandle =
     underlying.createDimensionView(createViewInput)
-
-  override def dropDimensionView(dropViewInput: DropViewInput): Unit =
-    underlying.dropDimensionView(dropViewInput)
 
   override def getRelation(sqlContext: SQLContext,
                            name: Seq[String],

@@ -7,14 +7,18 @@ import org.apache.spark.sql.sources.sql.ViewKind
 
 import scala.reflect._
 
+/** A provider for storing views and dropping them via a retrieved [[ViewHandle]] */
 trait AbstractViewProvider[A <: AbstractView with Persisted] {
   val tag: ClassTag[A]
 
   def create(createViewInput: CreateViewInput): ViewHandle
-
-  def drop(dropViewInput: DropViewInput): Unit
 }
 
+/**
+  * A handle of the view on provider side.
+  *
+  * Via this handle, the view can be dropped on provider side.
+  */
 trait ViewHandle {
   def drop(): Unit
 }

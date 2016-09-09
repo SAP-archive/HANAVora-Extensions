@@ -42,8 +42,6 @@ class ViewsSuite extends FunSuite
       new ViewHandle {
         override def drop(): Unit = ()
       }
-
-    override def dropView(dropViewInput: DropViewInput): Unit = ()
   }
 
   override def beforeAll(): Unit = {
@@ -340,18 +338,6 @@ class ViewsSuite extends FunSuite
     intercept[ProviderException] {
       sqlc.sql(s"CREATE CUBE VIEW v AS SELECT * FROM $animalsTable USING com.sap.spark.dstest")
     }
-  }
-
-  test("Drop view drops the view from the provider") {
-    createAnimalsTable(sqlc)
-    sqlc.sql(s"CREATE DIMENSION VIEW v AS SELECT * FROM $animalsTable USING com.sap.spark.dstest")
-    val beforeDrop = sqlc.sql("SHOW TABLES USING com.sap.spark.dstest").collect()
-    beforeDrop should contain(Row("v", "FALSE", "DIMENSION"))
-
-    sqlc.sql(s"DROP DIMENSION VIEW v USING com.sap.spark.dstest")
-
-    val afterDrop = sqlc.sql("SHOW TABLES USING com.sap.spark.dstest").collect()
-    afterDrop should not contain Row("v", "FALSE", "DIMENSION")
   }
 
   test("Create a persistent hierarchy view (bug 108710)") {

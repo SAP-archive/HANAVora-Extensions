@@ -671,21 +671,6 @@ OPTIONS (
     intercept[SapParserException](ddlParser.parse(invStatement4))
   }
 
-  test("Handle correct DROP VIEW USING OPTIONS") {
-    val statement = """DROP VIEW IF EXISTS v
-                      |USING com.sap.spark.vora
-                      |OPTIONS(discovery "1.1.1.1")""".stripMargin
-
-    val parsed = ddlParser.parse(statement)
-    assert(parsed.isInstanceOf[DropPersistentViewCommand])
-
-    val actual = parsed.asInstanceOf[DropPersistentViewCommand]
-    assertResult(true)(actual.allowNotExisting)
-    assertResult(TableIdentifier("v"))(actual.identifier)
-    assertResult("com.sap.spark.vora")(actual.provider)
-    assertResult(Map[String, String]("discovery" -> "1.1.1.1"))(actual.options)
-  }
-
   test("Handle incorrect DROP VIEW statements") {
     val invStatement1 =
       """DROP VIE v USING com.sap.spark.vora

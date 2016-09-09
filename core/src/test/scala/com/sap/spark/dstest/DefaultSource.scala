@@ -191,22 +191,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   /**
    * @inheritdoc
    */
-  override def dropView(dropViewInput: DropViewInput): Unit = {
-    DefaultSource.dropView("view", dropViewInput)
-  }
-
-  /**
-   * @inheritdoc
-   */
   override def createDimensionView(input: CreateViewInput): ViewHandle = {
     DefaultSource.addView(input.identifier.table, "dimension", input.viewSql)
-  }
-
-  /**
-   * @inheritdoc
-   */
-  override def dropDimensionView(dropViewInput: DropViewInput): Unit = {
-    DefaultSource.dropView("dimension", dropViewInput)
   }
 }
 
