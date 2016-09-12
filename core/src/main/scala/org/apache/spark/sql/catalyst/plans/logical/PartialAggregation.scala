@@ -32,6 +32,24 @@ import org.apache.spark.sql.util.CollectionUtils.RichIterable
   *
   */
 object PartialAggregation extends Logging {
+
+  /**
+    * Determine if the given function is eligible for partial aggregation.
+    *
+    * @param aggregateFunction The aggregate function.
+    * @return `true` if the given aggregate function is not supported for partial aggregation,
+    * `false` otherwise.
+    */
+  def nonSupportedAggregateFunction(aggregateFunction: AggregateFunction): Boolean =
+    aggregateFunction match {
+      case _: Count => false
+      case _: Sum => false
+      case _: Min => false
+      case _: Max => false
+      case _: Average => false
+      case _ => true
+    }
+
   type ReturnType = (Seq[NamedExpression], Seq[AggregateExpression], Seq[NamedExpression],
     Seq[NamedExpression], Map[(AggregateFunction, Boolean), Attribute],
     Seq[NamedExpression], LogicalPlan)
@@ -39,12 +57,10 @@ object PartialAggregation extends Logging {
   // scalastyle:off cyclomatic.complexity
   def unapply(plan: LogicalPlan): Option[ReturnType] = plan match {
 
-    // Search for an aggregate function that does not support partial
-    // if we find one, we are done here, we cannot go for a partial aggregation
+    // Make sure that only our handled partial aggregates are processed.
     case logical.Aggregate(_, resultExpressions, _) if resultExpressions.flatMap(
       expr => expr.collect { case agg: AggregateExpression => agg })
-      .exists(!_.aggregateFunction.supportsPartial) =>
-      // no match
+      .exists(agg => nonSupportedAggregateFunction(agg.aggregateFunction)) =>
       logWarning("Found an aggregate function that could not be pushed down - falling back " +
         "to normal behavior")
       None
