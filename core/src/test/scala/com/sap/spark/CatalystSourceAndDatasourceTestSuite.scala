@@ -4,7 +4,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.tablefunctions.TPCHTables
 import org.apache.spark.sql.sources.sql.SqlLikeRelation
-import org.apache.spark.sql.sources.{BaseRelation, CatalystSource}
+import org.apache.spark.sql.sources.{BaseRelation, CatalystSource, Table}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.apache.spark.util.DummyRelationUtils._
@@ -22,7 +22,11 @@ class CatalystSourceAndDatasourceTestSuite
   with GlobalSapSQLContext
   with MockitoSugar{
 
-  abstract class MockRelation extends BaseRelation with SqlLikeRelation with CatalystSource
+  abstract class MockRelation
+    extends BaseRelation
+    with Table
+    with SqlLikeRelation
+    with CatalystSource
 
   private def registerMockCatalystRelation(tableName: String,
                                            schema: StructType,

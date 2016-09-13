@@ -1,7 +1,8 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.plans.logical.{AbstractView, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.view.AbstractView
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 import org.apache.spark.sql.sources.sql.ViewKind
 import org.apache.spark.sql.sources.{AbstractViewProvider, CreateViewInput, ViewHandle}

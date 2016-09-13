@@ -1,6 +1,7 @@
 package org.apache.spark.sql.sources.sql
 
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.plans.logical.view._
 import org.apache.spark.sql.sources.ViewHandle
 
 import scala.reflect._

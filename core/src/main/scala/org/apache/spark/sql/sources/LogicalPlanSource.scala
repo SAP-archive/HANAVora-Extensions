@@ -1,6 +1,6 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, PersistedCubeView, PersistedDimensionView, PersistedView}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.{DataFrame, SQLContext}
 

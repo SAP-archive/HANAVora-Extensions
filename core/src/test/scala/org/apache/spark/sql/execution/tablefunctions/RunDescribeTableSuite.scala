@@ -164,7 +164,7 @@ class RunDescribeTableSuite
       tpch.nationTable,
       tpch.lineItemTable,
       tpch.ordersTable).foreach { table =>
-      sqlc.baseRelationToDataFrame(table).registerTempTable(table.tableName)
+      sqlc.baseRelationToDataFrame(table).registerTempTable(table.relationName)
     }
 
     sqlc.sql(

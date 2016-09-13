@@ -29,10 +29,12 @@ import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
   * @param options The options map.
   */
 private[sql]
-case class DescribeTableUsingRunnableCommand(name: TableIdentifier,
-                                             provider: String, options: Map[String, String])
+case class DescribeTableUsingCommand(
+    name: TableIdentifier,
+    provider: String,
+    options: Map[String, String])
   extends LogicalPlan
-    with RunnableCommand {
+  with RunnableCommand {
 
   override def output: Seq[Attribute] = StructType(
     StructField("TABLE_NAME", StringType, nullable = false) ::

@@ -74,7 +74,7 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
   private def buildDependentsMap(catalog: Catalog,
                                  identifier: TableIdentifier): Map[String, Option[DropRelation]] = {
     val tables = getTables(catalog, identifier.database)
-    val tablesAndDependents = buildDependentsMap(tables, catalog)
+    val tablesAndDependents = buildDependentsMap(tables)
 
     def aggregate(acc: Set[TableIdentifier],
                   next: List[TableIdentifier]): Set[TableIdentifier] = next match {

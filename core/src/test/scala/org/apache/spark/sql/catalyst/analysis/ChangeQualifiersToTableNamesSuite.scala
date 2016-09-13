@@ -1,43 +1,28 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.expressions.{Ascending, AttributeReference, SortOrder}
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.execution.datasources.LogicalRelation
-import org.apache.spark.sql.sources.BaseRelation
-import org.apache.spark.sql.sources.sql.SqlLikeRelation
 import org.apache.spark.sql.types._
+import org.apache.spark.util.DummyRelationUtils.SqlLikeDummyRelation
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
 
 class ChangeQualifiersToTableNamesSuite extends FunSuite with MockitoSugar {
+  val sqlc = mock[SQLContext]
 
-  val br1 = new BaseRelation with SqlLikeRelation {
+  val schema =
+    StructType(Seq(StructField("name", StringType), StructField("age", IntegerType)))
 
-    override def tableName: String = "testTable1"
+  val br1 =
+    SqlLikeDummyRelation("testTable1", schema)(sqlc)
 
-    override def sqlContext: SQLContext = mock[SQLContext]
-
-    override def schema: StructType = StructType(Seq(
-      StructField("name", StringType),
-      StructField("age", IntegerType)
-    ))
-  }
-
-  val br2 = new BaseRelation with SqlLikeRelation {
-
-    override def tableName: String = "testTable2"
-
-    override def sqlContext: SQLContext = mock[SQLContext]
-
-    override def schema: StructType = StructType(Seq(
-      StructField("name", StringType),
-      StructField("age", IntegerType)
-    ))
-  }
+  val br2 =
+    SqlLikeDummyRelation("testTable2", schema)(sqlc)
 
   def t1: LogicalPlan = new LocalRelation(output = Seq(
     new AttributeReference("pred", StringType, nullable = true, metadata = Metadata.empty)(),

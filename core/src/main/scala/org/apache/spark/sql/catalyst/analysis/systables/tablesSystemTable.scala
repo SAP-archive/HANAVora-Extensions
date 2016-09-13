@@ -44,7 +44,7 @@ case class SparkLocalTablesSystemTable(sqlContext: SQLContext)
           case w: WithOrigin => w.provider
         }
         Row(
-          sqlContext.fixCase(table),
+          table,
           isTemporary.toString.toUpperCase,
           kind.toUpperCase,
           origin.orNull)

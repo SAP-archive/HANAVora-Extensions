@@ -2,7 +2,6 @@ package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 
 /**
   * The functionality of calculating the dependencies for the tables in a given
@@ -17,7 +16,7 @@ trait TableDependencyCalculator {
       .getTables(database)
       .map {
         case (name, _) =>
-          val ident = catalog.fixCase(TableIdentifier(name, database))
+          val ident = TableIdentifier(name, database)
           val plan = catalog.lookupRelation(ident)
           ident -> plan
       }.toMap
@@ -25,21 +24,22 @@ trait TableDependencyCalculator {
   /**
     * Constructs a map of [[TableIdentifier]]s and their dependent [[TableIdentifier]]s.
     *
+    * The constructed map of table identifiers and their dependencies is always case sensitive.
+    *
     * @param tables A map of [[TableIdentifier]]s and their associated [[LogicalPlan]]s.
     * @return A map of [[TableIdentifier]]s and a set of [[TableIdentifier]]s that
     *         have dependencies to it.
     */
-  protected def buildDependentsMap[A: CaseSensitivitySource](
-                                        tables: Map[TableIdentifier, LogicalPlan],
-                                        source: A): Map[TableIdentifier, Set[TableIdentifier]] = {
+  protected def buildDependentsMap(
+        tables: Map[TableIdentifier, LogicalPlan]): Map[TableIdentifier, Set[TableIdentifier]] = {
     /**
       * First, build up a map of table identifiers and the tables they
       * are referencing in their logical plans.
       */
     val tablesAndReferences = tables.map {
       case (key, value) =>
-        source.fixCase(key) -> value.collect {
-          case UnresolvedRelation(ident, _) => source.fixCase(ident)
+        key -> value.collect {
+          case UnresolvedRelation(ident, _) => ident
         }.toSet
     }
 

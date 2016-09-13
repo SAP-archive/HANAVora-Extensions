@@ -9,7 +9,7 @@ import org.scalatest.mock.MockitoSugar
 
 /**
   * Defines a set of tests for
-  * [[org.apache.spark.sql.execution.datasources.DescribeTableUsingRunnableCommand]]
+  * [[org.apache.spark.sql.execution.datasources.DescribeTableUsingCommand]]
   */
 class DescribeTableUsingSuite
   extends FunSuite
@@ -31,7 +31,7 @@ class DescribeTableUsingSuite
 
   test("DESCRIBE TABLE works with case insensitivity") {
     val provider = mock[DatasourceCatalog]
-    when(provider.getRelation(sqlc, Seq("foo"), Map.empty))
+    when(provider.getRelation(sqlc, Seq("FOO"), Map.empty))
       .thenReturn(Some(RelationInfo("foo", isTemporary = false, "TABLE", Some("ddl"), "test")))
     val resolver = mock[DatasourceResolver]
     when(resolver.newInstanceOfTyped[DatasourceCatalog]("test"))

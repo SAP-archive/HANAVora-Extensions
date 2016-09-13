@@ -1,6 +1,6 @@
 package org.apache.spark.sql.sources
 
-import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.plans.logical.view._
 
 sealed trait MultiAbstractViewProvider
 
@@ -20,18 +20,10 @@ trait CubeViewProvider extends MultiAbstractViewProvider {
     */
   def createCubeView(createViewInput: CreateViewInput): ViewHandle
 
-
-  /**
-    * Drops the cube view from the catalog of the data source.
-    *
-    * @param dropViewInput The parameters to drop a view.
-    */
-  def dropCubeView(dropViewInput: DropViewInput): Unit
-
   private[sql] def toSingleCubeViewProvider: AbstractViewProvider[PersistedCubeView] = {
     new BaseAbstractViewProvider[PersistedCubeView] {
-      override def drop(dropViewInput: DropViewInput): Unit = dropCubeView(dropViewInput)
 
+      /** @inheritdoc */
       override def create(createViewInput: CreateViewInput): ViewHandle =
         createCubeView(createViewInput)
     }
@@ -54,20 +46,10 @@ trait DimensionViewProvider extends MultiAbstractViewProvider {
     */
   def createDimensionView(createViewInput: CreateViewInput): ViewHandle
 
-
-  /**
-    * Drops the dimension view from the catalog of the data source.
-    *
-    * @param dropViewInput The parameters to drop the view.
-    */
-  def dropDimensionView(dropViewInput: DropViewInput): Unit
-
   private[sql] def toSingleDimensionViewProvider: AbstractViewProvider[PersistedDimensionView] = {
     new BaseAbstractViewProvider[PersistedDimensionView] {
-      override def drop(dropViewInput: DropViewInput): Unit = {
-        dropDimensionView(dropViewInput)
-      }
 
+      /** @inheritdoc */
       override def create(createViewInput: CreateViewInput): ViewHandle = {
         createDimensionView(createViewInput)
       }
@@ -91,19 +73,10 @@ trait ViewProvider extends MultiAbstractViewProvider {
     */
   def createView(createViewInput: CreateViewInput): ViewHandle
 
-
-  /**
-    * Drops the view from the catalog of the data source.
-    *
-    * @param dropViewInput The parameters to drop the view.
-    */
-  def dropView(dropViewInput: DropViewInput): Unit
-
-
   private[sql] def toSingleViewProvider: AbstractViewProvider[PersistedView] = {
     new BaseAbstractViewProvider[PersistedView] {
-      override def drop(dropViewInput: DropViewInput): Unit = dropView(dropViewInput)
 
+      /** @inheritdoc */
       override def create(createViewInput: CreateViewInput): ViewHandle = {
         createView(createViewInput)
       }

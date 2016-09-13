@@ -49,7 +49,7 @@ case class SparkLocalMetadataSystemTable(sqlContext: SQLContext)
       val nonEmptyMetadata = if (metadata.isEmpty) Map((null, null)) else metadata
       nonEmptyMetadata.map {
         case (key, value) =>
-          Row(sqlContext.fixCase(name), key, value)
+          Row(name, key, value)
       }
     }
   }

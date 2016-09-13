@@ -1,5 +1,6 @@
-package org.apache.spark.sql.catalyst.plans.logical
+package org.apache.spark.sql.catalyst.plans.logical.view
 
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.sources.ViewHandle
 import org.apache.spark.sql.sources.sql.{ViewKind, Cube => CubeKind}
 

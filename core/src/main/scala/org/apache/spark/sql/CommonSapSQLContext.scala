@@ -1,10 +1,9 @@
 package org.apache.spark.sql
 
-import java.io.InputStream
 import java.util.Properties
 
+import org.apache.spark.sql.execution.datasources.RegisterAllTablesCommand
 import org.apache.spark.sql.extension._
-import org.apache.spark.sql.sources.commands.RegisterAllTablesUsing
 
 import scala.util.Try
 
@@ -77,6 +76,6 @@ private[sql] object CommonSapSQLContext {
 
   private def registerTablesFromDs(provider: String, sqlc: SQLContext,
                                    options: Map[String, String], ignoreConflicts: Boolean): Unit = {
-    DataFrame(sqlc, new RegisterAllTablesUsing(provider, options, ignoreConflicts))
+    DataFrame(sqlc, RegisterAllTablesCommand(provider, options, ignoreConflicts))
   }
 }

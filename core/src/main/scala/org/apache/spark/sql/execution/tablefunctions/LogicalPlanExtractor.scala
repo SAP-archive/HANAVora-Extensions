@@ -87,7 +87,8 @@ case class LogicalPlanExtractor(plan: LogicalPlan) {
   private def extractName(attribute: Attribute, plans: Seq[LogicalPlan]): Option[String] =
     plans.filter(_.outputSet.contains(attribute)).collectFirst {
       case Subquery(alias, _) => alias
-      case LogicalRelation(r: SqlLikeRelation, _) => r.tableName
+      case r: SqlLikeRelation => r.relationName
+      case LogicalRelation(r: SqlLikeRelation, _) => r.relationName
     }
 
   def tablePart: Seq[Any] = {

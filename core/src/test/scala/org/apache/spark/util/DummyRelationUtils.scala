@@ -4,7 +4,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.{ColumnName, Row, SQLContext}
-import org.apache.spark.sql.sources.{BaseRelation, CatalystSource, LogicalPlanRDD, TableScan}
+import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.sql.SqlLikeRelation
 import org.apache.spark.sql.types.{StructField, StructType}
 
@@ -12,6 +12,16 @@ import org.apache.spark.sql.types.{StructField, StructType}
   * Utility functions for creating dummy [[BaseRelation]]s.
   */
 object DummyRelationUtils {
+
+  /**
+    * Converts a [[Seq]] of [[StructField]] to a [[StructType]].
+    *
+    * @param fields The fields to be contained in the created [[StructType]].
+    * @return The [[StructType]] with the given [[StructField]]s.
+    */
+  implicit def structFieldSeqToStructType(fields: Seq[StructField]): StructType =
+    StructType(fields)
+
   /**
     * Converts a single [[StructField]] to a [[StructType]] with the single field.
     *
@@ -74,15 +84,18 @@ object DummyRelationUtils {
   /**
     * A dummy relation that implements [[BaseRelation]] and [[SqlLikeRelation]].
     *
-    * @param tableName The table name for the [[SqlLikeRelation]].
+    * @param relationName The table name for the [[SqlLikeRelation]].
     * @param schema The [[StructType]] schema of the relation.
     * @param sqlContext The Spark [[SQLContext]].
     */
   case class SqlLikeDummyRelation(
-      tableName: String,
-      schema: StructType)
-     (@transient implicit val sqlContext: SQLContext)
+      relationName: String,
+      schema: StructType,
+      isTemporary: Boolean = true,
+      override val nameSpace: Option[String] = None)
+       (@transient implicit val sqlContext: SQLContext)
     extends BaseRelation
+    with Table
     with SqlLikeRelation
 
   /**

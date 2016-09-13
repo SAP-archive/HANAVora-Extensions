@@ -23,7 +23,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   with WithConsumedInputParser {
 
   override protected lazy val ddl: Parser[LogicalPlan] =
-      dropViewUsing |
       describeTableUsing |
       createTable |
       createHashPartitionFunction |
@@ -34,7 +33,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       dropTable |
       describeTable |
       refreshTable |
-      showTables |
       showTablesUsing |
       showPartitionFunctionsUsing |
       registerAllTables |
@@ -206,7 +204,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         }
         val options = opts.getOrElse(Map.empty[String, String])
         val partitionsNoInt = if (partitionsNo.isDefined) Some(partitionsNo.get.toInt) else None
-        CreateHashPartitioningFunction(options, name, provider, types, partitionsNoInt)
+        CreateHashPartitioningFunctionCommand(options, name, types, partitionsNoInt, provider)
     }
 
   /**
@@ -237,8 +235,13 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           splitters.map(_.toInt)
         }
         val options = opts.getOrElse(Map.empty[String, String])
-        CreateRangeSplittersPartitioningFunction(options, name, provider, types.head,
-          splittersConv, rightClosed)
+        CreateRangeSplitPartitioningFunctionCommand(
+          options,
+          name,
+          types.head,
+          splittersConv,
+          rightClosed,
+          provider)
     }
 
   /**
@@ -267,25 +270,19 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           Right(strideValue.toInt)
         }
         val options = opts.getOrElse(Map.empty[String, String])
-        CreateRangeIntervalPartitioningFunction(options, name, provider, types.head,
-          start.toInt, end.toInt, strideParts)
+        CreateRangeIntervalPartitioningFunctionCommand(
+          options,
+          name,
+          types.head,
+          start.toInt,
+          end.toInt,
+          strideParts,
+          provider)
     }
 
   protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
     case ViewKind(kind) => kind
   }
-
-  /**
-    * Resolves a DROP VIEW ... USING statement. For more information about the rationale behind
-    * this command please take a look at [[DropPersistentViewCommand]]
-    */
-  protected lazy val dropViewUsing: Parser[LogicalPlan] =
-    DROP ~> viewKind ~ (IF ~> EXISTS).? ~ tableIdentifier ~ (USING ~> className) ~
-      (OPTIONS ~> options).? ^^ {
-      case kind ~ allowNotExisting ~ identifier ~ provider ~ opts =>
-        DropPersistentViewCommand(kind, identifier, provider,
-          opts.getOrElse(Map.empty[String, String]), allowNotExisting.isDefined)
-    }
 
   protected lazy val relationKind: Parser[RelationKind] =
     TABLE ^^^ sources.Table | VIEW ^^^ sources.View
@@ -303,11 +300,10 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     REGISTER ~> ALL ~> TABLES ~> (USING ~> className) ~
       (OPTIONS ~> options).? ~ (IGNORING ~> CONFLICTS).? ^^ {
       case provider ~ opts ~ ignoreConflicts =>
-        RegisterAllTablesUsing(
+        RegisterAllTablesCommand(
           provider = provider,
           options = opts.getOrElse(Map.empty[String, String]),
-          ignoreConflicts.isDefined
-        )
+          ignoreConflicts.isDefined)
     }
 
   /**
@@ -320,12 +316,11 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     REGISTER ~> TABLE ~> ident ~ (USING ~> className) ~
       (OPTIONS ~> options).? ~ (IGNORING ~> CONFLICTS).? ^^ {
       case tbl ~ provider ~ opts ~ ignoreConflicts =>
-        RegisterTableUsing(
+        RegisterTableCommand(
           tableName = tbl,
           provider = provider,
           options = opts.getOrElse(Map.empty[String, String]),
-          ignoreConflicts.isDefined
-        )
+          ignoreConflicts.isDefined)
     }
 
   /**
@@ -347,7 +342,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           case None =>
             TableIdentifier(tbl)
         }
-        AppendCommand(UnresolvedRelation(tblIdentifier, None), opts)
+        UnresolvedAppendCommand(UnresolvedRelation(tblIdentifier, None), opts)
     }
 
   /**
@@ -372,19 +367,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
       case allowNotExisting ~ name ~ provider ~ opts =>
         val options = opts.getOrElse(Map.empty[String, String])
-        DropPartitioningFunction(options, name, provider, allowNotExisting.isDefined)
-    }
-
-  /**
-   * Resolves the SHOW DATASOURCETABLES statements:
-   *
-   * `SHOW VTABLES`
-   */
-  protected lazy val showTables: Parser[LogicalPlan] =
-    SHOW ~> DSTABLES ~> (USING ~> className) ~ (OPTIONS ~> options).? ^^ {
-      case classId ~ opts =>
-        val options = opts.getOrElse(Map.empty[String, String])
-        ShowDatasourceTablesCommand(classId, options)
+        DropPartitioningFunctionCommand(options, name, allowNotExisting.isDefined, provider)
     }
 
   /**

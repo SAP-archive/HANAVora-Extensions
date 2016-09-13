@@ -190,7 +190,7 @@ object AddSubqueries extends Rule[LogicalPlan] {
     */
   private[this] def getName(plan: LogicalPlan): Option[String] =
     plan match {
-      case IsLogicalRelation(table: SqlLikeRelation) => Some(table.tableName)
+      case IsLogicalRelation(table: SqlLikeRelation) => Some(table.relationName)
       case Subquery(alias, child) => Some(alias)
       case _ => None
     }

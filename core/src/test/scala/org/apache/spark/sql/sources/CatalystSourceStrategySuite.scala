@@ -268,8 +268,13 @@ class CatalystSourceStrategySuite
       new DummyCatalystSourceRelation(
         schema,
         isMultiplePartitionExecutionFunc = Some(_ => true),
-        supportsLogicalPlanFunc = Some(_ => true))(sqlc) with SqlLikeRelation {
-        override def tableName: String = "foo"
+        supportsLogicalPlanFunc = Some(_ => true))(sqlc)
+        with Table
+        with SqlLikeRelation {
+
+        override def relationName: String = "foo"
+
+        override def isTemporary: Boolean = true
       }
     val lcr = LogicalRelation(catalystRelation)
     val lcrCInt = lcr.attribute("c_int")

@@ -191,22 +191,8 @@ class DefaultSource extends TemporaryAndPersistentSchemaRelationProvider
   /**
    * @inheritdoc
    */
-  override def dropView(dropViewInput: DropViewInput): Unit = {
-    DefaultSource.dropView("view", dropViewInput)
-  }
-
-  /**
-   * @inheritdoc
-   */
   override def createDimensionView(input: CreateViewInput): ViewHandle = {
     DefaultSource.addView(input.identifier.table, "dimension", input.viewSql)
-  }
-
-  /**
-   * @inheritdoc
-   */
-  override def dropDimensionView(dropViewInput: DropViewInput): Unit = {
-    DefaultSource.dropView("dimension", dropViewInput)
   }
 }
 
@@ -271,7 +257,7 @@ object DefaultSource {
   def getAllPartitioningFunctions: Seq[PartitioningFunction] =
     partitioningFunctions.values.toSeq
 
-  case class DropViewHandle(viewName: String, viewKind: String) extends ViewHandle {
-    override def drop(): Unit = dropView(viewName, viewKind)
+  case class DropViewHandle(name: String, viewKind: String) extends ViewHandle {
+    override def drop(): Unit = dropView(name, viewKind)
   }
 }
