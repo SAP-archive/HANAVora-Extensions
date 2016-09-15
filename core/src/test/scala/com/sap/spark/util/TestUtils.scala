@@ -4,8 +4,15 @@ import java.util.Locale
 
 import scala.io.Source
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.{SQLContext, SapSQLContext}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.{Row, SQLContext, SapSQLContext}
 import org.apache.spark.sql.hive.SapHiveContext
+import org.apache.spark.sql.sources.sql.SqlLikeRelation
+import org.apache.spark.sql.sources.{BaseRelation, CatalystSource, Table}
+import org.apache.spark.sql.types.StructType
+import org.mockito.Matchers._
+import org.mockito.Mockito._
 
 import scala.tools.nsc.io.Directory
 import scala.util.{Failure, Success}
@@ -14,6 +21,35 @@ import scala.util.{Failure, Success}
  * Miscellaneous utilities for test suites.
  */
 object TestUtils {
+
+  abstract class MockRelation
+    extends BaseRelation
+    with Table
+    with SqlLikeRelation
+    with CatalystSource
+
+  /** Registers a [[org.apache.spark.sql.DataFrame]] as a
+    * catalyst relation to the sqlContext
+    *
+    * @param tableName The name of the registered table
+    * @param schema The schema of the data frame
+    * @param data The rdd of the data frame
+    * @param sqlc The sqlContext to register the data frame to
+    * @return The created relation that is registered to the sqlContext
+    */
+  def registerMockCatalystRelation(tableName: String,
+                                   schema: StructType,
+                                   data: RDD[Row])
+                                  (implicit sqlc: SQLContext): MockRelation = {
+    val relation = mock(classOf[MockRelation])
+    when(relation.supportsLogicalPlan(any[LogicalPlan])).thenReturn(true)
+    when(relation.logicalPlanToRDD(any[LogicalPlan])).thenReturn(data)
+    when(relation.schema).thenReturn(schema)
+    when(relation.isMultiplePartitionExecution(any[Seq[CatalystSource]]))
+      .thenReturn(true)
+    sqlc.baseRelationToDataFrame(relation).registerTempTable(tableName)
+    relation
+  }
 
   /**
    * Get absolute path in the file system for a given path in the classpath.

@@ -1,44 +1,19 @@
 package com.sap.spark
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.tablefunctions.TPCHTables
-import org.apache.spark.sql.sources.sql.SqlLikeRelation
-import org.apache.spark.sql.sources.{BaseRelation, CatalystSource, Table}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{GlobalSapSQLContext, Row}
 import org.apache.spark.util.DummyRelationUtils._
-import org.mockito.Matchers._
-import org.mockito.Mockito._
 import org.scalatest.FunSuite
-import org.scalatest.mock.MockitoSugar
+import com.sap.spark.util.TestUtils._
 
 /**
   * This uses the com.sap.spark.catalystSourceTest Default source to test the pushdown of plans
   */
-// scalastyle:off magic.number file.length
+// scalastyle:off magic.number
 class CatalystSourceAndDatasourceTestSuite
   extends FunSuite
-  with GlobalSapSQLContext
-  with MockitoSugar{
-
-  abstract class MockRelation
-    extends BaseRelation
-    with Table
-    with SqlLikeRelation
-    with CatalystSource
-
-  private def registerMockCatalystRelation(tableName: String,
-                                           schema: StructType,
-                                           data: RDD[Row]) = {
-    val relation = mock[MockRelation]
-    when(relation.supportsLogicalPlan(any[LogicalPlan])).thenReturn(true)
-    when(relation.logicalPlanToRDD(any[LogicalPlan])).thenReturn(data)
-    when(relation.schema).thenReturn(schema)
-    when(relation.isMultiplePartitionExecution(any[Seq[CatalystSource]]))
-      .thenReturn(true)
-    sqlc.baseRelationToDataFrame(relation).registerTempTable(tableName)
-  }
+  with GlobalSapSQLContext {
 
   test("Select with group by (bug 116823)") {
     val rdd = sc.parallelize(Seq(Row("a", 1L)))
