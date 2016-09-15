@@ -228,10 +228,10 @@ class SqlBuilder {
   def filterToSql(f: src.Filter): String =
     f match {
       case src.EqualTo(name, value) => s""""$name" = ${literalToSql(value)}"""
-      case src.GreaterThan(name, value) => s""""$name" > $value"""
-      case src.GreaterThanOrEqual(name, value) => s""""$name" >= $value"""
-      case src.LessThan(name, value) => s""""$name" < $value"""
-      case src.LessThanOrEqual(name, value) => s""""$name" <= $value"""
+      case src.GreaterThan(name, value) => s""""$name" > ${literalToSql(value)}"""
+      case src.GreaterThanOrEqual(name, value) => s""""$name" >= ${literalToSql(value)}"""
+      case src.LessThan(name, value) => s""""$name" < ${literalToSql(value)}"""
+      case src.LessThanOrEqual(name, value) => s""""$name" <= ${literalToSql(value)}"""
       case src.In(name, values) => s""""$name" IN (${values map literalToSql mkString ","})"""
       case src.IsNull(name) => s""""$name" IS NULL"""
       case src.IsNotNull(name) => s""""$name" IS NOT NULL"""

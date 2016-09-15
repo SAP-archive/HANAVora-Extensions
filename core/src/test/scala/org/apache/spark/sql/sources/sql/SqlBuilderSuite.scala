@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.datasources.LogicalRelation
-import org.apache.spark.sql.sources.{BaseRelation, Table}
+import org.apache.spark.sql.sources.{BaseRelation, Filter, Table}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SQLContext, sources}
 import org.mockito.Mockito
@@ -67,6 +67,11 @@ class SqlBuilderSuite extends FunSuite with SqlBuilderSuiteBase {
   testBuildSelect(
     "SELECT * FROM \"t\" WHERE \"a\" IN (1,2,3,4)")(
       simpleTable, Nil, Seq(sources.In("a", Array(1, 2, 3, 4)))
+  )
+
+  testBuildSelect(
+    "SELECT * FROM \"t\" WHERE \"c1\" > 'KS002'")(
+      simpleTable, Nil, Seq(sources.GreaterThan("c1", "KS002"))
   )
 
   testBuildSelect(
