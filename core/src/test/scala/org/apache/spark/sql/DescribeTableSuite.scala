@@ -31,16 +31,17 @@ class DescribeTableSuite extends FunSuite
       USING com.sap.spark.dstest
       OPTIONS ()"""
 
-  private val tableQuery = """CREATE TABLE testTable2
-      A INT, B INT
-      USING com.sap.spark.dstest
-      OPTIONS()"""
+  private val tableQuery =
+    """CREATE TABLE testTable2 (a date, b int)
+      |USING com.sap.spark.dstest""".stripMargin
 
-  def describe(query: String): Array[Row] =
+  def describe(query: String, ifExists: Boolean = false): Array[Row] = {
+    val describeTable = if (ifExists) "describe_table_if_exists" else "describe_table"
     sqlContext.sql(
       s"""SELECT COLUMN_NAME, ORDINAL_POSITION,
           |DATA_TYPE, ANNOTATION_KEY, ANNOTATION_VALUE
-          |FROM describe_table($query)""".stripMargin).collect()
+          |FROM $describeTable($query)""".stripMargin).collect()
+  }
 
   test("get table annotations via table name") {
     sqlContext.sql(annotatedTableQuery)
@@ -91,5 +92,24 @@ class DescribeTableSuite extends FunSuite
       Row("AA", 1, "INTEGER", "foo", "bar"),
       Row("BB", 2, "INTEGER", "baz", "bla"),
       Row("Z", 3, "INTEGER", "bla", "blabla")))(actual.toSet)
+  }
+
+  test("describe table throws a proper error message in case of erroneous views (Bug 121230)") {
+    sqlContext.sql(tableQuery)
+
+    val ex = intercept[AnalysisException] {
+      describe("SELECT * FROM testTable2 WHERE a = 42")
+    }
+    assert(ex.getMessage().contains("data type mismatch"))
+  }
+
+  test("describe table if exists throws a proper error message " +
+    "in case of erroneous views (Bug 121230)") {
+    sqlContext.sql(tableQuery)
+
+    val ex = intercept[AnalysisException] {
+      describe("SELECT * FROM testTable2 WHERE a = 42", ifExists = true)
+    }
+    assert(ex.getMessage().contains("data type mismatch"))
   }
 }

@@ -96,7 +96,7 @@ class RunDescribeTableSuite
       """CREATE VIEW V1 AS SELECT YEAH @(Semantics.type = 'date'),
         |SUM(REVENUE), CUSTOMER_ID
         |FROM sales
-        |GROUP BY CUSTOMER_ID
+        |GROUP BY CUSTOMER_ID, YEAH
       """.stripMargin)
 
     val actual = sqlc.sql("SELECT * FROM describe_table(SELECT * FROM V1)").collect()

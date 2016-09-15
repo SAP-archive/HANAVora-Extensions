@@ -24,9 +24,11 @@ class DescribeTableIfExistsTableFunction extends DescribeTableFunctionBase {
         s"1 expected, ${default.size} given")
   }
 
-
   /** @inheritdoc */
   override def analyze(analyzer: Analyzer, arguments: Seq[LogicalPlan]): Seq[Any] = {
-    arguments.map(plan => Try(analyzer.execute(plan)).toOption)
+    arguments.map(plan => Try(analyzer.execute(plan)).toOption.map { plan =>
+      analyzer.checkAnalysis(plan)
+      plan
+    })
   }
 }

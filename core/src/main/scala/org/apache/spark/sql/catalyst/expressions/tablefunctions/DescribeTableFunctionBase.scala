@@ -1,7 +1,7 @@
 package org.apache.spark.sql.catalyst.expressions.tablefunctions
 
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.catalyst.analysis.TableFunction
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, TableFunction}
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
@@ -35,6 +35,15 @@ trait DescribeTableFunctionBase extends TableFunction {
         nonEmptyAnnotations).format()
     }
     createOutputPlan(data) :: Nil
+  }
+
+  /** @inheritdoc */
+  override def analyze(analyzer: Analyzer, arguments: Seq[LogicalPlan]): Seq[Any] = {
+    arguments.map { plan =>
+      val analyzed = analyzer.execute(plan)
+      analyzer.checkAnalysis(analyzed)
+      analyzed
+    }
   }
 
   /** @inheritdoc */
