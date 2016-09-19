@@ -56,7 +56,8 @@
     <dependency.locations.enabled>false</dependency.locations.enabled>
     <!-- Workaround to fix a bug related to report plugin -->
     <topSiteURL>http://sap.corp/</topSiteURL>
-    <skipTests>false</skipTests>
+    <maven.test.skip>false</maven.test.skip>
+    <skipTests>${maven.test.skip}</skipTests>
     <skipUTs>${skipTests}</skipUTs>
     <skipITs>${skipTests}</skipITs>
   </properties>
