@@ -24,9 +24,7 @@ if [[ "$@" = *--help ]] || [[ "$@" = *-h ]]; then
   exit 0
 fi
 
-script=`readlink -f "${BASH_SOURCE[0]}"`
-dir=`dirname "$script"`
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd -P)
 source "$dir/.commons.sh"
 
 exec $SPARK_HOME/bin/spark-submit --class com.sap.spark.cli.SQLRunner "$spark_ext_lib" $*
-

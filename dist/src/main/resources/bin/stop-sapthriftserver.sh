@@ -20,15 +20,7 @@
 # Stops the thrift server on the machine this script is executed on.
 
 
-# check if spark home is set or derive it from path of file spark-submit
-if [[ -z $SPARK_HOME ]]; then
-  if which spark-submit ; then
-    SPARK_HOME="$(cd "`dirname $( readlink -nf $(which spark-submit))`"/..; pwd -P)"
-    echo "[INFO] SPARK_HOME is derived from spark-submit path to: $SPARK_HOME"
-  else
-     echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
-    exit 1
-  fi
-fi
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd -P)
+source "$dir/.commons.sh"
 
-$SPARK_HOME/sbin/spark-daemon.sh stop org.apache.spark.sql.hive.sap.thriftserver.SapThriftServer 1
+$SPARK_HOME/sbin/spark-daemon.sh stop $sapthriftserver_class 1

@@ -41,15 +41,13 @@ if [[ "$@" = *--help ]] || [[ "$@" = *-h ]]; then
   exit 0
 fi
 
-script=`readlink -f "${BASH_SOURCE[0]}"`
-dir=`dirname "$script"`
+
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd -P)
 source "$dir/.commons.sh"
 
 parse_user_jars $@
 
 jars="$spark_ext_lib,$user_jars"
-
-
 
 
 exec $SPARK_HOME/bin/spark-shell --jars "$jars" "${user_args[@]}"

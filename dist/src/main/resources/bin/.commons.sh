@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
-script=`readlink -nf "${BASH_SOURCE[0]}"`
-dir=`dirname "$script"`
-lib_dir=`readlink -fn "$dir"/../lib`
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd -P)
+lib_dir=$(cd "$dir/../lib" && pwd -P)
+
+
+# NOTE: This exact class name is matched downstream by SparkSubmit.
+# Any changes need to be reflected there.
+sapthriftserver_class="org.apache.spark.sql.hive.thriftserver.SapThriftServer"
 
 
 function check_spark_home {
@@ -15,6 +19,12 @@ function check_spark_home {
 
 
 function set_spark_libs {
+    if [[ -z "$lib_dir" ]]; then
+        # detailed error message is shown by failing command 'cd' above
+        echo "[ERROR] could not find spark assembly directory"
+        exit 1
+    fi
+
     num_libs=`ls "$lib_dir"/spark-sap-*.jar 2>/dev/null|wc -l`
 
     if [[ $num_libs != 1 ]]

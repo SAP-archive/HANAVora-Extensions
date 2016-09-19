@@ -20,22 +20,12 @@
 #
 # Shell script for starting the Spark SQL Thrift server
 
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd -P)
+source "$dir/.commons.sh"
+
 # Enter posix mode for bash
 set -o posix
 
-# Get the current directory
-FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
-
-# check if spark home is set
-if [[ -z $SPARK_HOME ]]; then
-  echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
-  exit 1
-fi
-
-
-# NOTE: This exact class name is matched downstream by SparkSubmit.
-# Any changes need to be reflected there.
-CLASS="org.apache.spark.sql.hive.thriftserver.SapThriftServer"
 
 function usage {
   echo "Usage: ./bin/start-sapthriftserver [options] [thrift server options]"
@@ -57,54 +47,7 @@ if [[ "$@" = *--help ]] || [[ "$@" = *-h ]]; then
   exit 0
 fi
 
-export SUBMIT_USAGE_FUNCTION=usage
 
 
-# check if spark home is set or derive it from path of file spark-submit
-if [[ -z $SPARK_HOME ]]; then
-  if which spark-submit ; then
-    SPARK_HOME="$(cd "`dirname $( readlink -nf $(which spark-submit))`"/..; pwd -P)"
-    echo "[INFO] SPARK_HOME is derived from spark-submit path to: $SPARK_HOME"
-  else
-     echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
-    exit 1
-  fi
-fi
-
-if [[ -e $FWDIR/target ]]; then
-  SPARK_VORA_ASSEMBLY_DIR=$FWDIR/target
-elif [[ -e $FWDIR/lib ]]; then
-  SPARK_VORA_ASSEMBLY_DIR=$FWDIR/lib
-else
-  echo Error: Spark VORA assembly directory is not found.
-  exit 1
-fi
-
-
-SPARK_VORA_ASSEMBLY_JAR=
-export SUBMIT_USAGE_FUNCTION=usage
-
-num_jars="$(ls -1 "$SPARK_VORA_ASSEMBLY_DIR" | grep "^spark-sap-.*-assembly\.jar$" | wc -l)"
-if [ "$num_jars" -eq "0" -a -z "$SPARK_ASSEMBLY_JAR" ]; then
-  echo "Failed to find Spark SAP assembly in $SPARK_VORA_ASSEMBLY_DIR." 1>&2
-  echo "You need to build Spark SAP extensions before running this program." 1>&2
-  exit 1
-fi
-
-ASSEMBLY_JARS="$(ls -1 "$SPARK_VORA_ASSEMBLY_DIR" | grep "^spark-sap-.*-assembly\.jar$" || true)"
-
-if [ "$num_jars" -gt "1" ]; then
-  echo "Found multiple Spark assembly jars in $SPARK_VORA_ASSEMBLY_DIR:" 1>&2
-  echo "$ASSEMBLY_JARS" 1>&2
-  echo "Please remove all but one jar." 1>&2
-  exit 1
-fi
-
-
-SPARK_VORA_ASSEMBLY_JAR=${SPARK_VORA_ASSEMBLY_DIR}/${ASSEMBLY_JARS}
-
-
-
-
-exec "$SPARK_HOME"/sbin/spark-daemon.sh submit $CLASS 1 $SPARK_VORA_ASSEMBLY_JAR "$@" \
+exec "$SPARK_HOME"/sbin/spark-daemon.sh submit $sapthriftserver_class 1 $spark_ext_lib "$@" \
      --hiveconf spark.sql.hive.thriftServer.singleSession=true

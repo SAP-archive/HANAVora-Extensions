@@ -23,45 +23,22 @@
 # are contained in the classpath such that access to Vora and HANA is
 # possible.
 
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd -P)
+source "$dir/.commons.sh"
+
 # Enter posix mode for bash
 set -o posix
 
-# Figure out where the script is installed
-FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
-
-# check for assembly dir
-if [[ -e $FWDIR/lib ]]; then
-  VORA_ASSEMBLY_DIR=$FWDIR/lib
-else
-  echo Error: Vora assembly directory is not found.
-  exit 1
-fi
-
-# check if spark home is set
-if [[ -z $SPARK_HOME ]]; then
-  if which beeline ; then
-    SPARK_HOME="$(cd "`dirname $( readlink -nf $(which beeline))`"/..; pwd -P)"
-    echo "[INFO] SPARK_HOME is derived from beeline path to: $SPARK_HOME"
-  else
-     echo Error: SPARK_HOME environment variable must be set to Spark installation directory.
-    exit 1
-  fi
-fi
-
 # Find the java binary
 if [ -n "${JAVA_HOME}" ]; then
-  RUNNER="${JAVA_HOME}/bin/java"
+  runner="${JAVA_HOME}/bin/java"
 else
-  if [ `command -v java` ]; then
-    RUNNER="java"
-  else
-    echo "JAVA_HOME is not set" >&2
-    exit 1
-  fi
+  runner=`which "$runner"`
 fi
 
+
 run_beeline() {
-   $RUNNER "-Djava.ext.dirs=$SPARK_HOME/lib:$VORA_ASSEMBLY_DIR" \
+   exec "$runner" "-Djava.ext.dirs=$SPARK_HOME/lib:$(dirname $spark_ext_lib)" \
        org.apache.hive.beeline.BeeLine "$1"
 }
 
