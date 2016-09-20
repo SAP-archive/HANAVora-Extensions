@@ -6,7 +6,9 @@ import org.scalatest.FunSuite
 
 // scalastyle:off magic.number
 class DescriptiveStatsSuite extends FunSuite {
+  val SEED = 123
   val SignificantPosCorrelation = 0.9
+
   test("mean") {
     val samples0 = Seq(1, 1)
     val samples1 = Seq(1, 2, 3, 4)
@@ -30,7 +32,7 @@ class DescriptiveStatsSuite extends FunSuite {
   }
 
   test("pearson") {
-    val rand = new Random()
+    val rand = new Random(SEED)
     val samples1 = Seq((1, 1), (2, 2), (3, 3))
     val samples2 = Seq((3.0, 1), (2.0, 2), (1.0, 3))
     val samples3 = (1 to 100000).map { i => (rand.nextDouble(), rand.nextDouble()) }
@@ -42,7 +44,7 @@ class DescriptiveStatsSuite extends FunSuite {
   }
 
   test("spearman") {
-    val rand = new Random()
+    val rand = new Random(SEED)
     val samples1 = Seq((1, 1), (2, 2), (3, 3))
     val samples2 = Seq((3.0, 1), (2.0, 2), (1.0, 3))
     val samples3 = (1 to 100000).map { i => (rand.nextDouble(), rand.nextDouble()) }
