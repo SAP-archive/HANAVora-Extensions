@@ -17,19 +17,19 @@ Minimal requirements for the spark extensions:
 
 ### Building
 
-Build the distribution package with
+Build the distribution package with Maven:
 
 ```bash
 mvn clean package
 ```
 
-or, if you're in a hurry,
+You can also skip the tests by adding the appropriate switch to the command line:
 
 ```bash
 mvn clean package -D maven.test.skip
 ```
 
-Then extract the package to its target directory, e.g.
+Then extract the package to its target directory:
 
 ```bash
 export SAP_SPARK_HOME=$HOME/sap-spark-extensions # choose your install dir
@@ -43,6 +43,20 @@ From the command line, execute
 
 ```bash
 $SAP_SPARK_HOME/bin/start-spark-shell.sh
+```
+
+### Using the Extensions
+
+While the spark shell starts up with `SparkContext` and `SQLContext` predefined, you need to 
+instantiate a `SapSQLContext` to make use of the extensions.
+
+```scala
+import org.apache.spark.sql._
+
+val voraContext = new SapSQLContext(sc)
+
+// now we can start with some SQL queries
+voraContext.sql("SHOW TABLES").show()
 ```
 
 ## Further Documentation
@@ -71,5 +85,5 @@ java.lang.NoSuchMethodError: org.apache.spark.sql.catalyst.optimizer.Optimizer: 
 ```
 
 This happens when spark version 1.6.2 is used, due to a change in the `Optimizer` interface. 
-Because of thiscompatibility issue, we only support versions 1.6.0 and 1.6.1.
+Because of this compatibility issue, we only support versions 1.6.0 and 1.6.1.
 
