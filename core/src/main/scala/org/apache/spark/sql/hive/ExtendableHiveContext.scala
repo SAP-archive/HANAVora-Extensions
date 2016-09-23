@@ -61,7 +61,7 @@ private[hive] class ExtendableHiveContext(
   @transient
   override protected[sql] lazy val catalog =
     new HiveMetastoreCatalog(metadataHive, this)
-      with OverrideCatalog with TemporaryFlagProxyCatalog
+      with VoraHiveOverrideCatalog with TemporaryFlagProxyCatalog
 
 
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
