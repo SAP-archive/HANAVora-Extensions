@@ -1,4 +1,5 @@
 package org.apache.spark.sql.catalyst.analysis.systables
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.TableDependencyCalculator
 import org.apache.spark.sql.sources.{RelationKind, Table}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
@@ -33,33 +34,41 @@ case class DependenciesSystemTable(sqlContext: SQLContext)
     val tables = getTables(sqlContext.catalog)
     val dependentsMap = buildDependentsMap(tables)
 
+    def kindOf(tableIdentifier: TableIdentifier): String =
+      tables
+        .get(tableIdentifier)
+        .map(plan => RelationKind.kindOf(plan).getOrElse(Table).name)
+        .getOrElse(DependenciesSystemTable.UnknownType)
+        .toUpperCase
+
     dependentsMap.flatMap {
       case (tableIdent, dependents) =>
-        val curTable = tables(tableIdent)
-        val curKind = RelationKind.kindOf(curTable, Table)
+        val curKind = kindOf(tableIdent)
         dependents.map { dependent =>
-          val dependentTable = tables(dependent)
-          val dependentKind = RelationKind.kindOf(dependentTable, Table)
+          val dependentKind = kindOf(dependent)
           Row(
             tableIdent.database.orNull,
             tableIdent.table,
-            curKind.name.toUpperCase,
+            curKind,
             dependent.database.orNull,
             dependent.table,
-            dependentKind.name.toUpperCase,
+            dependentKind,
             ReferenceDependency.id)
         }
     }.toSeq
   }
 
-  override val schema: StructType =
-    StructType(
-      Seq(
-        StructField("BASE_SCHEMA_NAME", StringType, nullable = true),
-        StructField("BASE_OBJECT_NAME", StringType, nullable = false),
-        StructField("BASE_OBJECT_TYPE", StringType, nullable = false),
-        StructField("DEPENDENT_SCHEMA_NAME", StringType, nullable = true),
-        StructField("DEPENDENT_OBJECT_NAME", StringType, nullable = false),
-        StructField("DEPENDENT_OBJECT_TYPE", StringType, nullable = false),
-        StructField("DEPENDENCY_TYPE", IntegerType, nullable = false)))
+  override val schema: StructType = DependenciesSystemTable.schema
+}
+
+object DependenciesSystemTable extends SchemaEnumeration {
+  val baseSchemaName = Field("BASE_SCHEMA_NAME", StringType, nullable = true)
+  val baseObjectName = Field("BASE_OBJECT_NAME", StringType, nullable = false)
+  val baseObjectType = Field("BASE_OBJECT_TYPE", StringType, nullable = false)
+  val dependentSchemaName = Field("DEPENDENT_SCHEMA_NAME", StringType, nullable = true)
+  val dependentObjectName = Field("DEPENDENT_OBJECT_NAME", StringType, nullable = false)
+  val dependentObjectType = Field("DEPENDENT_OBJECT_TYPE", StringType, nullable = false)
+  val dependencyType = Field("DEPENDENCY_TYPE", IntegerType, nullable = false)
+
+  private[DependenciesSystemTable] val UnknownType = "UNKNOWN"
 }

@@ -71,13 +71,14 @@ sealed trait RelationKind extends Product {
 object RelationKind {
 
   /**
-    * Returns the [[RelationKind]] of the first [[Relation]] in the plan or the default value
+    * Returns the [[RelationKind]] of the first [[Relation]] in the plan.
     *
     * @param plan The [[LogicalPlan]] to search.
-    * @return The [[RelationKind]] of the first [[Relation]] in the plan or the default value.
+    * @return [[Some]] of the [[RelationKind]] of the first [[Relation]] in the plan,
+    *         otherwise [[None]]
     */
-  def kindOf(plan: LogicalPlan, default: => RelationKind): RelationKind =
-    Relation.unapply(plan).fold(default)(_.kind)
+  def kindOf(plan: LogicalPlan): Option[RelationKind] =
+    Relation.unapply(plan).map(_.kind)
 }
 
 sealed trait ClassNameAsName extends RelationKind {

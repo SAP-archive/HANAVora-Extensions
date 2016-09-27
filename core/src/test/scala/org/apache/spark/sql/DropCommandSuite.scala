@@ -330,6 +330,25 @@ class DropCommandSuite
     assert(sqlc.tableNames().isEmpty)
     verify(dummy, times(1)).dropTable()
   }
+
+  test("Dropping inconsistent views works") {
+    sqlc.sql("CREATE VIEW v1 AS SELECT * FROM t")
+
+    sqlc.sql("DROP VIEW v1")
+
+    assert(!sqlc.catalog.tableExists(TableIdentifier("v1")))
+  }
+
+  test("Dropping inconsistent views with dependent objects works") {
+    sqlc.sql("CREATE VIEW v1 AS SELECT * FROM t")
+    sqlc.sql("CREATE VIEW v2 AS SELECT * FROM v1")
+
+    sqlc.sql("DROP VIEW v1 CASCADE")
+
+    "v1" :: "v2" :: Nil foreach { name =>
+      assert(!sqlc.catalog.tableExists(TableIdentifier(name)))
+    }
+  }
 }
 
 private[sql] case class Person(name: String, age: Int)

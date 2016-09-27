@@ -24,7 +24,7 @@ class SchemaEnumeration {
   protected final def Field(name: String,
                             dataType: DataType,
                             nullable: Boolean = true,
-                            metadata: Metadata = Metadata.empty): StructField = {
+                            metadata: Metadata = Metadata.empty): StructField = synchronized {
     if (_schema.isDefined) {
       throw new IllegalStateException("Already built a schema with defined fields")
     }
@@ -48,10 +48,11 @@ class SchemaEnumeration {
     *
     * @return The [[StructType]] schema of this.
     */
-  final def schema: StructType =
+  final def schema: StructType = synchronized {
     _schema.getOrElse {
       val structType = StructType(fieldMap.values.toSeq)
       _schema = Some(structType)
       structType
     }
+  }
 }

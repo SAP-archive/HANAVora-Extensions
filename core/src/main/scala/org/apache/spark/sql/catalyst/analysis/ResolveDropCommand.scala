@@ -25,7 +25,7 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
       val plan = resolvePlan(kind, tableIdent, allowNotExisting)
 
       val affected = plan.map { lp =>
-        val targetKind = RelationKind.kindOf(lp, Table)
+        val targetKind = RelationKind.kindOf(lp).getOrElse(Table)
         checkValidKind(kind, tableIdent, targetKind)
         buildDependentsMap(catalog, tableIdent)
       }

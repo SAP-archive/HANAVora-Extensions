@@ -658,6 +658,18 @@ class SystemTablesSuite
         Set(Row("Foo", "fOo"), Row("Bar", "baR")))
     }
   }
+
+  test("SELECT FROM OBJECT_DEPENDENCIES works in case of invalid views") {
+    sqlc.sql("CREATE VIEW v AS SELECT * FROM t")
+
+    val values =
+      sqlc.sql("""SELECT BASE_OBJECT_NAME, BASE_OBJECT_TYPE,
+                |        DEPENDENT_OBJECT_NAME, DEPENDENT_OBJECT_TYPE
+                |FROM SYS.OBJECT_DEPENDENCIES
+                |WHERE DEPENDENT_OBJECT_NAME = 'v'""".stripMargin).collect.toSet
+
+    assertResult(Set(Row("t", "UNKNOWN", "v", "VIEW")))(values)
+  }
 }
 
 object SystemTablesSuite {
