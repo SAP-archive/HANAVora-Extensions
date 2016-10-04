@@ -1,18 +1,18 @@
 package org.apache.spark.sql.parser
 
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.{AbstractSparkSQLParser, TableIdentifier}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedExtractValue, UnresolvedFunction, UnresolvedRelation, UnresolvedStar}
-import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Complete, Count, HyperLogLogPlusPlus}
+import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.util.DataTypeParser
+import org.apache.spark.sql.catalyst.{AbstractSparkSQLParser, TableIdentifier}
 import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.sources.ViewKind
 import org.apache.spark.sql.sources.commands._
-import org.apache.spark.sql.sources.sql.ViewKind
-import org.apache.spark.sql.types.{Metadata, MetadataBuilder, StructField, StructType}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CollectionUtils.CaseInsensitiveMap
 
 import scala.util.parsing.input.Position

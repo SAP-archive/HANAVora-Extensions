@@ -15,7 +15,7 @@ import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.apache.spark.sql.DatasourceResolver._
 import org.apache.spark.sql.execution.datasources.LogicalRelation
-import org.apache.spark.sql.catalyst.plans.logical.view.NonPersistedView
+import org.apache.spark.sql.catalyst.plans.logical.view.NonPersistedPlainView
 import org.apache.spark.sql.execution.tablefunctions.DataTypeExtractor
 import org.apache.spark.sql.execution.systemtables.SystemTablesSuite._
 import org.mockito.internal.stubbing.answers.Returns
@@ -420,7 +420,8 @@ class SystemTablesSuite
 
   test("dependencies system table produces correct results") {
     sqlc.registerRawPlan(DummyPlan, "table")
-    sqlc.registerRawPlan(NonPersistedView(UnresolvedRelation(TableIdentifier("table"))), "view")
+    sqlc.registerRawPlan(
+      NonPersistedPlainView(UnresolvedRelation(TableIdentifier("table"))), "view")
 
     val Array(dependencies) = sqlc.sql("SELECT * FROM SYS.OBJECT_DEPENDENCIES").collect()
     assertResult(
@@ -669,6 +670,21 @@ class SystemTablesSuite
                 |WHERE DEPENDENT_OBJECT_NAME = 'v'""".stripMargin).collect.toSet
 
     assertResult(Set(Row("t", "UNKNOWN", "v", "VIEW")))(values)
+  }
+
+  test("SELECT FROM SYS.TABLES returns correct view types") {
+    sqlc.sql("CREATE TABLE t (a int, b int) USING com.sap.spark.dstest")
+    sqlc.sql("CREATE DIMENSION VIEW v1 AS SELECT * FROM t")
+    sqlc.sql("CREATE CUBE VIEW v2 AS SELECT * FROM t")
+    sqlc.sql("CREATE VIEW v3 AS SELECT * FROM t")
+
+    val values = sqlc.sql("SELECT TABLE_NAME, KIND FROM SYS.TABLES").collect().toSet
+
+    assertResult(Set(
+      Row("t", "TABLE"),
+      Row("v1", "DIMENSION"),
+      Row("v2", "CUBE"),
+      Row("v3", "VIEW")))(values)
   }
 }
 

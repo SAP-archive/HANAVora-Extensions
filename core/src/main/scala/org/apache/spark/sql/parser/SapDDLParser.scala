@@ -5,11 +5,11 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.plans.logical.{Cube => _, _}
 import org.apache.spark.sql.execution.datasources.{CaseInsensitiveMap => _, _}
-import org.apache.spark.sql.sources.RelationKind
+import org.apache.spark.sql.sources.ViewKind
 import org.apache.spark.sql.sources.commands._
-import org.apache.spark.sql.sources.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.CollectionUtils._
+import org.apache.spark.sql.execution.datasources._
 
 import scala.util.parsing.input.Position
 
@@ -284,8 +284,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     case ViewKind(kind) => kind
   }
 
-  protected lazy val relationKind: Parser[RelationKind] =
-    TABLE ^^^ sources.Table | VIEW ^^^ sources.View
+  protected lazy val dropTarget: Parser[DropTarget] =
+    TABLE ^^^ TableTarget | VIEW ^^^ ViewTarget
 
   /**
    * Resolves the REGISTER ALL TABLES statements:
@@ -351,7 +351,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
    * `DROP TABLE tableName`
    */
   protected lazy val dropTable: Parser[LogicalPlan] =
-    DROP ~> relationKind ~ (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
+    DROP ~> dropTarget ~ (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
       case kind ~ allowNotExisting ~ db ~ tbl ~ cascade =>
         val tableIdent = TableIdentifier(tbl, db)
         UnresolvedDropCommand(kind, allowNotExisting.isDefined, tableIdent, cascade.isDefined)

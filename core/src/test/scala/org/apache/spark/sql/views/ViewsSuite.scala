@@ -13,13 +13,12 @@ import org.apache.spark.sql.hierarchy.HierarchyTestUtils
 import org.apache.spark.sql.catalyst.expressions.EqualTo
 import org.apache.spark.sql.catalyst.expressions.IsNull
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.sources.sql.{Dimension, Plain}
 import org.mockito.Mockito._
 import org.mockito.Matchers._
 import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.mock.MockitoSugar
 import DatasourceResolver._
-import org.apache.spark.sql.catalyst.plans.logical.view.{NoOutput, PersistedView}
+import org.apache.spark.sql.catalyst.plans.logical.view.{NoOutput, PersistedPlainView}
 import org.apache.spark.sql.execution.tablefunctions.TPCHTables
 import org.apache.spark.sql.types._
 import org.mockito.internal.stubbing.answers.Returns
@@ -270,7 +269,7 @@ class ViewsSuite extends FunSuite
 
     assertResult(Subquery(
       "v",
-      PersistedView(
+      PersistedPlainView(
         Project(
           UnresolvedAlias(UnresolvedStar(None)) :: Nil,
           UnresolvedRelation(TableIdentifier("t"))),
@@ -287,8 +286,14 @@ class ViewsSuite extends FunSuite
 
     withResolver(sqlContext, resolver) {
       val viewCommand =
-        CreatePersistentViewCommand(Plain, TableIdentifier("foo"), Dummy,
-          "view_sql", "qux", Map.empty, allowExisting = true)
+        CreatePersistentViewCommand(
+          PlainViewKind,
+          TableIdentifier("foo"),
+          Dummy,
+          "view_sql",
+          "qux",
+          Map.empty,
+          allowExisting = true)
 
       viewCommand.run(sqlContext)
       verify(provider, times(1)).toSingleViewProvider
@@ -305,8 +310,14 @@ class ViewsSuite extends FunSuite
 
     withResolver(sqlContext, resolver) {
       val viewCommand =
-        CreatePersistentViewCommand(Dimension, TableIdentifier("foo"), Dummy,
-          "view_sql", "qux", Map.empty, allowExisting = true)
+        CreatePersistentViewCommand(
+          DimensionViewKind,
+          TableIdentifier("foo"),
+          Dummy,
+          "view_sql",
+          "qux",
+          Map.empty,
+          allowExisting = true)
 
       intercept[ProviderException] {
         viewCommand.run(sqlContext)
@@ -351,7 +362,7 @@ class ViewsSuite extends FunSuite
                        USING com.sap.spark.dstest""")
     val actual = sqlContext.catalog.lookupRelation(TableIdentifier("v1"))
     assertResult(Subquery("v1",
-      PersistedView(
+      PersistedPlainView(
         Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
           Subquery("H",
             Hierarchy(

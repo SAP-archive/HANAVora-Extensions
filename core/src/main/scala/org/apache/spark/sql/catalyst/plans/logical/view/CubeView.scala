@@ -1,15 +1,12 @@
 package org.apache.spark.sql.catalyst.plans.logical.view
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.sources.ViewHandle
-import org.apache.spark.sql.sources.sql.{ViewKind, Cube => CubeKind}
+import org.apache.spark.sql.sources.{Cube, ViewHandle}
 
 /**
  * This trait is a thin wrapper of a logical plan for a cube view statement.
  */
-sealed trait CubeView extends AbstractView {
-  override val viewKind: ViewKind = CubeKind
-}
+sealed trait CubeView extends AbstractView with Cube
 
 /**
  * This class represents a cube view that is persisted in the catalog of a data source.

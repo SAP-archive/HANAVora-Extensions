@@ -1,15 +1,12 @@
 package org.apache.spark.sql.catalyst.plans.logical.view
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.sources.ViewHandle
-import org.apache.spark.sql.sources.sql.{Dimension, ViewKind}
+import org.apache.spark.sql.sources.{Dimension, ViewHandle}
 
 /**
  * This trait is a thin wrapper of a logical plan for a dimension view statement.
  */
-sealed trait DimensionView extends AbstractView {
-  override val viewKind: ViewKind = Dimension
-}
+sealed trait DimensionView extends AbstractView with Dimension
 
 /**
  * This class represents a dimension view that is persisted in the catalog of a data source.

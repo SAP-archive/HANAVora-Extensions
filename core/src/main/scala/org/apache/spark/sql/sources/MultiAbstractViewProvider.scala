@@ -73,8 +73,8 @@ trait ViewProvider extends MultiAbstractViewProvider {
     */
   def createView(createViewInput: CreateViewInput): ViewHandle
 
-  private[sql] def toSingleViewProvider: AbstractViewProvider[PersistedView] = {
-    new BaseAbstractViewProvider[PersistedView] {
+  private[sql] def toSingleViewProvider: AbstractViewProvider[PersistedPlainView] = {
+    new BaseAbstractViewProvider[PersistedPlainView] {
 
       /** @inheritdoc */
       override def create(createViewInput: CreateViewInput): ViewHandle = {
@@ -85,20 +85,20 @@ trait ViewProvider extends MultiAbstractViewProvider {
 }
 
 object MultiAbstractViewProvider {
-  case class TagMatcher(viewKind: sql.ViewKind) {
+  case class TagMatcher(viewKind: ViewKind) {
     def unapply(arg: MultiAbstractViewProvider): Option[AbstractViewProvider[_]] =
       (arg, viewKind) match {
-        case (v: ViewProvider, sql.Plain) =>
+        case (v: ViewProvider, PlainViewKind) =>
           Some(v.toSingleViewProvider)
-        case (c: CubeViewProvider, sql.Cube) =>
+        case (c: CubeViewProvider, CubeViewKind) =>
           Some(c.toSingleCubeViewProvider)
-        case (d: DimensionViewProvider, sql.Dimension) =>
+        case (d: DimensionViewProvider, DimensionViewKind) =>
           Some(d.toSingleDimensionViewProvider)
         case _ =>
           None
       }
   }
 
-  def matcherFor(viewKind: sql.ViewKind): TagMatcher =
+  def matcherFor(viewKind: ViewKind): TagMatcher =
     TagMatcher(viewKind)
 }

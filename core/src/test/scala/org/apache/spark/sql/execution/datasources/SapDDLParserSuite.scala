@@ -688,7 +688,7 @@ OPTIONS (
 
     assertResult(
       UnresolvedDropCommand(
-        View,
+        ViewTarget,
         allowNotExisting = false,
         TableIdentifier("v1"),
         cascade = false))(statement)

@@ -1,6 +1,7 @@
 package org.apache.spark.sql.sources
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.view._
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 
 /**
@@ -40,21 +41,47 @@ object Relation {
 }
 
 /**
-  * A relation that is a view.
-  */
-trait View extends Relation {
-
-  /** @inheritdoc */
-  override final def kind: RelationKind = View
-}
-
-/**
   * A relation that is a table.
   */
 trait Table extends Relation {
 
   /** @inheritdoc */
   override final def kind: RelationKind = Table
+}
+
+/**
+  * A relation that is a view.
+  */
+trait View extends Relation {
+  this: ViewSpecification =>
+}
+
+/** A specification of a [[View]] [[Relation]] that states the view type. */
+sealed trait ViewSpecification extends Product with ClassNameAsName {
+
+  /** The [[ViewKind]] of this [[View]]] relation. */
+  def kind: ViewKind
+}
+
+/** A plain (i.e. default) view. */
+trait Plain extends ViewSpecification {
+
+  /** @inheritdoc */
+  override def kind: ViewKind = PlainViewKind
+}
+
+/** A cube view. */
+trait Cube extends ViewSpecification {
+
+  /** @inheritdoc */
+  override def kind: ViewKind = CubeViewKind
+}
+
+/** A dimension view. */
+trait Dimension extends ViewSpecification {
+
+  /** @inheritdoc */
+  override def kind: ViewKind = DimensionViewKind
 }
 
 /**
@@ -88,5 +115,87 @@ sealed trait ClassNameAsName extends RelationKind {
 /** The table [[RelationKind]] */
 case object Table extends RelationKind with ClassNameAsName
 
-/** The view [[RelationKind]] */
-case object View extends RelationKind with ClassNameAsName
+/** A relation that is a view. */
+sealed trait ViewKind extends RelationKind {
+  type A <: AbstractView
+
+  /**
+    * Creates a view of type [[A]].
+    *
+    * @param plan The plan to wrap in the created view.
+    * @return A view of type [[A]] wrapping the given [[LogicalPlan]].
+    */
+  def createNonPersisted(plan: LogicalPlan): A
+
+  /**
+    * Creates a view of type [[A]] that is [[Persisted]].
+    *
+    * @param plan The plan to wrap in the created view.
+    * @return A view of type [[A]] wrapping the given [[LogicalPlan]].
+    */
+  def createPersisted(plan: LogicalPlan, handle: ViewHandle, provider: String): A with Persisted
+}
+
+/** A plain view kind (i.e. default view) */
+case object PlainViewKind extends ViewKind {
+  type A = PlainView
+
+  /** @inheritdoc */
+  override def createNonPersisted(plan: LogicalPlan): PlainView = NonPersistedPlainView(plan)
+
+  /** @inheritdoc */
+  override def createPersisted(plan: LogicalPlan,
+                               handle: ViewHandle,
+                               provider: String): PlainView with Persisted =
+    PersistedPlainView(plan, handle, provider)
+
+  /** @inheritdoc */
+  override val name: String = "View"
+}
+
+/** A dimension view kind. */
+case object DimensionViewKind extends ViewKind {
+  type A = DimensionView
+
+  /** @inheritdoc */
+  override def createNonPersisted(plan: LogicalPlan): DimensionView =
+    NonPersistedDimensionView(plan)
+
+  /** @inheritdoc */
+  override def createPersisted(plan: LogicalPlan,
+                               handle: ViewHandle,
+                               provider: String): DimensionView with Persisted =
+    PersistedDimensionView(plan, handle, provider)
+
+  /** @inheritdoc */
+  override val name: String = "Dimension"
+}
+
+/** A cube view kind. */
+case object CubeViewKind extends ViewKind with ClassNameAsName {
+  type A = CubeView
+
+  /** @inheritdoc */
+  override def createNonPersisted(plan: LogicalPlan): CubeView =
+    NonPersistedCubeView(plan)
+
+  /** @inheritdoc */
+  override def createPersisted(plan: LogicalPlan,
+                               handle: ViewHandle,
+                               provider: String): CubeView with Persisted =
+    PersistedCubeView(plan, handle, provider)
+
+  /** @inheritdoc */
+  override val name: String = "Cube"
+}
+
+object ViewKind {
+  def unapply(string: Option[String]): Option[ViewKind] = string match {
+    case None => Some(PlainViewKind)
+    case Some(str) => str match {
+      case "dimension" => Some(DimensionViewKind)
+      case "cube" => Some(CubeViewKind)
+      case _ => None
+    }
+  }
+}

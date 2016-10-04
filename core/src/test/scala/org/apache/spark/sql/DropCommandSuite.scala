@@ -242,7 +242,11 @@ class DropCommandSuite
     override def schema: StructType = StructType(Seq())
   }
 
-  case class DummyDroppableView(reference: String) extends UnaryNode with DropDummy with View {
+  case class DummyDroppableView(reference: String)
+    extends UnaryNode
+    with DropDummy
+    with View
+    with Plain {
     override val child: LogicalPlan = UnresolvedRelation(TableIdentifier(reference))
 
     override def output: Seq[Attribute] = Seq.empty

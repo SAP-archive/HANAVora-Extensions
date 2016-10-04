@@ -7,10 +7,10 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.tablefunctions.UnresolvedTableFunction
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
-import org.apache.spark.sql.execution.datasources.{CreateNonPersistentViewCommand, CreatePersistentViewCommand}
+import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.parser.{SapDQLParser, SapParserDialect, SapParserException}
 import org.apache.spark.sql.sources.commands.{Orc, Parquet, UnresolvedInferSchemaCommand}
-import org.apache.spark.sql.sources.sql.{Dimension, Plain, Cube => CubeKind}
+import org.apache.spark.sql.sources.{CubeViewKind, DimensionViewKind, PlainViewKind}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
 import org.scalatest.FunSuite
@@ -78,7 +78,7 @@ class SapSqlParserSuite
 
     assertResult(
       CreateNonPersistentViewCommand(
-        Plain,
+        PlainViewKind,
         TableIdentifier("v"),
         UnresolvedSelectUsing("SELECT * FROM foo", "com.sap.spark.engines"),
         temporary = false))(parsed)
@@ -92,7 +92,7 @@ class SapSqlParserSuite
 
     assertResult(
       CreateNonPersistentViewCommand(
-        Plain,
+        PlainViewKind,
         TableIdentifier("v"),
         Project(
           Seq(UnresolvedAlias(UnresolvedStar(None))),
@@ -256,7 +256,8 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE TEMPORARY VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      Plain, TableIdentifier("myview"),
+      PlainViewKind,
+      TableIdentifier("myview"),
       Project(AliasUnresolver(Literal(1)), UnresolvedRelation(TableIdentifier("mytable"))),
       temporary = true)
     comparePlans(expected, result)
@@ -266,7 +267,8 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      Plain, TableIdentifier("myview"),
+      PlainViewKind,
+      TableIdentifier("myview"),
       Project(AliasUnresolver(Literal(1)), UnresolvedRelation(TableIdentifier("mytable"))),
       temporary = false)
     comparePlans(expected, result)
@@ -283,7 +285,8 @@ class SapSqlParserSuite
                                 ) AS H
                               """.stripMargin)
     val expected = CreateNonPersistentViewCommand(
-      Plain, TableIdentifier("HV"),
+      PlainViewKind,
+      TableIdentifier("HV"),
       Project(AliasUnresolver(Literal(1)), Subquery("H", Hierarchy(
         AdjacencyListHierarchySpec(source = UnresolvedRelation(TableIdentifier("T1"), Some("v")),
           parenthoodExp = EqualTo(UnresolvedAttribute("v.pred"), UnresolvedAttribute("u.succ")),
@@ -317,7 +320,7 @@ class SapSqlParserSuite
 
     assertResult(createView.identifier.table)("aview")
 
-    assert(createView.kind == Plain)
+    assert(createView.kind == PlainViewKind)
 
     assert(createView.plan.isInstanceOf[Project])
 
@@ -381,7 +384,7 @@ class SapSqlParserSuite
     val parser = new SapParserDialect
     val result = parser.parse("CREATE DIMENSION VIEW myview AS SELECT 1 FROM mytable")
     val expected = CreateNonPersistentViewCommand(
-      Dimension, TableIdentifier("myview"),
+      DimensionViewKind, TableIdentifier("myview"),
       Project(AliasUnresolver(Literal(1)),
         UnresolvedRelation(TableIdentifier("mytable"))), temporary = false)
     comparePlans(expected, result)
@@ -400,7 +403,7 @@ class SapSqlParserSuite
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
-    assert(actual.kind == Plain)
+    assert(actual.kind == PlainViewKind)
     assertResult(statement)(actual.viewSql)
     assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
@@ -419,7 +422,7 @@ class SapSqlParserSuite
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
-    assert(actual.kind == Plain)
+    assert(actual.kind == PlainViewKind)
 
     assertResult(
       Project(
@@ -450,7 +453,7 @@ class SapSqlParserSuite
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
-    assert(actual.kind == Plain)
+    assert(actual.kind == PlainViewKind)
     assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
     assertResult(true)(actual.allowExisting)
@@ -472,7 +475,7 @@ class SapSqlParserSuite
     val persistedViewCommand = parsed.asInstanceOf[CreatePersistentViewCommand]
     assertResult(persistedViewCommand.identifier.table)("v")
     assertResult(statement)(persistedViewCommand.viewSql)
-    assert(persistedViewCommand.kind == Plain)
+    assert(persistedViewCommand.kind == PlainViewKind)
     assert(persistedViewCommand.plan.isInstanceOf[Project])
     val projection = persistedViewCommand.plan.asInstanceOf[Project]
 
@@ -521,7 +524,7 @@ class SapSqlParserSuite
     assert(parsed.isInstanceOf[CreatePersistentViewCommand])
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
-    assert(actual.kind == Dimension)
+    assert(actual.kind == DimensionViewKind)
     assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
     assertResult(true)(actual.allowExisting)
@@ -565,7 +568,7 @@ class SapSqlParserSuite
 
     val actual = parsed.asInstanceOf[CreatePersistentViewCommand]
     assertResult(statement)(actual.viewSql)
-    assert(actual.kind == CubeKind)
+    assert(actual.kind == CubeViewKind)
     assertResult(Project(UnresolvedAlias(UnresolvedStar(None)) :: Nil,
       UnresolvedRelation(TableIdentifier("t"))))(actual.plan)
     assertResult(true)(actual.allowExisting)

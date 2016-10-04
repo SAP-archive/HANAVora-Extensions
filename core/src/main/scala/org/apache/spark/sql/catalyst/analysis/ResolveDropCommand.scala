@@ -39,16 +39,16 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
     case LogicalRelation(d: DropRelation, _) => d
   }
 
-  private def resolvePlan(kind: RelationKind,
+  private def resolvePlan(kind: DropTarget,
                           tableIdent: TableIdentifier,
                           allowNotExisting: Boolean): Option[LogicalPlan] = {
     Try(catalog.lookupRelation(tableIdent)).toOption match {
       case Some(plan) => Some(plan)
       case None if allowNotExisting => None
       case None => failAnalysis(
-        s"""${kind.name} ${tableIdent.unquotedString} does not exist. To "
-          |DROP a ${kind.name} regardless if it exists of not, use
-          |DROP ${kind.name} IF EXISTS.""".stripMargin)
+        s"""${kind.targetName.toLowerCase} ${tableIdent.unquotedString} does not exist. To "
+          |DROP a ${kind.targetName.toLowerCase} regardless if it exists of not, use
+          |DROP ${kind.targetName.toUpperCase} IF EXISTS.""".stripMargin)
     }
   }
 
@@ -61,13 +61,14 @@ case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
     }
   }
 
-  private def checkValidKind(kind: RelationKind,
+  private def checkValidKind(kind: DropTarget,
                              tableIdent: TableIdentifier,
                              targetKind: RelationKind): Unit = {
-    if (targetKind != kind) {
-      failAnalysis(s"Relation '${tableIdent.unquotedString} of kind" +
-        s"$targetKind is not a ${kind.name}. Please use DROP ${targetKind.name.toUpperCase()} " +
-        s"to drop it.")
+    if (!kind.accepts(targetKind)) {
+      failAnalysis(
+        s"Relation '${tableIdent.unquotedString} of kind" +
+        s"$targetKind is not a ${kind.targetName}. " +
+        s"Please use DROP ${targetKind.name.toUpperCase()} to drop it.")
     }
   }
 

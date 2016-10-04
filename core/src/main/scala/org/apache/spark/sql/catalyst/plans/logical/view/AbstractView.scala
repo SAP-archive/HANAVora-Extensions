@@ -5,15 +5,15 @@ import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode}
 import org.apache.spark.sql.sources
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.sources.commands.WithOrigin
-import org.apache.spark.sql.sources.sql.{SqlLikeRelation, ViewKind}
+import org.apache.spark.sql.sources.sql.SqlLikeRelation
 
 /**
   * A logical plan of a view.
   */
 trait AbstractView extends UnaryNode with sources.View {
-  val plan: LogicalPlan
+  this: ViewSpecification =>
 
-  val viewKind: ViewKind
+  val plan: LogicalPlan
 
   override def child: LogicalPlan = plan
 

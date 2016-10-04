@@ -2,9 +2,8 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.RunnableCommand
-import org.apache.spark.sql.sources.AbstractViewProvider
-import org.apache.spark.sql.sources.sql.ViewKind
-import org.apache.spark.sql.{DatasourceResolver, DefaultDatasourceResolver, Row, SQLContext}
+import org.apache.spark.sql.sources.{AbstractViewProvider, ViewKind}
+import org.apache.spark.sql.{DatasourceResolver, SQLContext}
 
 /**
   * A command to create a view.
