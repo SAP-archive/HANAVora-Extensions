@@ -1,6 +1,6 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.sources.PartitioningFunctionProvider
+import org.apache.spark.sql.sources.{PartitionCatalog, PartitioningFunctionProvider}
 import org.apache.spark.sql.types.DataType
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.sql.execution.RunnableCommand
@@ -139,7 +139,8 @@ private[sql] case class CreateRangeIntervalPartitioningFunctionCommand(
  * @param name The function name
  * @param allowNotExisting The flag pointing whether an exception should
  *                         be thrown when the function does not exist
- * @param provider The datasource provider (has to implement [[PartitioningFunctionProvider]])
+ * @param provider The datasource provider (has to implement [[PartitioningFunctionProvider]] or
+  *                 [[PartitionCatalog]])
  */
 private[sql] case class DropPartitioningFunctionCommand(
     parameters: Map[String, String],
@@ -150,9 +151,22 @@ private[sql] case class DropPartitioningFunctionCommand(
 
   override def run(sqlContext: SQLContext): Seq[Row] = {
     val resolver = resolverFor(sqlContext)
-    val pfp = resolver.newInstanceOfTyped[PartitioningFunctionProvider](provider)
-    pfp.dropPartitioningFunction(sqlContext, parameters, name, allowNotExisting)
-    Seq.empty
+    val providerInstance = resolver.newInstanceOf(provider)
+    providerInstance match {
+      case pfp: PartitioningFunctionProvider => {
+        pfp.dropPartitioningFunction(sqlContext,
+          parameters,
+          name,
+          allowNotExisting)
+        Seq.empty
+      }
+      case pc: PartitionCatalog => {
+        pc.dropPartitionFunction(name)
+        Seq.empty
+      }
+      case _ => throw new ClassCastException(s"$provider is not of Type PartitioningFunction" +
+        s"Provider or PartitionCatalog")
+    }
   }
 
   /** @inheritdoc */

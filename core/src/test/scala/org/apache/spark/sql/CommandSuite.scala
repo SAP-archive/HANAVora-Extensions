@@ -127,8 +127,7 @@ class CommandSuite
   test("DROP PARTITION FUNCTION command") {
     val provider = mock[PartitioningFunctionProvider]
     val resolver = mock[DatasourceResolver]
-    when(resolver.newInstanceOfTyped[PartitioningFunctionProvider]("bar"))
-      .thenReturn(provider)
+    when(resolver.newInstanceOf("bar")).thenAnswer(new Returns(provider))
 
     withResolver(sqlc, resolver) {
       sqlc.sql(
@@ -208,8 +207,7 @@ class CommandSuite
   test("DROP PARTITION FUNCTION command is case sensitive") {
     val provider = mock[PartitioningFunctionProvider]
     val resolver = mock[DatasourceResolver]
-    when(resolver.newInstanceOfTyped[PartitioningFunctionProvider]("bar"))
-      .thenReturn(provider)
+    when(resolver.newInstanceOf("bar")).thenAnswer(new Returns(provider))
 
     withResolver(sqlc, resolver) {
       sqlc.sql(

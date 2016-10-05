@@ -36,6 +36,13 @@ trait PartitionCatalog {
     *         [[None]] otherwise.
     */
   def findPartitionFunction(id: String): Option[PartitionFunction]
+
+  /**
+    * Drops a [[PartitionFunction]] with the given name
+    *
+    * @param id the name of the partition function that should be dropped
+    */
+  def dropPartitionFunction(id: String): Unit
 }
 
 /**
