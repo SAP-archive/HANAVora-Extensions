@@ -46,12 +46,11 @@ if [[ "$@" = *--help ]] || [[ "$@" = *-h ]]; then
   run_beeline "--help"
   echo "---"
   echo "additional info at !connect"
-  echo "   Vora Url    = jdbc:hanavora://<hostname>:<port>"
+  echo "   Vora Url    = jdbc:hive2://<hostname>:<port>"
   echo "        driver = sap.hanavora.jdbc.VoraDriver"
   echo "   HANA Url    = jdbc:sap://<hostname>:3<instance-number>15"
   echo "        driver = com.sap.db.jdbc.Driver"
 else
   run_beeline "$@"
 fi
-
 
