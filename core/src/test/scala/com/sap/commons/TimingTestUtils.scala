@@ -37,14 +37,18 @@ object TimingTestUtils {
     *            needs to be `-rho < corr < rho`
     * @param warmupRuns The number of executions of the action execution before collecting samples
     * @param runs The number of runs to gather samples
+    * @param testPositiveCorr Consider positive relationship in test result (default `true`)
+    * @param testNegativeCorr Consider negative relationship in test result (default `false`)
     * @param action The action to execute
     * @return A tuple containing the test result (`true` if not correlated), the determined
     *         correlation, and the measured samples
     */
   def executionTimeNotCorrelatedWithRuns(rho: Double = SignificantCorrelation,
-                                            warmupRuns: Int = WarmupRuns,
-                                            runs: Int = Runs)
-                                           (action: => Any): (Boolean, Double, Seq[(Int, Long)]) = {
+                                         warmupRuns: Int = WarmupRuns,
+                                         runs: Int = Runs,
+                                         testPositiveCorr: Boolean = true,
+                                         testNegativeCorr: Boolean = false)
+                                         (action: => Any): (Boolean, Double, Seq[(Int, Long)]) = {
     (1 to warmupRuns).foreach { i =>
       action
     }
@@ -53,7 +57,9 @@ object TimingTestUtils {
       (i, dur)
     }
     val corr = DescriptiveStats.spearman(samples)
-    (corr > -rho && corr < rho, corr, samples)
+    val posTest = if (testPositiveCorr) corr < rho else true
+    val negTest = if (testNegativeCorr) corr > -rho else true
+    (posTest && negTest, corr, samples)
   }
 
   private[this] def timedExecution(action: => Any): Long = {
