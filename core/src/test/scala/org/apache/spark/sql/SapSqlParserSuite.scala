@@ -68,6 +68,7 @@ class SapSqlParserSuite
 
   // variables for raw select tests
   val rawSqlString = "SELECT something bla FROM A"
+  val rawMutlilineSqlString = "SELECT something bla \n FROM A"
   val className = "class.name"
 
   test("CREATE VIEW with RAW SQL") {
@@ -106,6 +107,12 @@ class SapSqlParserSuite
     // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
     assert(SapDQLParser.parse(s"``$rawSqlString`` USING $className")
       .equals(UnresolvedSelectUsing(rawSqlString, className)))
+  }
+
+  test ("""RAW SQL: ``select ....\n ...`` USING class.name""") {
+    // ('SQL COMMANDO FROM A' USING com.sap.spark.engines) JOIN SELECT * FROM X
+    assert(SapDQLParser.parse(s"``$rawMutlilineSqlString`` USING $className")
+      .equals(UnresolvedSelectUsing(rawMutlilineSqlString, className)))
   }
 
   test ("RAW SQL: ``select ....`` USING class.name AS (schema)") {

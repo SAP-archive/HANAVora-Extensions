@@ -35,7 +35,7 @@ class VoraSqlLexical extends SqlLexical {
         { case chars => StringLit(chars mkString "") }
         | '{' ~> '{' ~> chrExcept('}', '\n', EofCh).* <~ '}' <~ '}' ^^
         { case chars => StringLit(chars mkString "") }
-        | '`' ~> '`' ~> chrExcept('`', '\n', EofCh).* <~ '`' <~ '`' ^^
+        | '`' ~> '`' ~> chrExcept('`', EofCh).* <~ '`' <~ '`' ^^
         { case chars => RawSqlLiteral(chars mkString "") }
         | '`' ~> chrExcept('`', '\n', EofCh).* <~ '`' ^^
         { case chars => Identifier(chars mkString "") }
