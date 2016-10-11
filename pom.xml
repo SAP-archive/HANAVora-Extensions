@@ -30,7 +30,6 @@
     <module>zeppelin</module>
     <module>sap-thriftserver</module>
     <module>dist</module>
-    <module>extensions-thriftserver-dist</module>
   </modules>
   <properties>
     <jackson.version>2.4.4</jackson.version>
