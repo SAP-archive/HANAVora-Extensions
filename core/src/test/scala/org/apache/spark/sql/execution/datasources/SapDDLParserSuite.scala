@@ -104,47 +104,81 @@ class SapDDLParserSuite
 
   val registerAllTablesCommandPermutations =
     Table(
-      ("sql", "provider", "options", "ignoreConflicts"),
-      ("REGISTER ALL TABLES USING provider.name OPTIONS() IGNORING CONFLICTS",
-        "provider.name", Map.empty[String, String], true),
+      ("sql", "provider", "options", "ignoreConflicts", "allowExisting"),
+      ("""REGISTER ALL TABLES IF NOT EXISTS USING provider.name OPTIONS() IGNORING CONFLICTS""",
+        "provider.name", Map.empty[String, String], true, true),
+      ("""REGISTER ALL TABLES IF NOT EXISTS USING provider.name OPTIONS(optionA "option")""",
+        "provider.name", Map("optiona" -> "option"), false, true),
+      ("""REGISTER ALL TABLES IF NOT EXISTS USING provider.name""",
+        "provider.name", Map.empty[String, String], false, true),
+      ("""REGISTER ALL TABLES IF NOT EXISTS USING provider.name IGNORING CONFLICTS""",
+        "provider.name", Map.empty[String, String], true, true),
+      ("""REGISTER ALL TABLES USING provider.name OPTIONS() IGNORING CONFLICTS""",
+        "provider.name", Map.empty[String, String], true, false),
       ("""REGISTER ALL TABLES USING provider.name OPTIONS(optionA "option")""",
-        "provider.name", Map("optiona" -> "option"), false),
+        "provider.name", Map("optiona" -> "option"), false, false),
       ("""REGISTER ALL TABLES USING provider.name""",
-        "provider.name", Map.empty[String, String], false),
+        "provider.name", Map.empty[String, String], false, false),
       ("""REGISTER ALL TABLES USING provider.name IGNORING CONFLICTS""",
-        "provider.name", Map.empty[String, String], true)
+        "provider.name", Map.empty[String, String], true, false)
     )
 
   test("REGISTER ALL TABLES command") {
     forAll(registerAllTablesCommandPermutations) {
-      (sql: String, provider: String, options: Map[String, String], ignoreConflicts: Boolean) =>
-        Given(s"provider: $provider, options: $options, ignoreConflicts: $ignoreConflicts")
+      (sql: String,
+       provider: String,
+       options: Map[String, String],
+       ignoreConflicts: Boolean,
+       allowExisting: Boolean) =>
+        Given(
+          s"""provider: $provider,
+             |options: $options,
+             |ignoreConflicts: $ignoreConflicts,
+             |allowExisting: $allowExisting""".stripMargin)
         val result = ddlParser.parse(sql)
 
-        assertResult(RegisterAllTablesCommand(provider, options, ignoreConflicts))(result)
+        assertResult(
+          RegisterAllTablesCommand(provider, options, ignoreConflicts, allowExisting))(result)
     }
   }
 
   val registerTableCommandPermutations =
     Table(
-      ("sql", "table", "provider", "options", "ignoreConflicts"),
-      ("REGISTER TABLE bla USING provider.name OPTIONS() IGNORING CONFLICTS",
-        "bla", "provider.name", Map.empty[String, String], true),
+      ("sql", "table", "provider", "options", "ignoreConflicts", "allowExisting"),
+      ("""REGISTER TABLE bla USING provider.name OPTIONS() IGNORING CONFLICTS""",
+        "bla", "provider.name", Map.empty[String, String], true, false),
       ("""REGISTER TABLE bla USING provider.name OPTIONS(optionA "option")""",
-        "bla", "provider.name", Map("optiona" -> "option"), false),
+        "bla", "provider.name", Map("optiona" -> "option"), false, false),
       ("""REGISTER TABLE bla USING provider.name""",
-        "bla", "provider.name", Map.empty[String, String], false),
+        "bla", "provider.name", Map.empty[String, String], false, false),
       ("""REGISTER TABLE bla USING provider.name IGNORING CONFLICTS""",
-        "bla", "provider.name", Map.empty[String, String], true)
+        "bla", "provider.name", Map.empty[String, String], true, false),
+      ("""REGISTER TABLE IF NOT EXISTS bla USING provider.name OPTIONS() IGNORING CONFLICTS""",
+        "bla", "provider.name", Map.empty[String, String], true, true),
+      ("""REGISTER TABLE IF NOT EXISTS bla USING provider.name OPTIONS(optionA "option")""",
+        "bla", "provider.name", Map("optiona" -> "option"), false, true),
+      ("""REGISTER TABLE IF NOT EXISTS bla USING provider.name""",
+        "bla", "provider.name", Map.empty[String, String], false, true),
+      ("""REGISTER TABLE IF NOT EXISTS bla USING provider.name IGNORING CONFLICTS""",
+        "bla", "provider.name", Map.empty[String, String], true, true)
     )
 
   test("REGISTER TABLE command") {
     forAll(registerTableCommandPermutations) {
-      (sql: String, table: String, provider: String, options: Map[String, String],
-       ignoreConflict: Boolean) =>
-        Given(s"provider: $provider, options: $options, ignoreConflicts: $ignoreConflict")
+      (sql: String,
+       table: String,
+       provider: String,
+       options: Map[String, String],
+       ignoreConflict: Boolean,
+       allowExisting: Boolean) =>
+        Given(
+          s"""provider: $provider,
+             |options: $options,
+             |ignoreConflicts: $ignoreConflict
+             |allowExisting: $allowExisting""".stripMargin)
         val result = ddlParser.parse(sql)
-        assertResult(RegisterTableCommand(table, provider, options, ignoreConflict))(result)
+        assertResult(
+          RegisterTableCommand(table, provider, options, ignoreConflict, allowExisting))(result)
     }
   }
 

@@ -299,13 +299,14 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
    * registration of existing tables in spark catalog.
    */
   protected lazy val registerAllTables: Parser[LogicalPlan] =
-    REGISTER ~> ALL ~> TABLES ~> (USING ~> className) ~
+    REGISTER ~> ALL ~> TABLES ~> (IF ~> NOT <~ EXISTS).? ~ (USING ~> className) ~
       (OPTIONS ~> options).? ~ (IGNORING ~> CONFLICTS).? ^^ {
-      case provider ~ opts ~ ignoreConflicts =>
+      case allowExisting ~ provider ~ opts ~ ignoreConflicts =>
         RegisterAllTablesCommand(
           provider = provider,
           options = opts.getOrElse(Map.empty[String, String]),
-          ignoreConflicts.isDefined)
+          ignoreConflicts.isDefined,
+          allowExisting.isDefined)
     }
 
   /**
@@ -315,14 +316,15 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
    * IGNORING CONFLICTS
    */
   protected lazy val registerTable: Parser[LogicalPlan] =
-    REGISTER ~> TABLE ~> ident ~ (USING ~> className) ~
+    REGISTER ~> TABLE ~> (IF ~> NOT <~ EXISTS).? ~ ident ~ (USING ~> className) ~
       (OPTIONS ~> options).? ~ (IGNORING ~> CONFLICTS).? ^^ {
-      case tbl ~ provider ~ opts ~ ignoreConflicts =>
+      case allowExisting ~ tbl ~ provider ~ opts ~ ignoreConflicts =>
         RegisterTableCommand(
           tableName = tbl,
           provider = provider,
           options = opts.getOrElse(Map.empty[String, String]),
-          ignoreConflicts.isDefined)
+          ignoreConflicts.isDefined,
+          allowExisting.isDefined)
     }
 
   /**

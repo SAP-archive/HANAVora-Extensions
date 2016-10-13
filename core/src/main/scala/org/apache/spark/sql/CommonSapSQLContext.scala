@@ -43,8 +43,12 @@ private[sql] trait CommonSapSQLContext
     case Some(conf) =>
       conf.split(",").foreach(ds => {
         logInfo("Auto-Registering tables from Datasource '" + ds + "'")
-        CommonSapSQLContext
-          .registerTablesFromDs(ds, this, Map.empty[String, String], ignoreConflicts = true)
+        CommonSapSQLContext.registerTablesFromDs(
+          ds,
+          this,
+          Map.empty[String, String],
+          ignoreConflicts = true,
+          allowExisting = true)
       })
   }
 
@@ -74,8 +78,11 @@ private[sql] object CommonSapSQLContext {
   val PROPERTY_IGNORE_USE_STATEMENTS = "spark.vora.ignore_use_statements"
   val PROPERTY_AUTO_REGISTER_TABLES = "spark.sap.autoregister"
 
-  private def registerTablesFromDs(provider: String, sqlc: SQLContext,
-                                   options: Map[String, String], ignoreConflicts: Boolean): Unit = {
-    DataFrame(sqlc, RegisterAllTablesCommand(provider, options, ignoreConflicts))
+  private def registerTablesFromDs(provider: String,
+                                   sqlc: SQLContext,
+                                   options: Map[String, String],
+                                   ignoreConflicts: Boolean,
+                                   allowExisting: Boolean): Unit = {
+    DataFrame(sqlc, RegisterAllTablesCommand(provider, options, ignoreConflicts, allowExisting))
   }
 }

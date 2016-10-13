@@ -206,4 +206,43 @@ class RegisterTableSuite
       }
     }
   }
+
+  test("REGISTER ALL TABLES IF NOT EXISTS does not error or overwrite" +
+    "if there are existing tables") {
+    val expected = DummyRelation(StructType('a.string))(sqlc)
+    val registeredRelation = DummyRelation(StructType(Array('a.int, 'b.int)))(sqlc)
+    val provider = mock[RegisterAllTableRelations]
+    when(provider.getAllTableRelations(sqlc, Map.empty))
+      .thenReturn(Map("foo" -> BaseRelationSource(expected), "bar" -> BaseRelationSource(expected)))
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[RegisterAllTableRelations]("bar"))
+      .thenReturn(provider)
+    withResolver(sqlc, resolver) {
+      // existing relation foo
+      sqlc.baseRelationToDataFrame(registeredRelation).registerTempTable("foo")
+      sqlc.sql("REGISTER ALL TABLES IF NOT EXISTS USING bar")
+      assertResult(Set("foo", "bar"))(sqlc.tableNames().toSet)
+      // check if schema of 'foo' is still the same
+      assertResult(registeredRelation.schema)(sqlc.sql("SELECT * FROM foo").schema)
+    }
+  }
+
+  test("REGISTER ALL TABLES IGNORING CONFLICTS does not error bug overwrites existing tables") {
+    val expected = DummyRelation(StructType('a.string))(sqlc)
+    val registeredRelation = DummyRelation(StructType(Array('a.int, 'b.int)))(sqlc)
+    val provider = mock[RegisterAllTableRelations]
+    when(provider.getAllTableRelations(sqlc, Map.empty))
+      .thenReturn(Map("foo" -> BaseRelationSource(expected), "bar" -> BaseRelationSource(expected)))
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[RegisterAllTableRelations]("bar"))
+      .thenReturn(provider)
+    withResolver(sqlc, resolver) {
+      // existing relation foo
+      sqlc.baseRelationToDataFrame(registeredRelation).registerTempTable("foo")
+      sqlc.sql("REGISTER ALL TABLES USING bar IGNORING CONFLICTS")
+      assertResult(Set("foo", "bar"))(sqlc.tableNames().toSet)
+      // check if schema of 'foo' is still the same
+      assertResult(expected.schema)(sqlc.sql("SELECT * FROM foo").schema)
+    }
+  }
 }

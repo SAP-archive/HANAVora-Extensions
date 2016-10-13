@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.RunnableCommand
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
-import org.apache.spark.sql.sources.RegisterAllTableRelations
+import org.apache.spark.sql.sources.{LogicalPlanSource, RegisterAllTableRelations}
 import org.apache.spark.sql.util.CollectionUtils._
 import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
 
@@ -15,15 +15,16 @@ import org.apache.spark.sql.{DatasourceResolver, Row, SQLContext}
   *
   * @param provider Data source.
   * @param options options.
-  * @param ignoreConflicts If true, conflicting tables will be ignored.
+  * @param ignoreConflicts If true, conflicting tables will be overwritten.
+  * @param allowExisting If true, existing tables will be skipped and _not_ overwritten.
   */
 private[sql] case class RegisterAllTablesCommand(
     provider: String,
     options: Map[String, String],
-    ignoreConflicts: Boolean)
+    ignoreConflicts: Boolean,
+    allowExisting: Boolean)
   extends RunnableCommand {
 
-  // scalastyle:off method.length
   override def run(sqlContext: SQLContext): Seq[Row] = {
     /** Provider instantiation. */
     val resolver = DatasourceResolver.resolverFor(sqlContext)
@@ -40,22 +41,33 @@ private[sql] case class RegisterAllTablesCommand(
 
     val duplicateNames = relations.keys.toList.map(sqlContext.fixCase).duplicates
 
-    /** If [[ignoreConflicts]] is false, throw if there are existing relations */
-    if (!ignoreConflicts && (existingRelations.nonEmpty || duplicateNames.nonEmpty)) {
-      val errorMsg = Seq(
+    val tableExists = existingRelations.nonEmpty || duplicateNames.nonEmpty
+
+    /** If [[tableExists]] is true [[allowExisting]] is false and [[ignoreConflicts]] is false,
+      * throw if there are existing relations */
+    if (tableExists && !allowExisting && !ignoreConflicts) {
+      sys.error(Seq(
         existingRelations.nonEmptyOpt.map { existing =>
           s"Some tables already exists: ${existingRelations.keys.mkString(", ")}"
         },
         duplicateNames.nonEmptyOpt.map { duplicates =>
           s"Duplicate relation name(s): ${duplicates.mkString(",")}"
         }
-      ).flatten.mkString("There were some errors: ", "\n", "")
-
-      sys.error(errorMsg)
+      ).flatten.mkString("There were some errors: ", "\n", ""))
+    } else if (tableExists && allowExisting) {
+      registerRelations(sqlContext, newRelations)
+    } else {
+      registerRelations(sqlContext, relations)
     }
 
-    /** Register new relations */
-    newRelations.map {
+    // TODO: This could return the list of registered relations
+    Seq.empty
+  }
+
+  private def registerRelations(sqlContext: SQLContext,
+                                relations: Map[String, LogicalPlanSource]): Unit = {
+    /** Register relations */
+    relations.map {
       case (name, source) =>
         val lp = source.logicalPlan(sqlContext)
         if (lp.resolved) {
@@ -74,9 +86,5 @@ private[sql] case class RegisterAllTablesCommand(
       case (name, plan) =>
         sqlContext.registerRawPlan(plan, name)
     }
-
-    // XXX: This could return the list of registered relations
-    Seq.empty
   }
-  // scalastyle:on method.length
 }
