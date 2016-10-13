@@ -50,7 +50,8 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       engineDropSeries |
       engineAppendGraph |
       engineAppendCollection |
-      engineAppendSeries
+      engineAppendSeries |
+      engineLoadRelationStatement
 
   protected val CASCADE = Keyword("CASCADE")
   // queries the datasource catalog to get all the tables and return them

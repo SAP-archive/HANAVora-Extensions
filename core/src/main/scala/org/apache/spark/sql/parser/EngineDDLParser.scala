@@ -3,8 +3,10 @@ package org.apache.spark.sql.parser
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.{DDLParser, RawDDLCommand}
+import org.apache.spark.sql.sources.RawDDLObjectType.RawDDLObjectType
 import org.apache.spark.sql.sources.{RawDDLObjectType, RawDDLStatementType}
 import org.apache.spark.sql.types._
+import RawDDLObjectType._
 
 /**
   * A parser extension for engine DDL.
@@ -80,6 +82,19 @@ private[sql] trait EngineDDLParser extends LiteralParser {
 
   def combineString(strs: String*): String =
     strs.find(s => !s.isEmpty).mkString(" ")
+
+  protected lazy val engineLoadRelationStatement: Parser[LogicalPlan] =
+    LOAD ~ rawDDLObjectType ~ ident ~ (USING ~> className) ^^ {
+      case load ~ typ ~ identifier ~ clazz =>
+        RawDDLCommand(
+          identifier,
+          typ,
+          RawDDLStatementType.Load,
+          None,
+          s"$load ${typ.name} $identifier",
+          clazz,
+          Map.empty)
+    }
 
   // engine extensions
   protected lazy val enginePartitionFunction: Parser[LogicalPlan] =
@@ -732,4 +747,7 @@ private[sql] trait EngineDDLParser extends LiteralParser {
     | timeLiteral
     | timestampLiteral
     )
+
+  protected lazy val rawDDLObjectType: Parser[RawDDLObjectType] =
+    GRAPH ^^^ Graph | COLLECTION ^^^ Collection | TABLE ^^^ Series | SERIES ~ TABLE ^^^ Series
 }

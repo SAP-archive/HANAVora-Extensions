@@ -35,6 +35,7 @@ case object RawDDLStatementType {
   case object Create extends RawDDLStatementType
   case object Drop   extends RawDDLStatementType
   case object Append extends RawDDLStatementType
+  case object Load   extends RawDDLStatementType
 }
 
 /**

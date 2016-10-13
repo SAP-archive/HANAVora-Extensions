@@ -658,3 +658,31 @@ $parsed:
 RawDDLCommand t, table, Append, None, , test.data.source, Map(files -> /path/to/file.csv)
 $expect:
 valid
+
+$query:
+load table t using test.data.source
+$parsed:
+RawDDLCommand t, table, Load, None, load table t, test.data.source, Map()
+$expect:
+valid
+
+$query:
+load series table t using test.data.source
+$parsed:
+RawDDLCommand t, table, Load, None, load table t, test.data.source, Map()
+$expect:
+valid
+
+$query:
+load graph t using test.data.source
+$parsed:
+RawDDLCommand t, graph, Load, None, load graph t, test.data.source, Map()
+$expect:
+valid
+
+$query:
+load collection t using test.data.source
+$parsed:
+RawDDLCommand t, collection, Load, None, load collection t, test.data.source, Map()
+$expect:
+valid
