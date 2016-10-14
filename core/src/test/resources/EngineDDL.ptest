@@ -686,3 +686,10 @@ $parsed:
 RawDDLCommand t, collection, Load, None, load collection t, test.data.source, Map()
 $expect:
 valid
+
+$query:
+load collection "t" using test.data.source
+$parsed:
+RawDDLCommand "t", collection, Load, None, load collection "t", test.data.source, Map()
+$expect:
+valid

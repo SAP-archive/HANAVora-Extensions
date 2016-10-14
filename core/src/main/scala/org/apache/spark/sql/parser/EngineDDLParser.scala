@@ -84,7 +84,7 @@ private[sql] trait EngineDDLParser extends LiteralParser {
     strs.find(s => !s.isEmpty).mkString(" ")
 
   protected lazy val engineLoadRelationStatement: Parser[LogicalPlan] =
-    LOAD ~ rawDDLObjectType ~ ident ~ (USING ~> className) ^^ {
+    LOAD ~ rawDDLObjectType ~ identOptQuotes ~ (USING ~> className) ^^ {
       case load ~ typ ~ identifier ~ clazz =>
         RawDDLCommand(
           identifier,
