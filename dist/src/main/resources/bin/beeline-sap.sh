@@ -36,9 +36,14 @@ else
   runner=`which "$runner"`
 fi
 
+if [[ $VORA_SPARK_HOME == *"cloudera"* ]]; then
+  java_ext_dirs="$SPARK_HOME/lib:$(dirname $spark_ext_lib):/opt/cloudera/parcels/CDH/jars"
+else
+  java_ext_dirs="$SPARK_HOME/lib:$(dirname $spark_ext_lib)"
+fi
 
 run_beeline() {
-   exec "$runner" "-Djava.ext.dirs=$SPARK_HOME/lib:$(dirname $spark_ext_lib)" \
+   exec "$runner" "-Djava.ext.dirs=$java_ext_dirs" \
        org.apache.hive.beeline.BeeLine "$1"
 }
 
