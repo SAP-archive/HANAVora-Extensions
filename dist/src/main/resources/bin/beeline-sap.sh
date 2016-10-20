@@ -30,11 +30,8 @@ source "$dir/.commons.sh"
 set -o posix
 
 # Find the java binary
-if [ -n "${JAVA_HOME}" ]; then
-  runner="${JAVA_HOME}/bin/java"
-else
-  runner=`which "$runner"`
-fi
+check_java_home
+java_bin="${JAVA_HOME}/bin/java"
 
 if [[ $VORA_SPARK_HOME == *"cloudera"* ]]; then
   java_ext_dirs="$SPARK_HOME/lib:$(dirname $spark_ext_lib):/opt/cloudera/parcels/CDH/jars"
@@ -43,7 +40,7 @@ else
 fi
 
 run_beeline() {
-   exec "$runner" "-Djava.ext.dirs=$java_ext_dirs" \
+   exec "$java_bin" "-Djava.ext.dirs=$java_ext_dirs" \
        org.apache.hive.beeline.BeeLine "$1"
 }
 

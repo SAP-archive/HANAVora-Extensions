@@ -18,6 +18,15 @@ function check_spark_home {
 }
 
 
+function check_java_home {
+    # check if spark home is set or fail
+    if [[ -z $JAVA_HOME ]]; then
+        echo "[Error] JAVA_HOME environment variable must be set to Java installation directory"
+        exit 1
+    fi
+}
+
+
 function set_spark_libs {
     if [[ -z "$lib_dir" ]]; then
         # detailed error message is shown by failing command 'cd' above
