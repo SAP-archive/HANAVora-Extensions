@@ -9,6 +9,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.SelfJoinStrategy
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.tablefunctions.TableFunctionsStrategy
+import org.apache.spark.sql.extension.OptimizerFactory.ExtendableOptimizerBatch
 import org.apache.spark.sql.hierarchy.HierarchyStrategy
 import org.apache.spark.sql.parser.{SapDDLParser, SapParserDialect}
 

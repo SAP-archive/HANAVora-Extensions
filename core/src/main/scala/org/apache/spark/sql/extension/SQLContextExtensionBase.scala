@@ -7,6 +7,7 @@ import org.apache.spark.sql.catalyst.errors.DialectException
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources.DDLParser
+import org.apache.spark.sql.extension.OptimizerFactory.ExtendableOptimizerBatch
 import org.apache.spark.util.Utils
 
 import scala.util.Try

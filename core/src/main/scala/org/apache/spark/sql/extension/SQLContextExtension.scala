@@ -2,10 +2,11 @@ package org.apache.spark.sql.extension
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.ParserDialect
-import org.apache.spark.sql.catalyst.analysis.{FunctionRegistry, Analyzer}
+import org.apache.spark.sql.catalyst.analysis.{Analyzer, FunctionRegistry}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources.DDLParser
+import org.apache.spark.sql.extension.OptimizerFactory.ExtendableOptimizerBatch
 
 /**
  * An extension for a [[SQLContext]]. This is to be used in combination

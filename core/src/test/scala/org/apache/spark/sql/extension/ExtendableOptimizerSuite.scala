@@ -1,13 +1,12 @@
 package org.apache.spark.sql.extension
 
-import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, FiltersReduction}
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.catalyst.rules.RuleExecutor
+import org.apache.spark.sql.catalyst.optimizer.{FiltersReduction, Optimizer}
+import org.apache.spark.sql.extension.OptimizerFactory.ExtendableOptimizerBatch
 import org.scalatest.{FunSuite, PrivateMethodTester}
 
 class ExtendableOptimizerSuite extends FunSuite with PrivateMethodTester {
 
-  implicit class OptimizerOps(opt: RuleExecutor[LogicalPlan]) {
+  implicit class OptimizerOps(opt: Optimizer) {
     private val nameMethod = PrivateMethod[String]('name)
     private def batches: Seq[AnyRef] = {
       /* XXX: PrivateMethod throws exception "IllegalArgumentException: Found two methods" */
@@ -21,13 +20,13 @@ class ExtendableOptimizerSuite extends FunSuite with PrivateMethodTester {
   }
 
   test("No rules is equivalent to DefaultOptimizer") {
-    val extOpt = new ExtendableOptimizer()
-    val defOpt = DefaultOptimizer
+    val extOpt = OptimizerFactory.produce()
+    val defOpt = OptimizerFactoryForTests.default()
     assert(extOpt.batchNames == defOpt.batchNames)
   }
 
   test("One early batch is added before the main optimizer batch") {
-    val extOpt = new ExtendableOptimizer(
+    val extOpt = OptimizerFactory.produce(
       earlyBatches = ExtendableOptimizerBatch("FOO", 1, FiltersReduction :: Nil) :: Nil
     )
 
@@ -37,7 +36,7 @@ class ExtendableOptimizerSuite extends FunSuite with PrivateMethodTester {
   }
 
   test("Several early batches are added before the main optimizer batch") {
-    val extOpt = new ExtendableOptimizer(
+    val extOpt = OptimizerFactory.produce(
       earlyBatches = ExtendableOptimizerBatch("FOO", 1, FiltersReduction :: Nil) ::
         ExtendableOptimizerBatch("BAR", 1, FiltersReduction :: Nil) ::
         Nil
@@ -50,19 +49,19 @@ class ExtendableOptimizerSuite extends FunSuite with PrivateMethodTester {
   }
 
   test("Expression rules are added") {
-    val extOpt = new ExtendableOptimizer(
+    val extOpt = OptimizerFactory.produce(
       mainBatchRules = FiltersReduction :: Nil
     )
-    val defOpt = DefaultOptimizer
+    val defOpt = OptimizerFactoryForTests.default()
     assert(extOpt.batchNames == defOpt.batchNames)
   }
 
   test("Both rules are added") {
-    val extOpt = new ExtendableOptimizer(
+    val extOpt = OptimizerFactory.produce(
       earlyBatches = ExtendableOptimizerBatch("FOO", 1, FiltersReduction :: Nil) :: Nil,
       mainBatchRules = FiltersReduction :: Nil
     )
-    val defOpt = DefaultOptimizer
+    val defOpt = OptimizerFactoryForTests.default()
     assert(extOpt.batchNames.toSet ==
       defOpt.batchNames.toSet ++ Seq("FOO"))
   }

@@ -290,6 +290,7 @@
               <resource>reference.conf</resource>
             </transformer>
           </transformers>
+          <createDependencyReducedPom>${maven.shade.createDependencyReducedPom}</createDependencyReducedPom>
         </configuration>
         <executions>
           <execution>

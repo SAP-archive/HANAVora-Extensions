@@ -15,7 +15,7 @@ BASEDIR="$(cd "`dirname "$0"`";cd ../../../../../; pwd)"
 get_jars() {
   readlink -f ${BASEDIR}/$1/target/$1-*.jar | grep -v sources.jar | grep -v tests.jar | head -n 1
 }
-export PATH_TO_JARS="$(get_jars core)"
+export PATH_TO_JARS="$(get_jars core):$(get_jars compat161):$(get_jars compat162)"
 
 # check if spark home is set
 if [[ -z $SPARK_HOME ]]; then

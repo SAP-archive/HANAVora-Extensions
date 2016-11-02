@@ -1,18 +1,22 @@
 package org.apache.spark.sql.extension
 
+import org.apache.spark.sql.catalyst.{CatalystConf, SimpleCatalystConf}
 import org.apache.spark.sql.catalyst.optimizer.{DefaultOptimizer, Optimizer}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.extension.ExtendableOptimizer161.ExtendableOptimizerBatch
 
 /**
   * [[Optimizer]] that can be extended with more rules.
   *
+  * This class is compatible with Spark versions 1.6.0 and 1.6.1.
+  *
   * @param earlyBatches Batches to be prepended to the optimizer.
   * @param mainBatchRules Rules to include in the main optimizer batch (e.g. constant folding).
   */
-private[sql] class ExtendableOptimizer(earlyBatches: Seq[ExtendableOptimizerBatch] = Nil,
-                                       mainBatchRules: Seq[Rule[LogicalPlan]] = Nil,
-                                       postBatches: Seq[ExtendableOptimizerBatch] = Nil)
+private[extension] class ExtendableOptimizer161(earlyBatches: Seq[ExtendableOptimizerBatch] = Nil,
+                                          mainBatchRules: Seq[Rule[LogicalPlan]] = Nil,
+                                          postBatches: Seq[ExtendableOptimizerBatch] = Nil)
   extends Optimizer {
 
   /** Batches from [[DefaultOptimizer]] (Spark defaults). */
@@ -90,7 +94,14 @@ private[sql] class ExtendableOptimizer(earlyBatches: Seq[ExtendableOptimizerBatc
 
 }
 
-/** Represents an [[Optimizer#Batch]]. See See SPARK-7727. */
-private[sql] case class ExtendableOptimizerBatch(name: String,
-                                                 iterations: Int,
-                                                 rules: Seq[Rule[LogicalPlan]])
+private[extension] object ExtendableOptimizer161 {
+  val defaultConf: CatalystConf = SimpleCatalystConf(true)
+  val defaultOptimizer: Optimizer = DefaultOptimizer
+
+  /** Represents an [[Optimizer#Batch]]. See SPARK-7727. */
+  type ExtendableOptimizerBatch = {
+    val name: String
+    val iterations: Int
+    val rules: Seq[Rule[LogicalPlan]]
+  }
+}

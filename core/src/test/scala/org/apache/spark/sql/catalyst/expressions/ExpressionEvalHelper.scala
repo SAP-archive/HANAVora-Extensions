@@ -4,10 +4,9 @@ package org.apache.spark.sql.catalyst.expressions
 // Partially backported from Spark 1.5.2.
 //
 
-import org.apache.spark.sql.catalyst.CatalystTypeConverters
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.optimizer.DefaultOptimizer
+import org.apache.spark.sql.extension.OptimizerFactoryForTests
 import org.apache.spark.sql.catalyst.plans.logical.{OneRowRelation, Project}
+import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.scalactic.TripleEqualsSupport.Spread
 import org.scalatest.FunSuite
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
@@ -90,7 +89,7 @@ trait ExpressionEvalHelper extends GeneratorDrivenPropertyChecks {
                                                  expected: Any,
                                                  inputRow: InternalRow = EmptyRow): Unit = {
     val plan = Project(Alias(expression, s"Optimized($expression)")() :: Nil, OneRowRelation)
-    val optimizedPlan = DefaultOptimizer.execute(plan)
+    val optimizedPlan = OptimizerFactoryForTests.default().execute(plan)
     checkEvaluationWithoutCodegen(optimizedPlan.expressions.head, expected, inputRow)
   }
 
