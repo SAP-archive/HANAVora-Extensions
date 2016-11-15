@@ -2,8 +2,9 @@ package org.apache.spark.sql.execution
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Strategy
-import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SelfJoin}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression}
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.optimizer.SelfJoin
 import org.apache.spark.sql.catalyst.plans.JoinType
 import org.apache.spark.sql.catalyst.plans.logical.{Join, LogicalPlan}
 import org.apache.spark.sql.extension.ExtendedPlanner
@@ -17,15 +18,15 @@ import org.apache.spark.sql.catalyst.plans.logical.{UnaryNode => LUnaryNode}
 case class SelfJoinStrategy(planner: ExtendedPlanner) extends Strategy {
 
   /**
-    * Resolves the [[SelfJoin]] node type correctly.
+    * Optimized execution of plans matching [[SelfJoin]].
     *
     * @param plan The plan to check.
-    * @return The plan with resolved [[SelfJoin]]s, if present.
+    * @return The plan with optimized [[SelfJoin]]-parts, if present.
     */
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
-    case j@SelfJoin(left, right, joinType, cond, lp, rp) =>
+    case join@SelfJoin(left, right, joinType, cond, lp, rp) =>
       val child = planner.planLaterExt(lp)
-      PhysicalSelfJoin(left, right, joinType, cond, child, j.output, lp, rp) :: Nil
+      PhysicalSelfJoin(left, right, joinType, cond, child, join.output, lp, rp) :: Nil
     case _ => Nil
   }
 
@@ -81,7 +82,7 @@ case class PhysicalSelfJoin(left: LogicalPlan,
                                        toReplace: LogicalPlan,
                                        replacement: LogicalRDD): LogicalPlan =
     if (plan == toReplace) replacement
-    else plan.asInstanceOf[LUnaryNode].withNewChildren(Seq(
+    else plan.withNewChildren(Seq(
       replacePlanWithRDD(plan.asInstanceOf[LUnaryNode].child, toReplace, replacement)))
 
 }

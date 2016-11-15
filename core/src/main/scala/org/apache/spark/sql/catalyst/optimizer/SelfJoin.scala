@@ -1,32 +1,32 @@
 package org.apache.spark.sql.catalyst.optimizer
 
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.plans.JoinType
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.util.PlanComparisonUtils
 import org.apache.spark.sql.util.PlanUtils._
 
-/**
- * Detects self-joins in [[LogicalPlan]]s and replaces them with the [[SelfJoin]] node
- * which is eventually resolved to one [[org.apache.spark.sql.execution.LogicalRDD]]
- * to avoid double push-downs of the same relations.
- */
-object SelfJoinsOptimizer extends Rule[LogicalPlan] {
-
+object SelfJoin {
   /**
-   * Checks whether any descendant in the logical plan can be subjected to replacement
-   * with [[SelfJoin]] in order to reduce the number of selection queries being pushed
-   * down. If it's possible, then the relevant parts of the plan are replaced.
-   *
-   * @param plan A [[LogicalPlan]] which descendants are to be altered.
-   * @return The given plan with some [[SelfJoin]]s possibly introduced.
-   */
-  def apply(plan: LogicalPlan): LogicalPlan = plan transformDown {
-    case join@Join(left, right, joinType, cond) if isLinear(left) && isLinear(right) =>
-        extractCommonPath(left, right).fold[LogicalPlan](join) {
-        case (leftPath, rightPath) => SelfJoin(left, right, joinType, cond, leftPath, rightPath)
+    * The 'Self join' represented by the left and right original join join parts,
+    * the join type, the condition and the left and right common sub-path.
+    */
+  type ReturnType =
+    (LogicalPlan, // left
+      LogicalPlan, // right
+      JoinType, // join type
+      Option[Expression], // join condition
+      LogicalPlan, // join left path
+      LogicalPlan) // join right path
+
+  def unapply(join: Join): Option[ReturnType] = {
+    if (isLinear(join.left) && isLinear(join.right)) {
+      extractCommonPath(join.left, join.right).map {
+        case (leftPath, rightPath) =>
+          (join.left, join.right, join.joinType, join.condition, leftPath, rightPath)
       }
+    } else None
   }
 
   /**

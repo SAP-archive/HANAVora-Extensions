@@ -52,13 +52,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
   override protected def optimizerMainBatchRules: List[Rule[LogicalPlan]] =
     FiltersReduction :: AssureRelationsColocality :: Nil
 
-  override protected def optimizerPostBatches: List[ExtendableOptimizerBatch] =
-    ExtendableOptimizerBatch(
-      name = "Self joins optimizer",
-      iterations = 1,
-      rules = SelfJoinsOptimizer :: Nil
-    ) :: Nil
-
+  override protected def optimizerPostBatches: List[ExtendableOptimizerBatch] = Nil
 
   override protected def strategies(planner: ExtendedPlanner): List[Strategy] =
     CreateTableStrategy(this) ::

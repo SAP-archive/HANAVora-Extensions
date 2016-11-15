@@ -1,39 +1,32 @@
 package org.apache.spark.sql.catalyst.optimizer
 
 import com.sap.spark.PlanTest
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.{Expression, AttributeReference, EqualTo, SelfJoin}
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
-import org.apache.spark.sql.catalyst.rules.RuleExecutor
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, GlobalSapSQLContext, Row, SQLContext}
+import org.apache.spark.sql.catalyst.expressions.{AttributeReference, EqualTo}
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.execution.PhysicalSelfJoin
 import org.apache.spark.sql.execution.datasources.LogicalRelation
-import org.apache.spark.sql.sources.{BaseRelation, TableScan}
-import org.apache.spark.sql.catalyst.optimizer.dsls._
-import org.scalatest.FunSuite
+import org.apache.spark.sql.sources.BaseRelation
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.util.PlanUtils._
+import org.apache.spark.sql.{DataFrame, GlobalSapSQLContext, Row, SQLContext}
 import org.apache.spark.util.DummyRelationUtils._
+import org.scalatest.{FunSuite, Inside}
 
 // All tests in this suite refer to bug 114127
 class SelfJoinsSupportSuite
   extends FunSuite
   with GlobalSapSQLContext
-  with PlanTest {
+  with PlanTest
+  with Inside {
 
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    private val MAX_ITERATIONS = 100
+  val t0 = LogicalRelation(DummyRelation('id.ofType.int)(sqlc))
 
-    val batches =
-      Batch("SelfJoinsSupport", FixedPoint(MAX_ITERATIONS), SelfJoinsOptimizer) :: Nil
-  }
+  val t1 = LocalRelation(output = 'id.ofType.int.toAttributes)
 
-  val t0 = new LogicalRelation(DummyRelation('id.ofType.int))
-
-  val t1 = new LocalRelation(output = 'id.ofType.int.toAttributes)
-
-  val t2 = new LogicalRelation(new BaseRelation {
+  val t2 = LogicalRelation(new BaseRelation {
     override def sqlContext: SQLContext = sqlc
     override def schema: StructType = 'id.ofType.int
   })
@@ -45,52 +38,38 @@ class SelfJoinsSupportSuite
   val t1id1 = t1.output.find(_.name == "id").get
   val t2id = t2.output.find(_.name == "id").get
 
-  test("Self-joins are properly detected and replaced with the custom node") {
+  test("Self-joins are properly detected") {
     val originalAnalyzedQuery1 = t0
       .join(t0, joinType = Inner, condition = Some(t0id0 === t0id1)).analyze
 
-    val optimized1 = Optimize.execute(originalAnalyzedQuery1)
-
-    // check the plan
-    assert(optimized1.isInstanceOf[SelfJoin])
-    val selfJoin = optimized1.asInstanceOf[SelfJoin]
-    assert(selfJoin.left.asInstanceOf[LogicalRelation].relation == t0.relation)
-    assert(selfJoin.right.asInstanceOf[LogicalRelation].relation == t0.relation)
-    assert(selfJoin.joinType == Inner)
-    assert(selfJoin.condition == Some(t0id0 === t0id1))
-    assert(selfJoin.leftPath.asInstanceOf[LogicalRelation].relation == t0.relation)
-    assert(selfJoin.rightPath.asInstanceOf[LogicalRelation].relation == t0.relation)
-
-    val originalAnalyzedQuery2 = t1
-      .join(t1, joinType = Inner, condition = Some(t1id0 === t1id1)).analyze
-
-    val optimized2 = Optimize.execute(originalAnalyzedQuery2)
-
-    val correctAnswer2 = t1.selfjoin(t1, t1, t1, joinType = Inner,
-      condition = Some(t1id0 === t1id1)).analyze
-
-    // check the plan
-    comparePlans(correctAnswer2, optimized2)
+    inside(originalAnalyzedQuery1) {
+      case SelfJoin(LogicalRelation(lRelation, _), LogicalRelation(rRelation, _), joinType,
+                    condition, LogicalRelation(lPath, _), LogicalRelation(rPath, _)) =>
+        assertResult(t0.relation)(lRelation)
+        assertResult(t0.relation)(rRelation)
+        assertResult(Inner)(joinType)
+        assertResult(Some(t0id0 === t0id1))(condition)
+        assertResult(t0.relation)(lPath)
+        assertResult(t0.relation)(rPath)
+    }
   }
 
   test("Self-joins are not replaced for plans with binary operators in subtrees") {
     val originalAnalyzedQuery1 = t0
-      .join(t0.unionAll(t0), joinType = Inner, condition = Some(t0id0 === t0id1)).analyze
+      .join(t0.unionAll(t0), joinType = Inner, condition = Some(t0id0 === t0id1))
+      .analyze
+      .asInstanceOf[Join]
 
-    val optimized1 = Optimize.execute(originalAnalyzedQuery1)
-
-    // check whether there were no changes made to the plan
-    comparePlans(originalAnalyzedQuery1, optimized1)
+    assert(SelfJoin.unapply(originalAnalyzedQuery1).isEmpty)
   }
 
   test("Joins without a common subtree part are not replaced") {
     val originalAnalyzedQuery1 = t0
-      .join(t2, joinType = Inner, condition = Some(t0id0 === t2id)).analyze
+      .join(t2, joinType = Inner, condition = Some(t0id0 === t2id))
+      .analyze
+      .asInstanceOf[Join]
 
-    val optimized1 = Optimize.execute(originalAnalyzedQuery1)
-
-    // check whether there were no changes made to the plan
-    comparePlans(originalAnalyzedQuery1, optimized1)
+    assert(SelfJoin.unapply(originalAnalyzedQuery1).isEmpty)
   }
 
   test("Optimized self-joins for a plan with intermediate nodes " +
@@ -107,35 +86,35 @@ class SelfJoinsSupportSuite
     val innerJoin = Join(lp, rp, Inner, Some(EqualTo(id1, id2)))
     val planWithInnerJoin = Project(Seq(id1, id2), innerJoin)
     val df1 = DataFrame(sqlContext, planWithInnerJoin)
-    assert(df1.queryExecution.optimizedPlan.asInstanceOf[Project].child.isInstanceOf[SelfJoin])
+    assert(df1.queryExecution.sparkPlan.exists(_.isInstanceOf[PhysicalSelfJoin]))
     assertResult(Set(Row(1, 1), Row(2, 2)))(df1.collect().toSet)
 
     // Left outer join
     val leftJoin = Join(lp, rp, LeftOuter, Some(EqualTo(id1, id2)))
     val planWithLeftJoin = Project(Seq(id1, id2), leftJoin)
     val df2 = DataFrame(sqlContext, planWithLeftJoin)
-    assert(df2.queryExecution.optimizedPlan.asInstanceOf[Project].child.isInstanceOf[SelfJoin])
+    assert(df2.queryExecution.sparkPlan.exists(_.isInstanceOf[PhysicalSelfJoin]))
     assertResult(Set(Row(1, 1), Row(2, 2), Row(null, null)))(df2.collect().toSet)
 
     // Right outer join
     val rightJoin = Join(lp, rp, RightOuter, Some(EqualTo(id1, id2)))
     val planWithRightJoin = Project(Seq(id1, id2), rightJoin)
     val df3 = DataFrame(sqlContext, planWithRightJoin)
-    assert(df3.queryExecution.optimizedPlan.asInstanceOf[Project].child.isInstanceOf[SelfJoin])
+    assert(df3.queryExecution.sparkPlan.exists(_.isInstanceOf[PhysicalSelfJoin]))
     assertResult(Set(Row(1, 1), Row(2, 2), Row(null, null)))(df3.collect().toSet)
 
     // Full outer join
     val fullJoin = Join(lp, rp, FullOuter, Some(EqualTo(id1, id2)))
     val planWithFullJoin = Project(Seq(id1, id2), fullJoin)
     val df4 = DataFrame(sqlContext, planWithFullJoin)
-    assert(df4.queryExecution.optimizedPlan.asInstanceOf[Project].child.isInstanceOf[SelfJoin])
+    assert(df4.queryExecution.sparkPlan.exists(_.isInstanceOf[PhysicalSelfJoin]))
     assertResult(Set(Row(1, 1), Row(2, 2), Row(null, null)))(df4.collect().toSet)
 
     // Left semi join
     val semiJoin = Join(lp, rp, LeftSemi, Some(EqualTo(id1, id2)))
     val planWithSemiJoin = Project(Seq(id2), semiJoin)
     val df5 = DataFrame(sqlContext, planWithSemiJoin)
-    assert(df5.queryExecution.optimizedPlan.asInstanceOf[Project].child.isInstanceOf[SelfJoin])
+    assert(df5.queryExecution.sparkPlan.exists(_.isInstanceOf[PhysicalSelfJoin]))
     assertResult(Set(Row(1), Row(2)))(df5.collect().toSet)
   }
 
@@ -151,7 +130,7 @@ class SelfJoinsSupportSuite
     val innerJoin = Join(lp, rp2, Inner, Some(EqualTo(id1, id2)))
     val planWithInnerJoin = Project(Seq(id1, id2), innerJoin)
     val df = DataFrame(sqlContext, planWithInnerJoin)
-    assert(df.queryExecution.optimizedPlan.asInstanceOf[Project].child.isInstanceOf[SelfJoin])
+    assert(df.queryExecution.sparkPlan.exists(_.isInstanceOf[PhysicalSelfJoin]))
     assertResult(Set(Row(1, 1), Row(2, 2)))(df.collect().toSet)
   }
 
@@ -172,17 +151,3 @@ class DummyLogicalRelation(sqlc: SQLContext)
       'id.ofType.int,
       Row(1) :: Row(2) :: Row(null) :: Nil)(sqlc)
       with AlwaysEqual)
-
-package object dsls {
-
-  implicit class CustomDsls(val logicalPlan: LogicalPlan) {
-
-    def selfjoin(other: LogicalPlan,
-                 leftPath: LogicalPlan,
-                 rightPath: LogicalPlan,
-                 joinType: JoinType = Inner,
-                 condition: Option[Expression] = None): LogicalPlan =
-      SelfJoin(logicalPlan, other, joinType, condition, leftPath, rightPath)
-  }
-
-}
