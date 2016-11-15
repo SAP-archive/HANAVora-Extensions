@@ -199,3 +199,9 @@ object ViewKind {
     }
   }
 }
+
+/** The collection [[RelationKind]] */
+case object Collection extends RelationKind with ClassNameAsName
+
+/** The graph [[RelationKind]] */
+case object Graph extends RelationKind with ClassNameAsName

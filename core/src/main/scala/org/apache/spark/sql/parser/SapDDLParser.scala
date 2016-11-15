@@ -29,6 +29,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       createRangeIntervalPartitionFunction |
       dropPartitionFunction |
       appendTable |
+      engineDrop |
       dropTable |
       describeTable |
       refreshTable |
@@ -43,9 +44,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       engineGraphDefinition |
       engineCollectionDefinition |
       engineSeriesDefinition |
-      engineDropGraph |
-      engineDropCollection |
-      engineDropSeries |
       engineAppendGraph |
       engineAppendCollection |
       engineAppendSeries |
@@ -70,10 +68,7 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
   protected val RIGHT = Keyword("RIGHT")
 
   /* VIEW Keyword */
-  protected val VIEW = Keyword("VIEW")
   protected val VIEW_SQL_STRING = "VIEW_SQL"
-  protected val DIMENSION = Keyword("DIMENSION")
-  protected val CUBE = Keyword("CUBE")
 
   /* CREATE TABLE CONSTANTS */
   protected val TABLE_DDL_STATEMENT = "TABLE_DDL"
@@ -280,10 +275,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
           provider)
     }
 
-  protected lazy val viewKind: Parser[ViewKind] = (DIMENSION | CUBE).? <~ VIEW ^^ {
-    case ViewKind(kind) => kind
-  }
-
   protected lazy val dropTarget: Parser[DropTarget] =
     TABLE ^^^ TableTarget | VIEW ^^^ ViewTarget
 
@@ -356,7 +347,11 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
     DROP ~> dropTarget ~ (IF ~> EXISTS).? ~ (ident <~ ".").? ~ ident ~ CASCADE.? ^^ {
       case kind ~ allowNotExisting ~ db ~ tbl ~ cascade =>
         val tableIdent = TableIdentifier(tbl, db)
-        UnresolvedDropCommand(kind, allowNotExisting.isDefined, tableIdent, cascade.isDefined)
+        UnresolvedSparkLocalDropCommand(
+          kind,
+          allowNotExisting.isDefined,
+          tableIdent,
+          cascade.isDefined)
     }
 
   /**
@@ -472,6 +467,18 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         throw new SapParserException(input, pos.line, pos.column, failureOrError.toString)
     }
   }
+
+  /**
+    * Parser that allows keywords and identifier
+    */
+  protected lazy val kwOrIdent: Parser[String] =
+    acceptMatch("Keyword or identifier", {
+      case lexical.Keyword(str) => str
+      case lexical.Identifier(str) => str
+    })
+
+  override protected lazy val className: Parser[String] =
+    repsep(kwOrIdent, Keyword(".").parser).map(_.mkString("."))
 }
 
 // scalastyle: on

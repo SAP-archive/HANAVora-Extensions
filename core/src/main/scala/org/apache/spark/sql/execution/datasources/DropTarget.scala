@@ -1,6 +1,6 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.spark.sql.sources.{RelationKind, ViewKind, Table => TableKind}
+import org.apache.spark.sql.sources.{Collection, Graph, RelationKind, ViewKind, Table => TableKind}
 
 /** A target of a drop operation. */
 sealed trait DropTarget {
@@ -38,4 +38,26 @@ case object ViewTarget extends DropTarget {
 
   /** @inheritdoc */
   def targetName: String = "View"
+}
+
+/** A collection as target of a drop operation. */
+case object CollectionTarget extends DropTarget {
+
+  /** @inheritdoc */
+  override def accepts(relationKind: RelationKind): Boolean =
+    relationKind == Collection
+
+  /** @inheritdoc */
+  override def targetName: String = "Collection"
+}
+
+/** A graph as target of a drop operation. */
+case object GraphTarget extends DropTarget {
+
+  /** @inheritdoc */
+  override def accepts(relationKind: RelationKind): Boolean =
+  relationKind == Graph
+
+  /** @inheritdoc */
+  override def targetName: String = "Graph"
 }

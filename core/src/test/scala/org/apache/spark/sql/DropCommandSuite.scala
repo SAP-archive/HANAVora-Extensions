@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, UnaryNode}
-import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.execution.datasources.{CollectionTarget, LogicalRelation}
 import org.apache.spark.sql.execution.datasources.SqlContextAccessor._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
@@ -13,6 +13,7 @@ import org.apache.spark.util.SqlContextConfigurationUtils
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.scalatest.mock.MockitoSugar
+import DatasourceResolver.withResolver
 
 class DropCommandSuite
   extends FunSuite
@@ -351,6 +352,24 @@ class DropCommandSuite
 
     "v1" :: "v2" :: Nil foreach { name =>
       assert(!sqlc.catalog.tableExists(TableIdentifier(name)))
+    }
+  }
+
+  test("Drop using") {
+    val provider = mock[DropProvider]
+    val resolver = mock[DatasourceResolver]
+    when(resolver.newInstanceOfTyped[DropProvider]("bar"))
+      .thenReturn(provider)
+    withResolver(sqlContext, resolver) {
+      sqlc.sql("DROP COLLECTION foo USING bar")
+
+      verify(provider, times(1))
+        .dropRelation(
+          sqlContext,
+          CollectionTarget,
+          ifExists = false,
+          Seq("foo"),
+          cascade = false, Map.empty)
     }
   }
 }

@@ -1,12 +1,13 @@
 package org.apache.spark.sql.parser
 
+import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.datasources.{DDLParser, RawDDLCommand}
-import org.apache.spark.sql.sources.RawDDLObjectType.RawDDLObjectType
+import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.sources.RawDDLObjectType.{RawDDLObjectType, _}
+import org.apache.spark.sql.sources.commands.UnresolvedProviderBoundDropCommand
 import org.apache.spark.sql.sources.{RawDDLObjectType, RawDDLStatementType}
 import org.apache.spark.sql.types._
-import RawDDLObjectType._
 
 /**
   * A parser extension for engine DDL.
@@ -74,6 +75,7 @@ private[sql] trait EngineDDLParser extends LiteralParser {
   protected val END = Keyword("END")
   protected val AND = Keyword("AND")
   protected val BETWEEN = Keyword("BETWEEN")
+  protected val VIEW = Keyword("VIEW")
 
   /**
     * needed to parse column names with ellipsis
@@ -182,43 +184,21 @@ private[sql] trait EngineDDLParser extends LiteralParser {
         Map.empty[String, String])
    }
 
-  protected lazy val engineDropGraph: Parser[LogicalPlan] =
-    DROP ~ GRAPH ~ identOptQuotes ~ (USING ~> className) ^^ {
-      case drop ~ graph ~ identifier ~ clazz =>
-        RawDDLCommand(
-          identifier,
-          RawDDLObjectType.Graph,
-          RawDDLStatementType.Drop,
-          None,
-          s"$drop $graph $identifier",
-          clazz,
-          Map.empty[String, String])
-    }
+  protected lazy val engineDropTarget: Parser[DropTarget] =
+    GRAPH ^^^ GraphTarget | COLLECTION ^^^ CollectionTarget | (SERIES ~> TABLE) ^^^ TableTarget |
+    TABLE ^^^ TableTarget | VIEW ^^^ ViewTarget
 
-  protected lazy val engineDropCollection: Parser[LogicalPlan] =
-    DROP ~ COLLECTION ~ identOptQuotes ~ (USING ~> className) ^^ {
-      case drop ~ graph ~ identifier ~ clazz =>
-        RawDDLCommand(
-          identifier,
-          RawDDLObjectType.Collection,
-          RawDDLStatementType.Drop,
-          None,
-          s"$drop $graph $identifier",
-          clazz,
-          Map.empty[String, String])
-    }
-
-  protected lazy val engineDropSeries: Parser[LogicalPlan] =
-    DROP ~ (SERIES ~> TABLE) ~ identOptQuotes ~ (USING ~> className) ^^ {
-      case drop ~ table ~ identifier ~ clazz =>
-        RawDDLCommand(
-          identifier,
-          RawDDLObjectType.Series,
-          RawDDLStatementType.Drop,
-          None,
-          s"$drop $table $identifier",
-          clazz,
-          Map.empty[String, String])
+  protected lazy val engineDrop: Parser[LogicalPlan] =
+    DROP ~ engineDropTarget ~ (IF ~> EXISTS).? ~ identOptQuotes ~ (USING ~> className) ~
+      (OPTIONS ~> options).? ^^ {
+      case drop ~ dropType ~ ifExists ~ identifier ~ clazz ~ opts =>
+        UnresolvedProviderBoundDropCommand(
+          dropType,
+          ifExists.isDefined,
+          TableIdentifier(identifier),
+          cascade = false,
+          opts.getOrElse(Map.empty),
+          clazz)
     }
 
   protected lazy val engineAppendGraph: Parser[LogicalPlan] =

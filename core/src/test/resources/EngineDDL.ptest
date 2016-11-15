@@ -613,14 +613,14 @@ valid
 $query:
 drop graph g
 $parsed:
-RawDDLCommand g, graph, Drop, None, drop graph g, test.data.source, Map()
+UnresolvedProviderBoundDropCommand GraphTarget, false, `g`, false, Map(), test.data.source
 $expect:
 valid
 
 $query:
 drop collection c
 $parsed:
-RawDDLCommand c, collection, Drop, None, drop collection c, test.data.source, Map()
+UnresolvedProviderBoundDropCommand CollectionTarget, false, `c`, false, Map(), test.data.source
 $expect:
 valid
 
@@ -634,7 +634,7 @@ valid
 $query:
 drop series table t
 $parsed:
-RawDDLCommand t, table, Drop, None, drop table t, test.data.source, Map()
+UnresolvedProviderBoundDropCommand TableTarget, false, `t`, false, Map(), test.data.source
 $expect:
 valid
 
@@ -691,5 +691,33 @@ $query:
 load collection "t" using test.data.source
 $parsed:
 RawDDLCommand "t", collection, Load, None, load collection "t", test.data.source, Map()
+$expect:
+valid
+
+$query:
+drop table if exists t using test.data.source
+$parsed:
+UnresolvedProviderBoundDropCommand TableTarget, true, `t`, false, Map(), test.data.source
+$expect:
+valid
+
+$query:
+drop series table if exists st using test.data.source
+$parsed:
+UnresolvedProviderBoundDropCommand TableTarget, true, `st`, false, Map(), test.data.source
+$expect:
+valid
+
+$query:
+drop collection if exists c using test.data.source
+$parsed:
+UnresolvedProviderBoundDropCommand CollectionTarget, true, `c`, false, Map(), test.data.source
+$expect:
+valid
+
+$query:
+drop graph if exists g using test.data.source
+$parsed:
+UnresolvedProviderBoundDropCommand GraphTarget, true, `g`, false, Map(), test.data.source
 $expect:
 valid
