@@ -1,7 +1,6 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.DatasourceResolver.withResolver
-import org.apache.spark.sql.parser.SapParserException
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.util.DummyRelationUtils._
@@ -137,20 +136,6 @@ class CommandSuite
 
     verify(provider, times(1))
       .dropPartitioningFunction(sqlc, Map.empty, "foo", allowNotExisting = false)
-  }
-
-  test("USE statements should not do anything when ignored") {
-    // This property is only used in this command and unfortunately has no default value in spark
-    // which is why we set it here and don't do any cleanup.
-    sqlContext.setConf(CommonSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "true")
-    sqlc.sql("USE foo bar")
-  }
-
-  test("Any other use command should throw an exception") {
-    sqlContext.setConf(CommonSapSQLContext.PROPERTY_IGNORE_USE_STATEMENTS, "false")
-    intercept[SapParserException] {
-      sqlc.sql("USE foo bar")
-    }
   }
 
   test("CREATE RANGE SPLIT PARTITION FUNCTION command is case sensitive") {

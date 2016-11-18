@@ -1,13 +1,14 @@
 package org.apache.spark.sql.extension
 
 import org.apache.spark.SparkContext
+import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.catalyst.{ParserDialect, SimpleCatalystConf}
 import org.apache.spark.sql.execution.ExtractPythonUDFs
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql._
+import org.apache.spark.sql.sources.commands.hive.HiveEmulationCatalog
 
 /**
   * An [[SQLContext]] that eases extensions by mixin [[SQLContextExtension]].
@@ -38,7 +39,14 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
     * NOTE: This could be moved to [[SQLContextExtension]].
     */
   @transient
-  override protected[sql] lazy val catalog = new SimpleCatalog(conf) with TemporaryFlagProxyCatalog
+  override protected[sql] lazy val catalog =
+  new SimpleCatalog(conf)
+    with AbsoluteOverrideCatalog
+    with HiveEmulationCatalog
+    with TemporaryFlagProxyCatalog {
+    override def hiveEmulationEnabled: Boolean =
+      getConf(SapSQLConf.HIVE_EMULATION)
+  }
 
   /**
     * We provide an [[Analyzer]] that mimicks [[SQLContext]]'s, but prepending other

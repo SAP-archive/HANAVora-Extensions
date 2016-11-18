@@ -7,6 +7,8 @@ import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Subquery}
 import scala.collection.JavaConverters._
 
 /**
+  * A catalog to absolutely hide the underlying catalog by introducing its own in-memory store.
+  *
   * The [[org.apache.spark.sql.hive.HiveContext]] contains a catalog refering to the Hive Metastore.
   * However, this catalog cannot store tables created for pure Spark. In order to do so we create
   * an trait that is mixed over the HiveMetastoreCatalog that stores Spark tables.
@@ -17,7 +19,7 @@ import scala.collection.JavaConverters._
   *  - The tableExists method only looks for local tables
   *  - The lookup relation throws a NoSuchTableException if the table is not available locally
   */
-trait VoraHiveOverrideCatalog extends Catalog {
+trait AbsoluteOverrideCatalog extends Catalog {
   private[this] val overrides = new ConcurrentHashMap[String, LogicalPlan]
 
   private def getOverriddenTable(tableIdent: TableIdentifier): Option[LogicalPlan] = {
@@ -32,8 +34,8 @@ trait VoraHiveOverrideCatalog extends Catalog {
     * Determines whether a table is defined in the catalog. The super class is _not_ called,
     * only local tables are considered.
     *
-    * @param tableIdent
-    * @return
+    * @param tableIdent The [[TableIdentifier]] of the table to check for existence.
+    * @return `true` if the table exists, `false` otherwise.
     */
   abstract override def tableExists(tableIdent: TableIdentifier): Boolean = {
     getOverriddenTable(tableIdent).isDefined
@@ -42,8 +44,9 @@ trait VoraHiveOverrideCatalog extends Catalog {
   /**
     * Looks up `tableIdent` in the local catalog
     *
-    * @param tableIdent
-    * @param alias
+    * @param tableIdent The [[TableIdentifier]] of the table to look up.
+    * @param alias An optional alias. If specified, wraps the result plan in a [[Subquery]]
+    *              containing the alias name.
     * @return logical plan representing the table
     */
   abstract override def lookupRelation(

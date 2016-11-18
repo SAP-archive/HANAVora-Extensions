@@ -5,7 +5,6 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.parser.{SapDDLParser, SapParserDialect, SapParserException}
-import org.apache.spark.sql.sources.View
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.apache.spark.util.AnnotationParsingUtils
@@ -298,26 +297,6 @@ OPTIONS (
       val expCol = vpe.column
       assert(expLine == line)
       assert(expCol == col)
-    }
-  }
-
-  test("Parse any USE xyz statements") {
-    // Every valid "USE xyz" statement should produce a
-    // UseStatementCommand.
-    assert(ddlParser.parse("USE abc").isInstanceOf[UseStatementCommand])
-    assert(ddlParser.parse("USE abc abc").isInstanceOf[UseStatementCommand])
-    assert(ddlParser.parse("use abc abc").isInstanceOf[UseStatementCommand])
-    assert(ddlParser.parse("USE ..... ...").isInstanceOf[UseStatementCommand])
-    assert(ddlParser.parse("USE abc").isInstanceOf[UseStatementCommand])
-    assert(ddlParser.parse("USE").isInstanceOf[UseStatementCommand])
-    intercept[SapParserException] {
-      ddlParser.parse("CREATE TABLE use (a int) using x.y.z")
-    }
-    intercept[SapParserException] {
-      ddlParser.parse("USER")
-    }
-    intercept[SapParserException] {
-      ddlParser.parse("USING")
     }
   }
 

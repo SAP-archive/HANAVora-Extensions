@@ -30,7 +30,8 @@ private[sql] object SapDQLParser
   with LiteralParser
   with AnnotationParser
   with TableColumnsParser
-  with WithConsumedInputParser {
+  with WithConsumedInputParser
+  with HiveEmulationParser {
 
   // Keyword is a convention with AbstractSparkSQLParser, which will scan all of the `Keyword`
   // properties via reflection the class in runtime for constructing the SqlLexical object
@@ -160,7 +161,8 @@ private[sql] object SapDQLParser
    * Overriden to hook [[createView]] parser.
    */
   override protected lazy val start: Parser[LogicalPlan] =
-    selectUsing | start1 | insert | cte | createViewUsing | createView | inferSchema
+    selectUsing | start1 | insert | cte | createViewUsing | createView | inferSchema |
+      hiveEmulationCommands
 
   /**
     * This is the starting rule for select statements.
@@ -336,6 +338,12 @@ private[sql] object SapDQLParser
       ("(" ~> start <~ ")") ~ (AS.? ~> ident) ^^ { case s ~ a => Subquery(a, s) }
     )
 
+  protected lazy val sysTableIdent: Parser[String] =
+    acceptMatch("keyword or identifier", {
+      case lexical.Keyword(str) => str
+      case lexical.Identifier(str) => str
+    })
+
   /**
     * Parser for system table name. A system table name can be:
     * 1. qualified name starting with SYS (e.g. SYS.TABLES).
@@ -344,7 +352,7 @@ private[sql] object SapDQLParser
   protected lazy val sysTableName: Parser[String] =
     // case-insensitive SYS_ followed by identifier.
     """(?i:SYS)_([a-zA-Z][a-zA-Z_0-9]*)""".r ^^ { col => col.drop("SYS_".length) } |
-    SYS ~> "." ~> ident ^^ { name => name }
+    SYS ~> "." ~> sysTableIdent ^^ { name => name }
 
   protected lazy val sysTable: Parser[UnresolvedSystemTable] =
     sysTableName ~ ((USING ~> repsep(ident, ".")) ~ (OPTIONS ~> options).?).? ^^ {

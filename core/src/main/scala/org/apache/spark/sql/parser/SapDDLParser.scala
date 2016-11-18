@@ -9,7 +9,6 @@ import org.apache.spark.sql.sources.ViewKind
 import org.apache.spark.sql.sources.commands._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.CollectionUtils._
-import org.apache.spark.sql.execution.datasources._
 
 import scala.util.parsing.input.Position
 
@@ -38,7 +37,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
       registerAllTables |
       registerTable |
       describeDatasource |
-      useStatement |
       enginePartitionFunction |
       enginePartitionScheme |
       engineDropPartitionScheme |
@@ -391,17 +389,6 @@ class SapDDLParser(parseQuery: String => LogicalPlan)
         ShowPartitionFunctionsUsingCommand(classId, options)
     }
   }
-
-  /**
-   * Resolves the USE [XYZ ...] statements.
-   *
-   * A RunnableCommand logging "Statement ignored"
-   * is created for each of such statements.
-   */
-  protected lazy val useStatement: Parser[LogicalPlan] =
-    USE ~ rep(".*".r) ^^ {
-      case l ~ r => UseStatementCommand(l + " " + r.mkString(" "))
-    }
 
   protected lazy val datatypes: Parser[Seq[DataType]] = "(" ~> repsep(primitiveType, ",") <~ ")"
 

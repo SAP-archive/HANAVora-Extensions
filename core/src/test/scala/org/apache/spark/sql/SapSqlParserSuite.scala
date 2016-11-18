@@ -9,6 +9,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.{SimpleCatalystConf, TableIdentifier}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.parser.{SapDQLParser, SapParserDialect, SapParserException}
+import org.apache.spark.sql.sources.commands.hive.{DescCommand, DescribeFormattedCommand, ShowSchemasCommand, UseCommand}
 import org.apache.spark.sql.sources.commands.{Orc, Parquet, UnresolvedInferSchemaCommand}
 import org.apache.spark.sql.sources.{CubeViewKind, DimensionViewKind, PlainViewKind}
 import org.apache.spark.sql.types._
@@ -629,6 +630,33 @@ class SapSqlParserSuite
     val parsed = SapDQLParser.parse("""INFER SCHEMA OF "foo"""")
 
     assertResult(UnresolvedInferSchemaCommand("foo", None))(parsed)
+  }
+
+  test("Show schemas") {
+    val parsed = SapDQLParser.parse("""SHOW SCHEMAS""")
+    assertResult(ShowSchemasCommand)(parsed)
+  }
+
+  test("Desc command") {
+    val p1 = SapDQLParser.parse("""DESC foo""")
+    val p2 = SapDQLParser.parse("""DESC foo.bar""")
+    val p3 = SapDQLParser.parse("""DESC `foo`.`bar`""")
+
+    assertResult(DescCommand(TableIdentifier("foo")))(p1)
+    assertResult(DescCommand(TableIdentifier("bar", Some("foo"))))(p2)
+    assertResult(DescCommand(TableIdentifier("bar", Some("foo"))))(p3)
+  }
+
+  test("Describe formatted command") {
+    val parsed = SapDQLParser.parse("DESCRIBE FORMATTED foo")
+
+    assertResult(DescribeFormattedCommand(TableIdentifier("foo")))(parsed)
+  }
+
+  test("Use command") {
+    val parsed = SapDQLParser.parse("USE foo bar baz")
+
+    assertResult(UseCommand(Seq("foo", "bar", "baz")))(parsed)
   }
 
   /**

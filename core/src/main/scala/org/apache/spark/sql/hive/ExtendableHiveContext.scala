@@ -3,15 +3,16 @@ package org.apache.spark.sql.hive
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.analysis.{Analyzer, _}
 import org.apache.spark.sql.catalyst.optimizer.Optimizer
-import org.apache.spark.sql.catalyst.ParserDialect
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.{CacheManager, ExtractPythonUDFs}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.ui.SQLListener
+import org.apache.spark.sql.execution.{CacheManager, ExtractPythonUDFs}
 import org.apache.spark.sql.extension._
 import org.apache.spark.sql.hive.client.{ClientInterface, ClientWrapper}
+import org.apache.spark.sql.sources.commands.hive.HiveEmulationCatalog
 
 /**
  * Extendable [[HiveContext]]. This context is composable with traits
@@ -61,7 +62,12 @@ private[hive] class ExtendableHiveContext(
   @transient
   override protected[sql] lazy val catalog =
     new HiveMetastoreCatalog(metadataHive, this)
-      with VoraHiveOverrideCatalog with TemporaryFlagProxyCatalog
+      with OverrideCatalog
+      with AbsoluteOverrideCatalog
+      with HiveEmulationCatalog
+      with TemporaryFlagProxyCatalog {
+      override def hiveEmulationEnabled: Boolean = getConf(SapSQLConf.HIVE_EMULATION)
+    }
 
 
   override protected def extendedCheckRules(analyzer: Analyzer): Seq[(LogicalPlan) => Unit] =
