@@ -45,5 +45,10 @@ if [[ "$@" = *--help ]] || [[ "$@" = *-h ]]; then
   exit 0
 fi
 
+# parse the provided options. result can be found in var trimmed_options
+args=( "$@" )
+parse_opts "--hiveconf" args[@]
+
 exec "$SPARK_HOME"/bin/spark-submit --class $sapthriftserver_class \
-     "$@" $spark_ext_lib --hiveconf spark.sql.hive.thriftServer.singleSession=true
+     "${trimmed_options[@]}" $spark_ext_lib --hiveconf spark.sql.hive.thriftServer.singleSession=true "${options[@]}"
+

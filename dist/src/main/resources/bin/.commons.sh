@@ -75,6 +75,25 @@ function parse_user_jars {
     done
 }
 
+function parse_opts() {
+        opt_name="$1"
+        declare -a search_arr=("${!2}")
+        options=()
+        trimmed_options=()
+        i=0
+
+        while [ $i -lt ${#search_arr[@]} ]; do
+                if [ "${search_arr[$i]}" == "$opt_name" ]; then
+                        options+=(${search_arr[$i]} ${search_arr[$(( i + 1 ))]})
+                        i=$(( i + 1 ))
+                else
+                        trimmed_options+=(${search_arr[$i]})
+                fi
+
+                i=$(( i + 1 ))
+        done
+}
+
 check_spark_home
 
 set_spark_libs
