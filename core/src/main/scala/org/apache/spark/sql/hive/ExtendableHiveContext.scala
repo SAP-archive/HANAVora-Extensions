@@ -65,7 +65,7 @@ private[hive] class ExtendableHiveContext(
       with OverrideCatalog
       with AbsoluteOverrideCatalog
       with HiveEmulationCatalog
-      with TemporaryFlagProxyCatalog {
+      with TemporaryFlagCatalog {
       override def hiveEmulationEnabled: Boolean = getConf(SapSQLConf.HIVE_EMULATION)
     }
 

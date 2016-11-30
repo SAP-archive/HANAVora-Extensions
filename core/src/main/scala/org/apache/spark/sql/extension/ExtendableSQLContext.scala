@@ -43,7 +43,7 @@ private[sql] class ExtendableSQLContext(@transient override val sparkContext: Sp
   new SimpleCatalog(conf)
     with AbsoluteOverrideCatalog
     with HiveEmulationCatalog
-    with TemporaryFlagProxyCatalog {
+    with TemporaryFlagCatalog {
     override def hiveEmulationEnabled: Boolean =
       getConf(SapSQLConf.HIVE_EMULATION)
   }
