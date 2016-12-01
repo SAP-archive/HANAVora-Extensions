@@ -49,6 +49,9 @@ fi
 args=( "$@" )
 parse_opts "--hiveconf" args[@]
 
+# We don't want some default Hive configuration to be loaded
+export HIVE_CONF_DIR=/dev/null
+
 exec "$SPARK_HOME"/bin/spark-submit --class $sapthriftserver_class \
      "${trimmed_options[@]}" $spark_ext_lib --hiveconf spark.sql.hive.thriftServer.singleSession=true "${options[@]}"
 
