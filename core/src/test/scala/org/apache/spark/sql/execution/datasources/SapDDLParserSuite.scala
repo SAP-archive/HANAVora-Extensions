@@ -700,9 +700,9 @@ OPTIONS (
     val statement = ddlParser.parse("DROP VIEW v1")
 
     assertResult(
-      UnresolvedSparkLocalDropCommand(
+      UnresolvedDropCommand(
         ViewTarget,
-        ifExists = false,
+        allowNotExisting = false,
         TableIdentifier("v1"),
         cascade = false))(statement)
   }
@@ -801,14 +801,6 @@ OPTIONS (
     intercept[SapParserException] {
       ddlParser.parse("CREATE TABLE foo (null string, all string) USING com.sap.spark.vora")
     }
-  }
-
-  test("test engine DDL with different USING") {
-    val result = ddlParser.parse(
-      "DROP GRAPH IF EXISTS tabnotexists USING com.sap.spark.engines.graph")
-    assert(result.toString.trim ==
-      "UnresolvedProviderBoundDropCommand GraphTarget, true, `tabnotexists`, false, Map(), " +
-        "com.sap.spark.engines.graph")
   }
 }
 // scalastyle:on

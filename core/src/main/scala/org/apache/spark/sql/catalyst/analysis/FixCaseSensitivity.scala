@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.sources.commands.{UnresolvedDropCommand, UnresolvedSparkLocalDropCommand}
+import org.apache.spark.sql.sources.commands.UnresolvedDropCommand
 import org.apache.spark.sql.types.StructType
 
 /**
@@ -36,10 +36,10 @@ case class FixCaseSensitivity[A: CaseSensitivitySource](source: A)
       c.copy(userSpecifiedSchema = schema.map(schema => source.validatedSchema(schema).get))
 
     /**
-      * For the [[UnresolvedSparkLocalDropCommand]], we should change the table name here
+      * For the [[UnresolvedDropCommand]], we should change the table name here
       * since the analysis inside is case sensitive.
       */
-    case d@UnresolvedSparkLocalDropCommand(_, _, tableIdentifier, _) =>
+    case d@UnresolvedDropCommand(_, _, tableIdentifier, _) =>
       d.copy(tableIdentifier = source.fixCase(tableIdentifier))
   }
 }

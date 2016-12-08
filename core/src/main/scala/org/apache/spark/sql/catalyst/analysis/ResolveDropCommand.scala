@@ -1,27 +1,28 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import org.apache.spark.sql.AnalysisException
+import org.apache.spark.sql.catalyst.CaseSensitivityUtils._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.sources.commands.UnresolvedSparkLocalDropCommand
+import org.apache.spark.sql.sources.commands.UnresolvedDropCommand
 import org.apache.spark.sql.sources.{DropRelation, RelationKind, Table}
 
 import scala.util.Try
 
 /**
-  * Resolves [[UnresolvedSparkLocalDropCommand]]s.
+  * Resolves [[UnresolvedDropCommand]]s.
   */
-case class ResolveSparkLocalDropCommand(analyzer: Analyzer, catalog: Catalog)
+case class ResolveDropCommand(analyzer: Analyzer, catalog: Catalog)
   extends Rule[LogicalPlan]
   with TableDependencyCalculator {
 
   private def failAnalysis(reason: String) = throw new AnalysisException(reason)
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformDown {
-    case UnresolvedSparkLocalDropCommand(kind, ifExists, tableIdent, cascade) =>
-      val plan = resolvePlan(kind, tableIdent, ifExists)
+    case UnresolvedDropCommand(kind, allowNotExisting, tableIdent, cascade) =>
+      val plan = resolvePlan(kind, tableIdent, allowNotExisting)
 
       val affected = plan.map { lp =>
         val targetKind = RelationKind.kindOf(lp).getOrElse(Table)

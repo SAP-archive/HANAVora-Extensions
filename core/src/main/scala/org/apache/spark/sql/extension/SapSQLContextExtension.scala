@@ -37,8 +37,7 @@ private[sql] trait SapSQLContextExtension extends SQLContextExtension {
     ResolveCountDistinctStar(analyzer) ::
     ResolveDeepDescribe(analyzer) ::
     ResolveSelectUsing(this) ::
-    ResolveSparkLocalDropCommand(analyzer, catalog) ::
-    ResolveDropUsing(this) ::
+    ResolveDropCommand(analyzer, catalog) ::
     ResolveInferSchemaCommand(this) ::
     ResolveAppendCommand(analyzer) ::
     Nil
