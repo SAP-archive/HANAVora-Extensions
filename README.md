@@ -1,3 +1,8 @@
+![](https://img.shields.io/badge/STATUS-NOT%20CURRENTLY%20MAINTAINED-red.svg?longCache=true&style=flat)
+
+# Important Notice
+We have decided to stop the maintenance of this public GitHub repository.
+
 # HANA Vora Spark extensions
 
 These are some extensions of *Apache Spark* developed for *SAP HANA Vora*. They can be used with
